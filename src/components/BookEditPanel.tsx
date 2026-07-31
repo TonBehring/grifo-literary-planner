@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BookCover } from "@/components/BookCover";
+import { CoverPicker } from "@/components/CoverPicker";
 import { deleteUserBook, updateBookInfo, updateUserBook } from "@/lib/api";
 import { uploadCover } from "@/lib/cover-upload";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
