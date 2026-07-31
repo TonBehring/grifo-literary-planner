@@ -310,15 +310,16 @@ function BookDetail() {
         bookTitle={ub.book?.title ?? "Livro"}
         onOpenChange={setCelebrate}
         onSave={async ({ rating, review, favorite }) => {
-          try {
-            await updateUserBook(id, {
-              status: "lido",
-              progress_percent: 100,
-              rating,
-              review,
-              is_favorite: favorite,
-              finished_at: new Date().toISOString(),
-            });
+  try {
+    await updateUserBook(id, {
+      status: "lido",
+      progress_percent: 100,
+      current_page: ub.format === "fisico" ? ub.total_pages : ub.current_page,
+      rating,
+      review,
+      is_favorite: favorite,
+      finished_at: new Date().toISOString(),
+    });
             setCelebrate(false);
             refresh();
             toast.success("Leitura concluída 🎉");
@@ -331,3 +332,4 @@ function BookDetail() {
     </section>
   );
 }
+fix: página atual ao concluir livro físico
