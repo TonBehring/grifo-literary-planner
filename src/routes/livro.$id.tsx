@@ -161,12 +161,29 @@ function BookDetail() {
               <StarRating value={ub.rating} size="sm" />
             </div>
           )}
-          <button
-            onClick={() => setEditing((v) => !v)}
-            className="mt-3 text-xs text-primary underline underline-offset-4"
-          >
-            {editing ? "Fechar edição" : "Editar ou excluir"}
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            <button
+              onClick={() => {
+                setEditing((v) => !v);
+                setConfirmDelete(false);
+              }}
+              className="inline-flex items-center gap-1 text-primary underline underline-offset-4"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {editing ? "Fechar edição" : "Editar"}
+            </button>
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-1 text-destructive underline underline-offset-4"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Excluir
+              </button>
+            ) : (
+              <span className="text-muted-foreground">Confirme abaixo</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -177,11 +194,31 @@ function BookDetail() {
             setEditing(false);
             refresh();
           }}
-          onDeleted={() => {
-            void queryClient.invalidateQueries({ queryKey: ["user_books"] });
-            navigate({ to: "/biblioteca" });
-          }}
         />
+      )}
+
+      {confirmDelete && (
+        <div className="panel-cream rounded-2xl border-destructive/40 p-5">
+          <p className="text-sm">
+            Excluir “{ub.book?.title ?? "este livro"}”? As anotações e registros também serão
+            removidos.
+          </p>
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
+            >
+              {deleting ? "Excluindo…" : "Sim, excluir"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="panel-cream rounded-2xl p-5">
