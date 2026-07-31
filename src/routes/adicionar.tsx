@@ -45,6 +45,7 @@ function AddBookPage() {
   const [manualAuthor, setManualAuthor] = useState("");
   const [manualPages, setManualPages] = useState("");
   const [manualCover, setManualCover] = useState<string | null>(null);
+  const [coverUrlInput, setCoverUrlInput] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [searched, setSearched] = useState(false);
   const { user } = useAuth();
@@ -242,6 +243,31 @@ function AddBookPage() {
               )}
               <p className="mt-2 text-xs text-muted-foreground">JPG ou PNG, até 5MB.</p>
             </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <input
+              value={coverUrlInput}
+              onChange={(e) => setCoverUrlInput(e.target.value)}
+              placeholder="Ou cole o link da imagem da capa"
+              maxLength={2000}
+              className="min-w-0 flex-1 rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const url = coverUrlInput.trim();
+                if (!/^https?:\/\/\S+$/i.test(url)) {
+                  toast.error("Cole um link válido começando com http:// ou https://");
+                  return;
+                }
+                setManualCover(url);
+                toast.success("Capa definida pelo link");
+              }}
+              className="shrink-0 rounded-xl border border-primary px-4 text-sm text-primary"
+            >
+              Usar
+            </button>
           </div>
         </div>
       )}

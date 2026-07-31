@@ -21,6 +21,7 @@ export function BookEditPanel({
   const [author, setAuthor] = useState(ub.book?.author ?? "");
   const [pages, setPages] = useState(ub.book?.page_count ? String(ub.book.page_count) : "");
   const [cover, setCover] = useState<string | null>(ub.book?.cover_url ?? null);
+  const [coverUrlInput, setCoverUrlInput] = useState("");
   const [format, setFormat] = useState<BookFormat>(ub.format);
   const [status, setStatus] = useState<ShelfStatus>(ub.status);
   const [saving, setSaving] = useState(false);
@@ -132,6 +133,31 @@ export function BookEditPanel({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <input
+          value={coverUrlInput}
+          onChange={(e) => setCoverUrlInput(e.target.value)}
+          placeholder="Ou cole o link da imagem da capa"
+          maxLength={2000}
+          className="min-w-0 flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const url = coverUrlInput.trim();
+            if (!/^https?:\/\/\S+$/i.test(url)) {
+              toast.error("Cole um link válido começando com http:// ou https://");
+              return;
+            }
+            setCover(url);
+            toast.success("Capa definida pelo link");
+          }}
+          className="shrink-0 rounded-xl border border-primary px-4 text-sm text-primary"
+        >
+          Usar
+        </button>
       </div>
 
       <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
