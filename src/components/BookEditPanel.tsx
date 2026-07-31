@@ -132,38 +132,6 @@ export function BookEditPanel({
       >
         {saving ? "Salvando…" : "Salvar alterações"}
       </button>
-
-      {!confirming ? (
-        <button
-          onClick={() => setConfirming(true)}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/40 py-3 text-sm text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-          Excluir da biblioteca
-        </button>
-      ) : (
-        <div className="mt-3 rounded-xl border border-destructive/40 p-4">
-          <p className="text-sm">
-            Excluir “{ub.book?.title ?? "este livro"}”? As anotações e registros também serão
-            removidos.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={remove}
-              disabled={deleting}
-              className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
-            >
-              {deleting ? "Excluindo…" : "Sim, excluir"}
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              className="flex-1 rounded-xl border border-border py-2.5 text-sm"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
