@@ -22,7 +22,6 @@ export function BookEditPanel({
   const [author, setAuthor] = useState(ub.book?.author ?? "");
   const [pages, setPages] = useState(ub.book?.page_count ? String(ub.book.page_count) : "");
   const [cover, setCover] = useState<string | null>(ub.book?.cover_url ?? null);
-  const [coverUrlInput, setCoverUrlInput] = useState("");
   const [format, setFormat] = useState<BookFormat>(ub.format);
   const [status, setStatus] = useState<ShelfStatus>(ub.status);
   const [saving, setSaving] = useState(false);
@@ -51,14 +50,12 @@ export function BookEditPanel({
     }
     setSaving(true);
     try {
-      const typed = coverUrlInput.trim();
-      const finalCover = /^https?:\/\/\S+$/i.test(typed) ? typed : cover;
       if (ub.book_id) {
         await updateBookInfo(ub.book_id, {
           title: title.trim(),
           author: author.trim() || null,
           page_count: pages ? Number(pages) : null,
-          cover_url: finalCover,
+          cover_url: cover,
         });
       }
       await updateUserBook(ub.id, { format, status });
