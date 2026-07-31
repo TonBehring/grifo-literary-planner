@@ -8,6 +8,7 @@ import { BookCover } from "@/components/BookCover";
 import { addBookToShelf, searchGoogleBooks, type GoogleVolume } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
+import { uploadCover } from "@/lib/cover-upload";
 
 export const Route = createFileRoute("/adicionar")({
   head: () => ({
@@ -43,6 +44,8 @@ function AddBookPage() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualAuthor, setManualAuthor] = useState("");
   const [manualPages, setManualPages] = useState("");
+  const [manualCover, setManualCover] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [searched, setSearched] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -70,13 +73,32 @@ function AddBookPage() {
     }
   }
 
+  async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!user) {
+      toast.error("Faça login para enviar uma capa");
+      return;
+    }
+    setUploadingCover(true);
+    try {
+      setManualCover(await uploadCover(file, user.id));
+      toast.success("Capa carregada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   async function save() {
     const payload = manual
       ? {
           id: "manual",
           title: manualTitle.trim(),
           author: manualAuthor.trim() || null,
-          cover_url: null,
+          cover_url: manualCover,
           isbn: null,
           page_count: manualPages ? Number(manualPages) : null,
         }
