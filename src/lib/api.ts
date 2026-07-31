@@ -103,6 +103,28 @@ export async function updateUserBook(id: string, patch: Partial<UserBook>) {
   if (error) throw new Error(error.message);
 }
 
+export async function updateBookInfo(
+  bookId: string,
+  patch: { title?: string; author?: string | null; page_count?: number | null; cover_url?: string | null },
+) {
+  const db: Record<string, unknown> = {};
+  if (patch.title !== undefined) db["titulo"] = patch.title;
+  if (patch.author !== undefined) db["autor"] = patch.author;
+  if (patch.page_count !== undefined) db["total_paginas"] = patch.page_count;
+  if (patch.cover_url !== undefined) db["capa_url"] = patch.cover_url;
+  if (Object.keys(db).length === 0) return;
+  const { error } = await supabase.from("books").update(db).eq("id", bookId);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteUserBook(id: string) {
+  await supabase.from("book_notes").delete().eq("user_book_id", id);
+  await supabase.from("reading_logs").delete().eq("user_book_id", id);
+  await supabase.from("loans").delete().eq("user_book_id", id);
+  const { error } = await supabase.from("user_books").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export type NewBookInput = {
   title: string;
   author: string | null;

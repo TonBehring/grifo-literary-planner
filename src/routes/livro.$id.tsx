@@ -5,6 +5,7 @@ import { Quote, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
+import { BookEditPanel } from "@/components/BookEditPanel";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { MoodPicker } from "@/components/MoodPicker";
 import { StarRating } from "@/components/StarRating";
@@ -51,6 +52,7 @@ function BookDetail() {
   const [noteText, setNoteText] = useState("");
   const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
   const [celebrate, setCelebrate] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -142,8 +144,28 @@ function BookDetail() {
               <StarRating value={ub.rating} size="sm" />
             </div>
           )}
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className="mt-3 text-xs text-primary underline underline-offset-4"
+          >
+            {editing ? "Fechar edição" : "Editar ou excluir"}
+          </button>
         </div>
       </div>
+
+      {editing && (
+        <BookEditPanel
+          ub={ub}
+          onSaved={() => {
+            setEditing(false);
+            refresh();
+          }}
+          onDeleted={() => {
+            void queryClient.invalidateQueries({ queryKey: ["user_books"] });
+            navigate({ to: "/biblioteca" });
+          }}
+        />
+      )}
 
       <div className="panel-cream rounded-2xl p-5">
         <h2 className="font-display text-xl">Atualizar progresso</h2>
