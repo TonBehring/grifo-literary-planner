@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CoverPicker } from "@/components/CoverPicker";
-import { deleteUserBook, updateBookInfo, updateUserBook } from "@/lib/api";
+import { updateBookInfo, updateUserBook } from "@/lib/api";
 import { uploadCover } from "@/lib/cover-upload";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -10,11 +9,9 @@ import { useAuth } from "@/lib/auth";
 export function BookEditPanel({
   ub,
   onSaved,
-  onDeleted,
 }: {
   ub: UserBook;
   onSaved: () => void;
-  onDeleted: () => void;
 }) {
   const { user } = useAuth();
   const [title, setTitle] = useState(ub.book?.title ?? "");
@@ -25,9 +22,6 @@ export function BookEditPanel({
   const [status, setStatus] = useState<ShelfStatus>(ub.status);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
 
   async function save() {
     if (!title.trim()) {
@@ -51,19 +45,6 @@ export function BookEditPanel({
       toast.error(err instanceof Error ? err.message : "Não foi possível salvar");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function remove() {
-    setDeleting(true);
-    try {
-      await deleteUserBook(ub.id);
-      toast.success("Livro removido da biblioteca");
-      onDeleted();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível excluir");
-    } finally {
-      setDeleting(false);
     }
   }
 
