@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { addLoan, listLoans, setLoanReturned } from "@/lib/api";
+import { addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
 import type { Loan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 
@@ -33,7 +33,7 @@ function LoansPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [direction, setDirection] = useState<Loan["direction"]>("emprestei");
-  const [bookTitle, setBookTitle] = useState("");
+  const [userBookId, setUserBookId] = useState("");
   const [personName, setPersonName] = useState("");
   const [dueDate, setDueDate] = useState("");
 
@@ -43,21 +43,28 @@ function LoansPage() {
     enabled: Boolean(user),
   });
 
+  const { data: shelf } = useQuery({
+    queryKey: ["user_books"],
+    queryFn: () => listUserBooks(),
+    enabled: Boolean(user),
+  });
+
   const create = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Sessão expirada");
-      if (!bookTitle.trim() || !personName.trim()) throw new Error("Preencha livro e pessoa");
+      if (!userBookId || !personName.trim()) throw new Error("Escolha o livro e informe a pessoa");
       await addLoan({
         user_id: user.id,
+        user_book_id: userBookId,
         direction,
-        book_title: bookTitle.trim().slice(0, 200),
+        book_title: "",
         person_name: personName.trim().slice(0, 100),
         due_date: dueDate || null,
         returned: false,
       });
     },
     onSuccess: () => {
-      setBookTitle("");
+      setUserBookId("");
       setPersonName("");
       setDueDate("");
       void queryClient.invalidateQueries({ queryKey: ["loans"] });
@@ -73,7 +80,7 @@ function LoansPage() {
   });
 
   const lent = (data ?? []).filter((l) => l.direction === "emprestei");
-  const borrowed = (data ?? []).filter((l) => l.direction === "peguei");
+  const borrowed = (data ?? []).filter((l) => l.direction === "peguei_emprestado");
 
   return (
     <section>
@@ -81,7 +88,7 @@ function LoansPage() {
 
       <div className="panel-cream mt-6 rounded-2xl p-5">
         <div className="flex gap-2">
-          {(["emprestei", "peguei"] as const).map((d) => (
+          {(["emprestei", "peguei_emprestado"] as const).map((d) => (
             <button
               key={d}
               onClick={() => setDirection(d)}
@@ -96,13 +103,19 @@ function LoansPage() {
             </button>
           ))}
         </div>
-        <input
-          value={bookTitle}
-          onChange={(e) => setBookTitle(e.target.value)}
-          maxLength={200}
-          placeholder="Título do livro"
-          className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
+        <select
+          value={userBookId}
+          onChange={(e) => setUserBookId(e.target.value)}
+          aria-label="Livro"
+          className="mt-3 w-full rounded-xl border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Escolha um livro da sua estante</option>
+          {(shelf ?? []).map((ub) => (
+            <option key={ub.id} value={ub.id}>
+              {ub.book?.title ?? "Sem título"}
+            </option>
+          ))}
+        </select>
         <input
           value={personName}
           onChange={(e) => setPersonName(e.target.value)}
