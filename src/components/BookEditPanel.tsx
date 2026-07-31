@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
 import { deleteUserBook, updateBookInfo, updateUserBook } from "@/lib/api";
 import { uploadCover } from "@/lib/cover-upload";
@@ -29,19 +28,6 @@ export function BookEditPanel({
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !user) return;
-    setUploading(true);
-    try {
-      setCover(await uploadCover(file, user.id));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function save() {
     if (!title.trim()) {
