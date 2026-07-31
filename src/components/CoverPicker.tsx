@@ -88,7 +88,10 @@ export function CoverPicker({
             </button>
             <button
               type="button"
-              onClick={() => setShowUrl(true)}
+              onClick={() => {
+                setShowUrl(true);
+                setOpen(false);
+              }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
             >
               <Link2 className="h-4 w-4 text-primary" />
