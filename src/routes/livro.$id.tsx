@@ -124,13 +124,7 @@ function BookDetail() {
     <section className="space-y-7">
       <div className="card-teal flex gap-5 rounded-3xl p-5">
         <div className="h-40 w-28 shrink-0 overflow-hidden rounded-lg bg-teal-deep">
-          {ub.book?.cover_url && (
-            <img
-              src={ub.book.cover_url}
-              alt={`Capa de ${ub.book.title}`}
-              className="h-full w-full object-cover"
-            />
-          )}
+          <BookCover src={ub.book?.cover_url} title={ub.book?.title} />
         </div>
         <div className="min-w-0">
           <p className="text-[11px] tracking-[0.18em] text-primary uppercase">

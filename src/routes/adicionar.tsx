@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { BookCover } from "@/components/BookCover";
 import { addBookToShelf, searchGoogleBooks, type GoogleVolume } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -139,14 +140,7 @@ function AddBookPage() {
             }
           >
             <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
-              {v.cover_url && (
-                <img
-                  src={v.cover_url}
-                  alt={`Capa de ${v.title}`}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              )}
+              <BookCover src={v.cover_url} title={v.title} />
             </div>
             <div className="min-w-0">
               <h3 className="font-display truncate text-lg">{v.title}</h3>

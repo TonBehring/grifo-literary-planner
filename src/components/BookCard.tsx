@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { FORMAT_LABEL, progressOf, type UserBook } from "@/lib/types";
+import { BookCover } from "@/components/BookCover";
 
 export function BookCard({ userBook }: { userBook: UserBook }) {
   const pct = progressOf(userBook);
@@ -12,18 +13,7 @@ export function BookCard({ userBook }: { userBook: UserBook }) {
       className="card-teal flex gap-4 rounded-2xl p-4 transition-transform hover:-translate-y-0.5"
     >
       <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md bg-teal-deep">
-        {book?.cover_url ? (
-          <img
-            src={book.cover_url}
-            alt={`Capa de ${book.title}`}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center font-display text-xl text-primary">
-            {book?.title?.[0] ?? "?"}
-          </div>
-        )}
+        <BookCover src={book?.cover_url} title={book?.title} />
       </div>
 
       <div className="min-w-0 flex-1">
