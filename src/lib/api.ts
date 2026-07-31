@@ -2,7 +2,75 @@ import { supabase } from "@/integrations/supabase/client";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, format, current_page, total_pages, progress_percent, rating, review, is_favorite, started_at, finished_at, book:books(id, title, author, cover_url, isbn, page_count)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas)";
+
+type DbBook = {
+  id: string;
+  titulo: string;
+  autor: string | null;
+  capa_url: string | null;
+  isbn: string | null;
+  total_paginas: number | null;
+};
+
+type DbUserBook = {
+  id: string;
+  user_id: string;
+  book_id: string;
+  status: ShelfStatus;
+  formato: BookFormat;
+  pagina_atual: number | null;
+  nota: number | null;
+  resenha: string | null;
+  favoritado: boolean | null;
+  data_inicio: string | null;
+  data_conclusao: string | null;
+  book: DbBook | null;
+};
+
+function mapUserBook(row: DbUserBook): UserBook {
+  const totalPages = row.book?.total_paginas ?? null;
+  const isPhysical = row.formato === "fisico";
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    book_id: row.book_id,
+    status: row.status,
+    format: row.formato,
+    current_page: isPhysical ? (row.pagina_atual ?? 0) : null,
+    total_pages: totalPages,
+    progress_percent: isPhysical ? null : (row.pagina_atual ?? 0),
+    rating: row.nota,
+    review: row.resenha,
+    is_favorite: row.favoritado,
+    started_at: row.data_inicio,
+    finished_at: row.data_conclusao,
+    book: row.book
+      ? {
+          id: row.book.id,
+          title: row.book.titulo,
+          author: row.book.autor,
+          cover_url: row.book.capa_url,
+          isbn: row.book.isbn,
+          page_count: row.book.total_paginas,
+        }
+      : null,
+  };
+}
+
+function toDbUserBookPatch(patch: Partial<UserBook>) {
+  const db: Record<string, unknown> = {};
+  if (patch.status !== undefined) db["status"] = patch.status;
+  if (patch.format !== undefined) db["formato"] = patch.format;
+  if (patch.current_page !== undefined) db["pagina_atual"] = patch.current_page;
+  if (patch.progress_percent !== undefined) db["pagina_atual"] = patch.progress_percent;
+  if (patch.rating !== undefined) db["nota"] = patch.rating;
+  if (patch.review !== undefined) db["resenha"] = patch.review;
+  if (patch.is_favorite !== undefined) db["favoritado"] = patch.is_favorite;
+  if (patch.started_at !== undefined) db["data_inicio"] = patch.started_at;
+  if (patch.finished_at !== undefined) db["data_conclusao"] = patch.finished_at;
+  return db;
+}
 
 function unwrap<T>(data: T | null, error: { message: string } | null): T {
   if (error) throw new Error(error.message);
@@ -12,8 +80,8 @@ function unwrap<T>(data: T | null, error: { message: string } | null): T {
 export async function listUserBooks(status?: ShelfStatus): Promise<UserBook[]> {
   let query = supabase.from("user_books").select(USER_BOOK_SELECT);
   if (status) query = query.eq("status", status);
-  const { data, error } = await query.order("created_at", { ascending: false });
-  return (unwrap(data, error) ?? []) as unknown as UserBook[];
+  const { data, error } = await query.order("criado_em", { ascending: false });
+  return ((unwrap(data, error) ?? []) as unknown as DbUserBook[]).map(mapUserBook);
 }
 
 export async function getUserBook(id: string): Promise<UserBook> {
@@ -21,12 +89,17 @@ export async function getUserBook(id: string): Promise<UserBook> {
     .from("user_books")
     .select(USER_BOOK_SELECT)
     .eq("id", id)
-    .single();
-  return unwrap(data, error) as unknown as UserBook;
+    .maybeSingle();
+  const row = unwrap(data, error) as unknown as DbUserBook | null;
+  if (!row) throw new Error("Livro não encontrado na sua estante");
+  return mapUserBook(row);
 }
 
 export async function updateUserBook(id: string, patch: Partial<UserBook>) {
-  const { error } = await supabase.from("user_books").update(patch).eq("id", id);
+  const { error } = await supabase
+    .from("user_books")
+    .update(toDbUserBookPatch(patch))
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -56,11 +129,11 @@ export async function addBookToShelf(input: NewBookInput, userId: string) {
     const { data, error } = await supabase
       .from("books")
       .insert({
-        title: input.title,
-        author: input.author,
-        cover_url: input.cover_url,
+        titulo: input.title,
+        autor: input.author,
+        capa_url: input.cover_url,
         isbn: input.isbn,
-        page_count: input.page_count,
+        total_paginas: input.page_count,
       })
       .select("id")
       .single();
@@ -73,11 +146,9 @@ export async function addBookToShelf(input: NewBookInput, userId: string) {
       user_id: userId,
       book_id: bookId,
       status: input.status,
-      format: input.format,
-      current_page: 0,
-      total_pages: input.page_count,
-      progress_percent: 0,
-      started_at: input.status === "lendo" ? new Date().toISOString() : null,
+      formato: input.format,
+      pagina_atual: 0,
+      data_inicio: input.status === "lendo" ? new Date().toISOString() : null,
     })
     .select("id")
     .single();
@@ -87,10 +158,24 @@ export async function addBookToShelf(input: NewBookInput, userId: string) {
 export async function listNotes(userBookId: string): Promise<BookNote[]> {
   const { data, error } = await supabase
     .from("book_notes")
-    .select("id, user_book_id, content, kind, page, created_at")
+    .select("id, user_book_id, conteudo, tipo, criado_em")
     .eq("user_book_id", userBookId)
-    .order("created_at", { ascending: false });
-  return (unwrap(data, error) ?? []) as unknown as BookNote[];
+    .order("criado_em", { ascending: false });
+  const rows = (unwrap(data, error) ?? []) as unknown as Array<{
+    id: string;
+    user_book_id: string;
+    conteudo: string;
+    tipo: string;
+    criado_em: string;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    user_book_id: r.user_book_id,
+    content: r.conteudo,
+    kind: r.tipo === "citacao" ? "citacao" : "nota",
+    page: null,
+    created_at: r.criado_em,
+  }));
 }
 
 export async function addNote(note: {
@@ -100,7 +185,11 @@ export async function addNote(note: {
   kind: "nota" | "citacao";
   page: number | null;
 }) {
-  const { error } = await supabase.from("book_notes").insert(note);
+  const { error } = await supabase.from("book_notes").insert({
+    user_book_id: note.user_book_id,
+    conteudo: note.content,
+    tipo: note.kind === "citacao" ? "citacao" : "anotacao",
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -110,25 +199,60 @@ export async function addReadingLog(log: {
   mood: string;
   pages_read: number | null;
 }) {
-  const { error } = await supabase.from("reading_logs").insert(log);
+  const { error } = await supabase.from("reading_logs").insert({
+    user_book_id: log.user_book_id,
+    humor: log.mood,
+    paginas_lidas: log.pages_read,
+  });
   if (error) throw new Error(error.message);
 }
 
 export async function listLoans(): Promise<Loan[]> {
   const { data, error } = await supabase
     .from("loans")
-    .select("id, user_id, direction, person_name, book_title, due_date, returned")
-    .order("due_date", { ascending: true });
-  return (unwrap(data, error) ?? []) as unknown as Loan[];
+    .select(
+      "id, user_id, user_book_id, direction, pessoa_nome, data_prevista_devolucao, status, user_book:user_books(book:books(titulo))",
+    )
+    .order("data_prevista_devolucao", { ascending: true });
+  const rows = (unwrap(data, error) ?? []) as unknown as Array<{
+    id: string;
+    user_id: string;
+    user_book_id: string | null;
+    direction: Loan["direction"];
+    pessoa_nome: string;
+    data_prevista_devolucao: string | null;
+    status: string;
+    user_book: { book: { titulo: string } | null } | null;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    user_id: r.user_id,
+    user_book_id: r.user_book_id,
+    direction: r.direction,
+    person_name: r.pessoa_nome,
+    book_title: r.user_book?.book?.titulo ?? "Livro",
+    due_date: r.data_prevista_devolucao,
+    returned: r.status === "devolvido",
+  }));
 }
 
 export async function addLoan(loan: Omit<Loan, "id">) {
-  const { error } = await supabase.from("loans").insert(loan);
+  const { error } = await supabase.from("loans").insert({
+    user_id: loan.user_id,
+    user_book_id: loan.user_book_id,
+    direction: loan.direction,
+    pessoa_nome: loan.person_name,
+    data_prevista_devolucao: loan.due_date,
+    status: loan.returned ? "devolvido" : "ativo",
+  });
   if (error) throw new Error(error.message);
 }
 
 export async function setLoanReturned(id: string, returned: boolean) {
-  const { error } = await supabase.from("loans").update({ returned }).eq("id", id);
+  const { error } = await supabase
+    .from("loans")
+    .update({ status: returned ? "devolvido" : "ativo" })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
