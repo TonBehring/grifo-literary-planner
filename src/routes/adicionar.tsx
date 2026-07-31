@@ -38,6 +38,11 @@ function AddBookPage() {
   const [format, setFormat] = useState<BookFormat>("fisico");
   const [status, setStatus] = useState<ShelfStatus>("lendo");
   const [saving, setSaving] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualAuthor, setManualAuthor] = useState("");
+  const [manualPages, setManualPages] = useState("");
+  const [searched, setSearched] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -47,8 +52,17 @@ function AddBookPage() {
     if (term.trim().length < 2) return;
     setSearching(true);
     try {
-      setResults(await searchGoogleBooks(term.trim()));
+      const found = await searchGoogleBooks(term.trim());
+      setResults(found);
+      setSearched(true);
+      if (found.length === 0) {
+        setManual(true);
+        setManualTitle(term.trim());
+        toast.info("Nada encontrado. Cadastre manualmente abaixo.");
+      }
     } catch (err) {
+      setManual(true);
+      setManualTitle(term.trim());
       toast.error(err instanceof Error ? err.message : "Erro na busca");
     } finally {
       setSearching(false);
@@ -56,10 +70,27 @@ function AddBookPage() {
   }
 
   async function save() {
-    if (!selected || !user) return;
+    const payload = manual
+      ? {
+          id: "manual",
+          title: manualTitle.trim(),
+          author: manualAuthor.trim() || null,
+          cover_url: null,
+          isbn: null,
+          page_count: manualPages ? Number(manualPages) : null,
+        }
+      : selected;
+    if (!payload || !payload.title) {
+      toast.error("Informe ao menos o título do livro");
+      return;
+    }
+    if (!user) {
+      toast.error("Faça login para adicionar livros");
+      return;
+    }
     setSaving(true);
     try {
-      const id = await addBookToShelf({ ...selected, status, format }, user.id);
+      const id = await addBookToShelf({ ...payload, status, format }, user.id);
       await queryClient.invalidateQueries({ queryKey: ["user_books"] });
       toast.success("Livro adicionado à estante");
       navigate({ to: "/livro/$id", params: { id } });
@@ -98,10 +129,13 @@ function AddBookPage() {
         {results.map((v) => (
           <button
             key={v.id}
-            onClick={() => setSelected(v)}
+            onClick={() => {
+              setSelected(v);
+              setManual(false);
+            }}
             className={
               "flex w-full gap-4 rounded-2xl p-3 text-left transition-colors " +
-              (selected?.id === v.id ? "card-teal" : "panel-cream")
+              (!manual && selected?.id === v.id ? "card-teal" : "panel-cream")
             }
           >
             <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
@@ -123,7 +157,49 @@ function AddBookPage() {
         ))}
       </div>
 
-      {selected && (
+      {searched && !searching && (
+        <button
+          onClick={() => {
+            setManual(true);
+            setSelected(null);
+            if (!manualTitle) setManualTitle(term.trim());
+          }}
+          className="mt-6 text-sm text-primary underline underline-offset-4"
+        >
+          Não achou? Cadastrar manualmente
+        </button>
+      )}
+
+      {manual && (
+        <div className="panel-cream mt-6 space-y-3 rounded-2xl p-5">
+          <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Cadastro manual
+          </p>
+          <input
+            value={manualTitle}
+            onChange={(e) => setManualTitle(e.target.value)}
+            placeholder="Título"
+            maxLength={200}
+            className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <input
+            value={manualAuthor}
+            onChange={(e) => setManualAuthor(e.target.value)}
+            placeholder="Autor"
+            maxLength={200}
+            className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <input
+            value={manualPages}
+            onChange={(e) => setManualPages(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            placeholder="Total de páginas (opcional)"
+            className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+        </div>
+      )}
+
+      {(selected || manual) && (
         <div className="panel-cream mt-8 rounded-2xl p-5">
           <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -150,7 +226,9 @@ function AddBookPage() {
             disabled={saving}
             className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {saving ? "Salvando…" : `Adicionar "${selected.title}"`}
+            {saving
+              ? "Salvando…"
+              : `Adicionar "${(manual ? manualTitle : selected?.title) || "livro"}"`}
           </button>
         </div>
       )}
