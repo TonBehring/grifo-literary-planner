@@ -212,6 +212,37 @@ function AddBookPage() {
             placeholder="Total de páginas (opcional)"
             className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
           />
+
+          <div className="flex items-center gap-4 pt-1">
+            <div className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+              <BookCover src={manualCover} title={manualTitle || null} />
+            </div>
+            <div className="min-w-0">
+              <label className="inline-block cursor-pointer rounded-xl border border-primary px-4 py-2 text-sm text-primary">
+                {uploadingCover
+                  ? "Enviando…"
+                  : manualCover
+                    ? "Trocar capa"
+                    : "Enviar capa do livro"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingCover}
+                  onChange={pickCover}
+                />
+              </label>
+              {manualCover && (
+                <button
+                  onClick={() => setManualCover(null)}
+                  className="ml-3 text-sm text-muted-foreground underline underline-offset-4"
+                >
+                  Remover
+                </button>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">JPG ou PNG, até 5MB.</p>
+            </div>
+          </div>
         </div>
       )}
 
