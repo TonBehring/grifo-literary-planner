@@ -144,10 +144,15 @@ export type GoogleVolume = {
 export async function searchGoogleBooks(term: string): Promise<GoogleVolume[]> {
   const isIsbn = /^[\d-]{10,17}$/.test(term.trim());
   const q = isIsbn ? `isbn:${term.replace(/-/g, "")}` : term;
-  const res = await fetch(
-    `https://www.googleapis.com/books/v1/volumes?maxResults=20&q=${encodeURIComponent(q)}`,
-  );
-  if (!res.ok) throw new Error("Não foi possível buscar no Google Books");
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?maxResults=20&q=${encodeURIComponent(q)}`,
+    );
+  } catch {
+    return searchOpenLibrary(term);
+  }
+  if (!res.ok) return searchOpenLibrary(term);
   const json = (await res.json()) as {
     items?: Array<{
       id: string;
@@ -160,7 +165,7 @@ export async function searchGoogleBooks(term: string): Promise<GoogleVolume[]> {
       };
     }>;
   };
-  return (json.items ?? []).map((item) => {
+  const items = (json.items ?? []).map((item) => {
     const v = item.volumeInfo ?? {};
     return {
       id: item.id,
@@ -171,4 +176,36 @@ export async function searchGoogleBooks(term: string): Promise<GoogleVolume[]> {
       page_count: v.pageCount ?? null,
     };
   });
+  if (items.length === 0) return searchOpenLibrary(term);
+  return items;
+}
+
+export async function searchOpenLibrary(term: string): Promise<GoogleVolume[]> {
+  const clean = term.trim();
+  const isIsbn = /^[\d-]{10,17}$/.test(clean);
+  const params = isIsbn
+    ? `isbn=${clean.replace(/-/g, "")}`
+    : `q=${encodeURIComponent(clean)}`;
+  const res = await fetch(
+    `https://openlibrary.org/search.json?${params}&limit=20&fields=key,title,author_name,cover_i,isbn,number_of_pages_median`,
+  );
+  if (!res.ok) throw new Error("Não foi possível buscar agora. Tente o cadastro manual.");
+  const json = (await res.json()) as {
+    docs?: Array<{
+      key?: string;
+      title?: string;
+      author_name?: string[];
+      cover_i?: number;
+      isbn?: string[];
+      number_of_pages_median?: number;
+    }>;
+  };
+  return (json.docs ?? []).map((d, i) => ({
+    id: d.key ?? `ol-${i}`,
+    title: d.title ?? "Sem título",
+    author: d.author_name?.join(", ") ?? null,
+    cover_url: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null,
+    isbn: isIsbn ? clean.replace(/-/g, "") : (d.isbn?.[0] ?? null),
+    page_count: d.number_of_pages_median ?? null,
+  }));
 }
