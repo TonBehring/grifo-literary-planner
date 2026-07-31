@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdicionarRouteImport } from './routes/adicionar'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
+import { Route as EmprestimosRouteImport } from './routes/emprestimos'
 import { Route as LivroIdRouteImport } from './routes/livro.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const BibliotecaRoute = BibliotecaRouteImport.update({
   path: '/biblioteca',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmprestimosRoute = EmprestimosRouteImport.update({
+  id: '/emprestimos',
+  path: '/emprestimos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LivroIdRoute = LivroIdRouteImport.update({
   id: '/livro/$id',
   path: '/livro/$id',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/emprestimos': typeof EmprestimosRoute
   '/livro/$id': typeof LivroIdRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/emprestimos': typeof EmprestimosRoute
   '/livro/$id': typeof LivroIdRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,24 @@ export interface FileRoutesById {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/emprestimos': typeof EmprestimosRoute
   '/livro/$id': typeof LivroIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/adicionar' | '/auth' | '/biblioteca' | '/livro/$id'
+  fullPaths:
+    '/' | '/adicionar' | '/auth' | '/biblioteca' | '/emprestimos' | '/livro/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/adicionar' | '/auth' | '/biblioteca' | '/livro/$id'
-  id: '__root__' | '/' | '/adicionar' | '/auth' | '/biblioteca' | '/livro/$id'
+  to:
+    '/' | '/adicionar' | '/auth' | '/biblioteca' | '/emprestimos' | '/livro/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/adicionar'
+    | '/auth'
+    | '/biblioteca'
+    | '/emprestimos'
+    | '/livro/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +94,7 @@ export interface RootRouteChildren {
   AdicionarRoute: typeof AdicionarRoute
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
+  EmprestimosRoute: typeof EmprestimosRoute
   LivroIdRoute: typeof LivroIdRoute
 }
 
@@ -109,6 +128,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BibliotecaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/emprestimos': {
+      id: '/emprestimos'
+      path: '/emprestimos'
+      fullPath: '/emprestimos'
+      preLoaderRoute: typeof EmprestimosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/livro/$id': {
       id: '/livro/$id'
       path: '/livro/$id'
@@ -124,6 +150,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdicionarRoute: AdicionarRoute,
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
+  EmprestimosRoute: EmprestimosRoute,
   LivroIdRoute: LivroIdRoute,
 }
 export const routeTree = rootRouteImport
