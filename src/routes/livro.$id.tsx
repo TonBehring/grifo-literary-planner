@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Quote, StickyNote } from "lucide-react";
+import { Quote, StickyNote, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -12,6 +12,7 @@ import { StarRating } from "@/components/StarRating";
 import {
   addNote,
   addReadingLog,
+  deleteUserBook,
   getUserBook,
   listNotes,
   updateUserBook,
@@ -53,6 +54,8 @@ function BookDetail() {
   const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
   const [celebrate, setCelebrate] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -117,6 +120,20 @@ function BookDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteUserBook(id);
+      toast.success("Livro removido da biblioteca");
+      void queryClient.invalidateQueries({ queryKey: ["user_books"] });
+      navigate({ to: "/biblioteca" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível excluir");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (isLoading || !ub) {
     return <p className="text-sm text-muted-foreground">Carregando livro…</p>;
   }
@@ -144,12 +161,29 @@ function BookDetail() {
               <StarRating value={ub.rating} size="sm" />
             </div>
           )}
-          <button
-            onClick={() => setEditing((v) => !v)}
-            className="mt-3 text-xs text-primary underline underline-offset-4"
-          >
-            {editing ? "Fechar edição" : "Editar ou excluir"}
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            <button
+              onClick={() => {
+                setEditing((v) => !v);
+                setConfirmDelete(false);
+              }}
+              className="inline-flex items-center gap-1 text-primary underline underline-offset-4"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {editing ? "Fechar edição" : "Editar"}
+            </button>
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-1 text-destructive underline underline-offset-4"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Excluir
+              </button>
+            ) : (
+              <span className="text-muted-foreground">Confirme abaixo</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -160,11 +194,31 @@ function BookDetail() {
             setEditing(false);
             refresh();
           }}
-          onDeleted={() => {
-            void queryClient.invalidateQueries({ queryKey: ["user_books"] });
-            navigate({ to: "/biblioteca" });
-          }}
         />
+      )}
+
+      {confirmDelete && (
+        <div className="panel-cream rounded-2xl border-destructive/40 p-5">
+          <p className="text-sm">
+            Excluir “{ub.book?.title ?? "este livro"}”? As anotações e registros também serão
+            removidos.
+          </p>
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
+            >
+              {deleting ? "Excluindo…" : "Sim, excluir"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="panel-cream rounded-2xl p-5">
