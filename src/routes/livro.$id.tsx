@@ -54,6 +54,8 @@ function BookDetail() {
   const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
   const [celebrate, setCelebrate] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
