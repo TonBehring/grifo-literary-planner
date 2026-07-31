@@ -74,34 +74,14 @@ function AddBookPage() {
     }
   }
 
-  async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (!user) {
-      toast.error("Faça login para enviar uma capa");
-      return;
-    }
-    setUploadingCover(true);
-    try {
-      setManualCover(await uploadCover(file, user.id));
-      toast.success("Capa carregada");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
-    } finally {
-      setUploadingCover(false);
-    }
-  }
 
   async function save() {
-    const typedCover = coverUrlInput.trim();
-    const finalCover = /^https?:\/\/\S+$/i.test(typedCover) ? typedCover : manualCover;
     const payload = manual
       ? {
           id: "manual",
           title: manualTitle.trim(),
           author: manualAuthor.trim() || null,
-          cover_url: finalCover,
+          cover_url: manualCover,
           isbn: null,
           page_count: manualPages ? Number(manualPages) : null,
         }
