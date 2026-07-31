@@ -120,6 +120,20 @@ function BookDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteUserBook(id);
+      toast.success("Livro removido da biblioteca");
+      void queryClient.invalidateQueries({ queryKey: ["user_books"] });
+      navigate({ to: "/biblioteca" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível excluir");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (isLoading || !ub) {
     return <p className="text-sm text-muted-foreground">Carregando livro…</p>;
   }
