@@ -94,12 +94,14 @@ function AddBookPage() {
   }
 
   async function save() {
+    const typedCover = coverUrlInput.trim();
+    const finalCover = /^https?:\/\/\S+$/i.test(typedCover) ? typedCover : manualCover;
     const payload = manual
       ? {
           id: "manual",
           title: manualTitle.trim(),
           author: manualAuthor.trim() || null,
-          cover_url: manualCover,
+          cover_url: finalCover,
           isbn: null,
           page_count: manualPages ? Number(manualPages) : null,
         }
