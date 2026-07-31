@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { BookCover } from "@/components/BookCover";
+import { CoverPicker } from "@/components/CoverPicker";
 import { deleteUserBook, updateBookInfo, updateUserBook } from "@/lib/api";
 import { uploadCover } from "@/lib/cover-upload";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
@@ -21,7 +21,6 @@ export function BookEditPanel({
   const [author, setAuthor] = useState(ub.book?.author ?? "");
   const [pages, setPages] = useState(ub.book?.page_count ? String(ub.book.page_count) : "");
   const [cover, setCover] = useState<string | null>(ub.book?.cover_url ?? null);
-  const [coverUrlInput, setCoverUrlInput] = useState("");
   const [format, setFormat] = useState<BookFormat>(ub.format);
   const [status, setStatus] = useState<ShelfStatus>(ub.status);
   const [saving, setSaving] = useState(false);
@@ -29,19 +28,6 @@ export function BookEditPanel({
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !user) return;
-    setUploading(true);
-    try {
-      setCover(await uploadCover(file, user.id));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function save() {
     if (!title.trim()) {
@@ -50,14 +36,12 @@ export function BookEditPanel({
     }
     setSaving(true);
     try {
-      const typed = coverUrlInput.trim();
-      const finalCover = /^https?:\/\/\S+$/i.test(typed) ? typed : cover;
       if (ub.book_id) {
         await updateBookInfo(ub.book_id, {
           title: title.trim(),
           author: author.trim() || null,
           page_count: pages ? Number(pages) : null,
-          cover_url: finalCover,
+          cover_url: cover,
         });
       }
       await updateUserBook(ub.id, { format, status });
@@ -111,44 +95,23 @@ export function BookEditPanel({
         />
       </div>
 
-      <div className="mt-4 flex items-center gap-4">
-        <div className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-          <BookCover src={cover} title={title || null} />
-        </div>
-        <div>
-          <label className="inline-block cursor-pointer rounded-xl border border-primary px-4 py-2 text-sm text-primary">
-            {uploading ? "Enviando…" : cover ? "Trocar capa" : "Enviar capa"}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={uploading}
-              onChange={pickCover}
-            />
-          </label>
-          {cover && (
-            <button
-              onClick={() => setCover(null)}
-              className="ml-3 text-sm text-muted-foreground underline underline-offset-4"
-            >
-              Remover
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <input
-          value={coverUrlInput}
-          onChange={(e) => setCoverUrlInput(e.target.value)}
-          placeholder="Ou cole o link da imagem da capa"
-          maxLength={2000}
-          className="min-w-0 flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            const url = coverUrlInput.trim();
+      <div className="mt-4">
+        <CoverPicker
+          cover={cover}
+          title={title || null}
+          uploading={uploading}
+          onUpload={async (file) => {
+            if (!user) return;
+            setUploading(true);
+            try {
+              setCover(await uploadCover(file, user.id));
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
+            } finally {
+              setUploading(false);
+            }
+          }}
+          onUseUrl={(url) => {
             if (!/^https?:\/\/\S+$/i.test(url)) {
               toast.error("Cole um link válido começando com http:// ou https://");
               return;
@@ -156,14 +119,12 @@ export function BookEditPanel({
             setCover(url);
             toast.success("Capa definida pelo link");
           }}
-          className="shrink-0 rounded-xl border border-primary px-4 text-sm text-primary"
-        >
-          Usar
-        </button>
+          onRemove={() => setCover(null)}
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          Depois de definir a capa, toque em “Salvar alterações” para gravar no livro.
+        </p>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Depois de definir a capa, toque em “Salvar alterações” para gravar no livro.
-      </p>
 
       <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
       <div className="mt-2 flex flex-wrap gap-2">
