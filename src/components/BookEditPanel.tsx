@@ -50,12 +50,14 @@ export function BookEditPanel({
     }
     setSaving(true);
     try {
+      const typed = coverUrlInput.trim();
+      const finalCover = /^https?:\/\/\S+$/i.test(typed) ? typed : cover;
       if (ub.book_id) {
         await updateBookInfo(ub.book_id, {
           title: title.trim(),
           author: author.trim() || null,
           page_count: pages ? Number(pages) : null,
-          cover_url: cover,
+          cover_url: finalCover,
         });
       }
       await updateUserBook(ub.id, { format, status });
