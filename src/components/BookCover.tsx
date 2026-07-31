@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import capaPadrao from "@/assets/capa-padrao.jpg";
 
 export function BookCover({
@@ -11,6 +11,9 @@ export function BookCover({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
   const url = !src || failed ? capaPadrao : src;
 
   return (

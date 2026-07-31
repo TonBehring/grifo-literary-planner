@@ -50,12 +50,14 @@ export function BookEditPanel({
     }
     setSaving(true);
     try {
+      const typed = coverUrlInput.trim();
+      const finalCover = /^https?:\/\/\S+$/i.test(typed) ? typed : cover;
       if (ub.book_id) {
         await updateBookInfo(ub.book_id, {
           title: title.trim(),
           author: author.trim() || null,
           page_count: pages ? Number(pages) : null,
-          cover_url: cover,
+          cover_url: finalCover,
         });
       }
       await updateUserBook(ub.id, { format, status });
@@ -159,6 +161,9 @@ export function BookEditPanel({
           Usar
         </button>
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Depois de definir a capa, toque em “Salvar alterações” para gravar no livro.
+      </p>
 
       <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
       <div className="mt-2 flex flex-wrap gap-2">
