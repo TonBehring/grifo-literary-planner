@@ -196,49 +196,27 @@ function AddBookPage() {
             className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
           />
 
-          <div className="flex items-center gap-4 pt-1">
-            <div className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-              <BookCover src={manualCover} title={manualTitle || null} />
-            </div>
-            <div className="min-w-0">
-              <label className="inline-block cursor-pointer rounded-xl border border-primary px-4 py-2 text-sm text-primary">
-                {uploadingCover
-                  ? "Enviando…"
-                  : manualCover
-                    ? "Trocar capa"
-                    : "Enviar capa do livro"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={uploadingCover}
-                  onChange={pickCover}
-                />
-              </label>
-              {manualCover && (
-                <button
-                  onClick={() => setManualCover(null)}
-                  className="ml-3 text-sm text-muted-foreground underline underline-offset-4"
-                >
-                  Remover
-                </button>
-              )}
-              <p className="mt-2 text-xs text-muted-foreground">JPG ou PNG, até 5MB.</p>
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            <input
-              value={coverUrlInput}
-              onChange={(e) => setCoverUrlInput(e.target.value)}
-              placeholder="Ou cole o link da imagem da capa"
-              maxLength={2000}
-              className="min-w-0 flex-1 rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const url = coverUrlInput.trim();
+          <div className="pt-1">
+            <CoverPicker
+              cover={manualCover}
+              title={manualTitle || null}
+              uploading={uploadingCover}
+              onUpload={async (file) => {
+                if (!user) {
+                  toast.error("Faça login para enviar uma capa");
+                  return;
+                }
+                setUploadingCover(true);
+                try {
+                  setManualCover(await uploadCover(file, user.id));
+                  toast.success("Capa carregada");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
+                } finally {
+                  setUploadingCover(false);
+                }
+              }}
+              onUseUrl={(url) => {
                 if (!/^https?:\/\/\S+$/i.test(url)) {
                   toast.error("Cole um link válido começando com http:// ou https://");
                   return;
@@ -246,10 +224,8 @@ function AddBookPage() {
                 setManualCover(url);
                 toast.success("Capa definida pelo link");
               }}
-              className="shrink-0 rounded-xl border border-primary px-4 text-sm text-primary"
-            >
-              Usar
-            </button>
+              onRemove={() => setManualCover(null)}
+            />
           </div>
         </div>
       )}
