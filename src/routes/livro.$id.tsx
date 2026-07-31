@@ -1,0 +1,262 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Quote, StickyNote } from "lucide-react";
+import { toast } from "sonner";
+import { AppShell } from "@/components/AppShell";
+import { CelebrationModal } from "@/components/CelebrationModal";
+import { MoodPicker } from "@/components/MoodPicker";
+import { StarRating } from "@/components/StarRating";
+import {
+  addNote,
+  addReadingLog,
+  getUserBook,
+  listNotes,
+  updateUserBook,
+} from "@/lib/api";
+import { FORMAT_LABEL, progressOf } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+
+export const Route = createFileRoute("/livro/$id")({
+  head: () => ({
+    meta: [
+      { title: "Detalhe do livro — Grifo" },
+      {
+        name: "description",
+        content: "Atualize o progresso, registre o humor do dia e guarde citações do seu livro.",
+      },
+      { property: "og:title", content: "Detalhe do livro — Grifo" },
+      {
+        property: "og:description",
+        content: "Progresso, humor da leitura e anotações em um só lugar.",
+      },
+    ],
+  }),
+  component: () => (
+    <AppShell>
+      <BookDetail />
+    </AppShell>
+  ),
+});
+
+function BookDetail() {
+  const { id } = Route.useParams();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  const [progressInput, setProgressInput] = useState("");
+  const [mood, setMood] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
+  const [celebrate, setCelebrate] = useState(false);
+
+  const { data: ub, isLoading } = useQuery({
+    queryKey: ["user_book", id],
+    queryFn: () => getUserBook(id),
+    enabled: Boolean(user),
+  });
+  const { data: notes } = useQuery({
+    queryKey: ["notes", id],
+    queryFn: () => listNotes(id),
+    enabled: Boolean(user),
+  });
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["user_book", id] });
+    void queryClient.invalidateQueries({ queryKey: ["user_books"] });
+  };
+
+  const saveProgress = useMutation({
+    mutationFn: async () => {
+      if (!ub) return;
+      const value = Number(progressInput);
+      if (!Number.isFinite(value) || value < 0) throw new Error("Valor inválido");
+      const patch =
+        ub.format === "fisico"
+          ? { current_page: Math.round(value) }
+          : { progress_percent: Math.min(100, Math.round(value)) };
+      await updateUserBook(id, patch);
+      if (mood && user) {
+        await addReadingLog({
+          user_book_id: id,
+          user_id: user.id,
+          mood,
+          pages_read: ub.format === "fisico" ? Math.round(value) : null,
+        });
+      }
+    },
+    onSuccess: () => {
+      setProgressInput("");
+      setMood(null);
+      refresh();
+      toast.success("Progresso atualizado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveNote = useMutation({
+    mutationFn: async () => {
+      if (!user || noteText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
+      await addNote({
+        user_book_id: id,
+        user_id: user.id,
+        content: noteText.trim().slice(0, 2000),
+        kind: noteKind,
+        page: null,
+      });
+    },
+    onSuccess: () => {
+      setNoteText("");
+      void queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      toast.success("Anotação guardada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (isLoading || !ub) {
+    return <p className="text-sm text-muted-foreground">Carregando livro…</p>;
+  }
+
+  const pct = progressOf(ub);
+
+  return (
+    <section className="space-y-7">
+      <div className="card-teal flex gap-5 rounded-3xl p-5">
+        <div className="h-40 w-28 shrink-0 overflow-hidden rounded-lg bg-teal-deep">
+          {ub.book?.cover_url && (
+            <img
+              src={ub.book.cover_url}
+              alt={`Capa de ${ub.book.title}`}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] tracking-[0.18em] text-primary uppercase">
+            {FORMAT_LABEL[ub.format] ?? ub.format}
+          </p>
+          <h1 className="font-display mt-1 text-2xl leading-snug">{ub.book?.title}</h1>
+          <p className="text-sm opacity-70">{ub.book?.author ?? "Autor desconhecido"}</p>
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="mt-2 text-xs opacity-80">{pct}% concluído</p>
+          {ub.rating != null && (
+            <div className="mt-3">
+              <StarRating value={ub.rating} size="sm" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="panel-cream rounded-2xl p-5">
+        <h2 className="font-display text-xl">Atualizar progresso</h2>
+        <div className="mt-3 flex gap-2">
+          <input
+            value={progressInput}
+            onChange={(e) => setProgressInput(e.target.value)}
+            inputMode="numeric"
+            placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
+            className="flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <button
+            onClick={() => saveProgress.mutate()}
+            className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
+          >
+            Salvar
+          </button>
+        </div>
+
+        <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+          Humor do dia
+        </p>
+        <div className="mt-2">
+          <MoodPicker value={mood} onChange={setMood} />
+        </div>
+
+        {ub.status !== "lido" && (
+          <button
+            onClick={() => setCelebrate(true)}
+            className="mt-6 w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
+          >
+            Concluí este livro
+          </button>
+        )}
+      </div>
+
+      <div className="panel-cream rounded-2xl p-5">
+        <h2 className="font-display text-xl">Anotações e citações</h2>
+        <div className="mt-3 flex gap-2">
+          {(["citacao", "nota"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setNoteKind(k)}
+              className={
+                "flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors " +
+                (noteKind === k
+                  ? "border-primary bg-primary/20"
+                  : "border-border text-muted-foreground")
+              }
+            >
+              {k === "citacao" ? <Quote className="h-4 w-4" /> : <StickyNote className="h-4 w-4" />}
+              {k === "citacao" ? "Citação" : "Nota"}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
+          rows={4}
+          maxLength={2000}
+          placeholder="Grife o trecho que te marcou…"
+          className="mt-3 w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
+        />
+        <button
+          onClick={() => saveNote.mutate()}
+          className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
+        >
+          Guardar
+        </button>
+
+        <div className="mt-6 space-y-3">
+          {notes?.map((n) => (
+            <blockquote
+              key={n.id}
+              className={
+                "rounded-xl border-l-2 border-primary bg-secondary/50 p-4 text-sm " +
+                (n.kind === "citacao" ? "font-display text-base italic" : "")
+              }
+            >
+              {n.content}
+            </blockquote>
+          ))}
+        </div>
+      </div>
+
+      <CelebrationModal
+        open={celebrate}
+        bookTitle={ub.book?.title ?? "Livro"}
+        onOpenChange={setCelebrate}
+        onSave={async ({ rating, review, favorite }) => {
+          try {
+            await updateUserBook(id, {
+              status: "lido",
+              progress_percent: 100,
+              rating,
+              review,
+              is_favorite: favorite,
+              finished_at: new Date().toISOString(),
+            });
+            setCelebrate(false);
+            refresh();
+            toast.success("Leitura concluída 🎉");
+            navigate({ to: "/biblioteca" });
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+          }
+        }}
+      />
+    </section>
+  );
+}
