@@ -113,8 +113,13 @@ export async function updateBookInfo(
   if (patch.page_count !== undefined) db["total_paginas"] = patch.page_count;
   if (patch.cover_url !== undefined) db["capa_url"] = patch.cover_url;
   if (Object.keys(db).length === 0) return;
-  const { error } = await supabase.from("books").update(db).eq("id", bookId);
+  const { data, error } = await supabase.from("books").update(db).eq("id", bookId).select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      "O banco recusou a alteração do livro (falta política de UPDATE na tabela books).",
+    );
+  }
 }
 
 export async function deleteUserBook(id: string) {
