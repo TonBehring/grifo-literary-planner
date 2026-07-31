@@ -6,8 +6,8 @@ export function BookCover({
   title,
   className = "",
 }: {
-  src?: string | null;
-  title?: string | null;
+  src?: string | null | undefined;
+  title?: string | null | undefined;
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);

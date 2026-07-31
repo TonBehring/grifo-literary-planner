@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Quote, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { BookCover } from "@/components/BookCover";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { MoodPicker } from "@/components/MoodPicker";
 import { StarRating } from "@/components/StarRating";
