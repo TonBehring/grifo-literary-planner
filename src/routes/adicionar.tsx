@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
+import { CoverPicker } from "@/components/CoverPicker";
 import { addBookToShelf, searchGoogleBooks, type GoogleVolume } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -45,7 +46,6 @@ function AddBookPage() {
   const [manualAuthor, setManualAuthor] = useState("");
   const [manualPages, setManualPages] = useState("");
   const [manualCover, setManualCover] = useState<string | null>(null);
-  const [coverUrlInput, setCoverUrlInput] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [searched, setSearched] = useState(false);
   const { user } = useAuth();
