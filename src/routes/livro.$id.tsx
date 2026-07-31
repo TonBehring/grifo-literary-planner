@@ -332,4 +332,3 @@ function BookDetail() {
     </section>
   );
 }
-fix: página atual ao concluir livro físico
