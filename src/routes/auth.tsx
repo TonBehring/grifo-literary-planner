@@ -1,8 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials")) return "E-mail ou senha incorretos.";
+  if (m.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+  if (m.includes("user already registered")) return "Este e-mail já está cadastrado. Tente entrar.";
+  if (m.includes("password should be at least")) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (m.includes("unable to validate email address")) return "Digite um e-mail válido.";
+  return "Não foi possível continuar. Verifique os dados e tente de novo.";
+}
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -27,8 +38,9 @@ function AuthPage() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -62,8 +74,8 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível continuar");
+   } catch (err) {
+      toast.error(err instanceof Error ? friendlyAuthError(err.message) : "Não foi possível continuar");
     } finally {
       setBusy(false);
     }
@@ -122,16 +134,26 @@ function AuthPage() {
             />
           </Field>
 
-          <Field label="Senha">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={6}
-              maxLength={72}
-              required
-              className={inputClass}
-            />
+<Field label="Senha">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+                maxLength={72}
+                required
+                className={inputClass + " pr-10"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                className="absolute inset-y-0 right-3 flex items-center text-white/60 hover:text-white"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </Field>
 
           <button
