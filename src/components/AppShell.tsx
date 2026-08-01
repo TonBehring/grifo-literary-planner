@@ -52,13 +52,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           Grifo
           <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-super" />
         </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/adicionar"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" /> Livro
-          </Link>
+ <div className="flex items-center gap-2">
+          {(pathname === "/" || pathname.startsWith("/biblioteca")) && (
+            <Link
+              to="/adicionar"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" /> Livro
+            </Link>
+          )}
          <button
             aria-label="Sair da conta"
             onClick={() => {
