@@ -4,7 +4,7 @@ import { toast } from "sonner";
 export default function IsbnScannerView({ onResult }: { onResult: (text: string) => void }) {
   const { ref } = useZxing({
     constraints: { video: { facingMode: "environment" }, audio: false },
-    onDecodeResult: (result) => onResult(result.getText()),
+    onDecodeResult: (result) => onResult((result as unknown as { getText(): string }).getText()),
     onError: () => {
       toast.error("Não foi possível acessar a câmera. Você pode digitar o ISBN manualmente.");
     },
