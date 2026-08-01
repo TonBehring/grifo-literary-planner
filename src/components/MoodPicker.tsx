@@ -1,10 +1,10 @@
 const MOODS = [
-  { emoji: "😍", label: "Apaixonada" },
-  { emoji: "🥹", label: "Emocionada" },
-  { emoji: "🤯", label: "Impactada" },
-  { emoji: "😌", label: "Serena" },
-  { emoji: "😴", label: "Arrastado" },
-  { emoji: "😤", label: "Irritada" },
+  { emoji: "😍", label: "Apaixonado (a)" },
+  { emoji: "🥹", label: "Emocionado (a)" },
+  { emoji: "🤯", label: "Impactado (a)" },
+  { emoji: "😌", label: "Sereno (a)" },
+  { emoji: "😴", label: "Arrastado (a)" },
+  { emoji: "😤", label: "Irritado (a)" },
 ];
 
 export function MoodPicker({
