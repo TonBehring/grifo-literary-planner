@@ -32,12 +32,12 @@ export const Route = createFileRoute("/estatisticas")({
 });
 
 const MOOD_EMOJI: Record<string, string> = {
-  Apaixonada: "😍",
-  Emocionada: "🥹",
-  Impactada: "🤯",
-  Serena: "😌",
-  Arrastado: "😴",
-  Irritada: "😤",
+  "Apaixonado (a)": "😍",
+  "Emocionado (a)": "🥹",
+  "Impactado (a)": "🤯",
+  "Sereno (a)": "😌",
+  "Arrastado (a)": "😴",
+  "Irritado (a)": "😤",
 };
 
 const YEAR = new Date().getFullYear();
