@@ -82,10 +82,11 @@ function NativeScanner({ onResult }: { onResult: (text: string) => void }) {
           try {
             if (video.readyState >= 2) {
               const codes = await detector.detect(video);
-              if (!stopped && codes.length > 0 && codes[0].rawValue) {
+              const value = codes[0]?.rawValue;
+              if (!stopped && value) {
                 stopped = true;
                 cancelAnimationFrame(raf);
-                resultRef.current(codes[0].rawValue);
+                resultRef.current(value);
               }
             }
           } catch {
