@@ -13,7 +13,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
-import { addBookToShelf, searchGoogleBooks, type GoogleVolume } from "@/lib/api";
+import { addBookToShelf, searchGoogleBooks, searchLocalCatalog, type GoogleVolume } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { uploadCover } from "@/lib/cover-upload";
@@ -63,12 +63,21 @@ function AddBookPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  async function searchByTerm(value: string) {
+async function searchByTerm(value: string) {
     const query = value.trim();
     if (query.length < 2) return;
     const looksLikeIsbn = /^[\d-]{10,17}$/.test(query);
     setSearching(true);
     try {
+      if (looksLikeIsbn) {
+        const local = await searchLocalCatalog(query);
+        if (local.length > 0) {
+          setResults(local);
+          setSearched(true);
+          setSearching(false);
+          return;
+        }
+      }
       const found = await searchGoogleBooks(query);
       setResults(found);
       setSearched(true);
