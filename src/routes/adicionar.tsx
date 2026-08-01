@@ -1,8 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
+import { Camera, Search } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
@@ -10,6 +17,8 @@ import { addBookToShelf, searchGoogleBooks, type GoogleVolume } from "@/lib/api"
 import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { uploadCover } from "@/lib/cover-upload";
+
+const IsbnScannerView = lazy(() => import("@/components/IsbnScannerView"));
 
 export const Route = createFileRoute("/adicionar")({
   head: () => ({
@@ -48,30 +57,43 @@ function AddBookPage() {
   const [manualCover, setManualCover] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  async function runSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (term.trim().length < 2) return;
+  async function searchByTerm(value: string) {
+    const query = value.trim();
+    if (query.length < 2) return;
     setSearching(true);
     try {
-      const found = await searchGoogleBooks(term.trim());
+      const found = await searchGoogleBooks(query);
       setResults(found);
       setSearched(true);
       if (found.length === 0) {
         setManual(true);
-        setManualTitle(term.trim());
+        setManualTitle(query);
         toast.info("Nada encontrado. Cadastre manualmente abaixo.");
       }
     } catch (err) {
       setManual(true);
-      setManualTitle(term.trim());
+      setManualTitle(query);
       toast.error(err instanceof Error ? err.message : "Erro na busca");
     } finally {
       setSearching(false);
     }
+  }
+
+  async function runSearch(e: React.FormEvent) {
+    e.preventDefault();
+    await searchByTerm(term);
+  }
+
+  function handleScan(text: string) {
+    const code = text.replace(/[^0-9Xx]/g, "");
+    setScannerOpen(false);
+    setTerm(code);
+    void searchByTerm(code);
   }
 
 
@@ -127,7 +149,35 @@ function AddBookPage() {
         >
           <Search className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          onClick={() => setScannerOpen(true)}
+          className="rounded-xl border border-border px-4 text-foreground transition-colors hover:border-primary"
+          aria-label="Escanear código de barras"
+        >
+          <Camera className="h-4 w-4" />
+        </button>
       </form>
+
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Escanear ISBN</DialogTitle>
+            <DialogDescription>
+              Posicione o código de barras da contracapa dentro do retângulo.
+            </DialogDescription>
+          </DialogHeader>
+          {scannerOpen && (
+            <Suspense
+              fallback={
+                <div className="h-[320px] rounded-xl bg-muted" aria-label="Carregando câmera" />
+              }
+            >
+              <IsbnScannerView onResult={handleScan} />
+            </Suspense>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {searching && <p className="mt-6 text-sm text-muted-foreground">Buscando…</p>}
 
