@@ -59,14 +59,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Plus className="h-4 w-4" /> Livro
           </Link>
-          <button
-            aria-label="Sair"
+         <button
+            aria-label="Sair da conta"
             onClick={() => {
               void signOut().then(() => navigate({ to: "/auth" }));
             }}
-            className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3.5 w-3.5" />
+            Sair
           </button>
         </div>
       </header>
