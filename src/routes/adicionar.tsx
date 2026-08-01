@@ -55,6 +55,7 @@ function AddBookPage() {
   const [manualAuthor, setManualAuthor] = useState("");
   const [manualPages, setManualPages] = useState("");
   const [manualCover, setManualCover] = useState<string | null>(null);
+  const [manualIsbn, setManualIsbn] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [searched, setSearched] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -65,6 +66,7 @@ function AddBookPage() {
   async function searchByTerm(value: string) {
     const query = value.trim();
     if (query.length < 2) return;
+    const looksLikeIsbn = /^[\d-]{10,17}$/.test(query);
     setSearching(true);
     try {
       const found = await searchGoogleBooks(query);
@@ -72,12 +74,18 @@ function AddBookPage() {
       setSearched(true);
       if (found.length === 0) {
         setManual(true);
-        setManualTitle(query);
-        toast.info("Nada encontrado. Cadastre manualmente abaixo.");
+        setManualTitle(looksLikeIsbn ? "" : query);
+        setManualIsbn(looksLikeIsbn ? query.replace(/-/g, "") : null);
+        toast.info(
+          looksLikeIsbn
+            ? `ISBN ${query} não encontrado. Preencha o título manualmente abaixo.`
+            : "Nada encontrado. Cadastre manualmente abaixo.",
+        );
       }
     } catch (err) {
       setManual(true);
-      setManualTitle(query);
+      setManualTitle(looksLikeIsbn ? "" : query);
+      setManualIsbn(looksLikeIsbn ? query.replace(/-/g, "") : null);
       toast.error(err instanceof Error ? err.message : "Erro na busca");
     } finally {
       setSearching(false);
@@ -104,7 +112,7 @@ function AddBookPage() {
           title: manualTitle.trim(),
           author: manualAuthor.trim() || null,
           cover_url: manualCover,
-          isbn: null,
+          isbn: manualIsbn,
           page_count: manualPages ? Number(manualPages) : null,
         }
       : selected;
