@@ -306,7 +306,7 @@ function Streak({ logs }: { logs: LogRow[] }) {
             <div
               key={d.key}
               title={`${new Date(`${d.key}T12:00:00`).toLocaleDateString("pt-BR")} · ${d.count} registro(s)`}
-              className="h-3.5 w-3.5 rounded-[3px] bg-[hsl(var(--card))]"
+              className="h-3.5 w-3.5 rounded-[3px] bg-teal"
               style={{ opacity }}
             />
           );
