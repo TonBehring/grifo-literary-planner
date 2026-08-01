@@ -292,6 +292,25 @@ export type GoogleVolume = {
   page_count: number | null;
 };
 
+export async function searchLocalCatalog(isbn: string): Promise<GoogleVolume[]> {
+  const clean = isbn.replace(/-/g, "");
+  const { data, error } = await supabase
+    .from("books")
+    .select("id, titulo, autor, capa_url, isbn, total_paginas")
+    .eq("isbn", clean)
+    .maybeSingle();
+  if (error || !data) return [];
+  return [
+    {
+      id: data.id,
+      title: data.titulo,
+      author: data.autor,
+      cover_url: data.capa_url,
+      isbn: data.isbn,
+      page_count: data.total_paginas,
+    },
+  ];
+}
 export async function searchGoogleBooks(term: string): Promise<GoogleVolume[]> {
   const isIsbn = /^[\d-]{10,17}$/.test(term.trim());
   const q = isIsbn ? `isbn:${term.replace(/-/g, "")}` : term;
