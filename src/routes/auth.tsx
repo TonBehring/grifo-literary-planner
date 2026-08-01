@@ -140,7 +140,7 @@ const [name, setName] = useState("");
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
+                minLength={mode === "signup" ? 6 : undefined}
                 maxLength={72}
                 required
                 className={inputClass + " pr-10"}
