@@ -14,7 +14,7 @@ import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
 import { addBookToShelf, searchGoogleBooks, searchLocalCatalog, type GoogleVolume } from "@/lib/api";
-import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus } from "@/lib/types";
+import { FORMAT_LABEL, STATUS_LABEL, GENRE_OPTIONS, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { uploadCover } from "@/lib/cover-upload";
 
@@ -47,8 +47,9 @@ function AddBookPage() {
   const [results, setResults] = useState<GoogleVolume[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<GoogleVolume | null>(null);
-  const [format, setFormat] = useState<BookFormat>("fisico");
+const [format, setFormat] = useState<BookFormat>("fisico");
   const [status, setStatus] = useState<ShelfStatus>("lendo");
+  const [genre, setGenre] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [manual, setManual] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
@@ -135,7 +136,7 @@ async function searchByTerm(value: string) {
     }
     setSaving(true);
 try {
-      const { id, alreadyExists } = await addBookToShelf({ ...payload, status, format }, user.id);
+      const { id, alreadyExists } = await addBookToShelf({ ...payload, status, format, genre }, user.id);
       await queryClient.invalidateQueries({ queryKey: ["user_books"] });
       if (alreadyExists) {
         toast.info("Você já tem esse livro na sua estante");
@@ -319,6 +320,16 @@ try {
             {(Object.keys(STATUS_LABEL) as ShelfStatus[]).map((s) => (
               <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
                 {STATUS_LABEL[s]}
+              </Chip>
+            ))}
+          </div>
+          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Gênero
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {GENRE_OPTIONS.map((g) => (
+              <Chip key={g} active={genre === g} onClick={() => setGenre(genre === g ? null : g)}>
+                {g}
               </Chip>
             ))}
           </div>
