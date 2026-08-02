@@ -8,7 +8,21 @@ export type Book = {
   cover_url: string | null;
   isbn: string | null;
   page_count: number | null;
+  genre: string | null;
 };
+
+export const GENRE_OPTIONS = [
+  "Religioso",
+  "Literatura",
+  "Romance",
+  "Ficção Científica",
+  "Fantasia",
+  "Autoajuda",
+  "Biografia",
+  "Infantil",
+  "Técnico/Acadêmico",
+  "Outro",
+] as const;
 
 export type UserBook = {
   id: string;
