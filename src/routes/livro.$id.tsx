@@ -152,6 +152,11 @@ function BookDetail() {
           </p>
           <h1 className="font-display mt-1 text-2xl leading-snug">{ub.book?.title}</h1>
           <p className="text-sm opacity-70">{ub.book?.author ?? "Autor desconhecido"}</p>
+          {ub.book?.genre && (
+            <span className="mt-1 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
+              {ub.book.genre}
+            </span>
+          )}
           <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
             <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
           </div>
