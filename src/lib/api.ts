@@ -140,7 +140,10 @@ export type NewBookInput = {
   format: BookFormat;
 };
 
-export async function addBookToShelf(input: NewBookInput, userId: string) {
+export async function addBookToShelf(
+  input: NewBookInput,
+  userId: string,
+): Promise<{ id: string; alreadyExists: boolean }> {
   let bookId: string | null = null;
 
   if (input.isbn) {
@@ -166,6 +169,37 @@ export async function addBookToShelf(input: NewBookInput, userId: string) {
       .single();
     bookId = (unwrap(data, error) as { id: string }).id;
   }
+
+  const { data, error } = await supabase
+    .from("user_books")
+    .insert({
+      user_id: userId,
+      book_id: bookId,
+      status: input.status,
+      formato: input.format,
+      pagina_atual: 0,
+      data_inicio: input.status === "lendo" ? new Date().toISOString() : null,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      const { data: existingUserBook } = await supabase
+        .from("user_books")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("book_id", bookId)
+        .maybeSingle();
+      if (existingUserBook) {
+        return { id: (existingUserBook as { id: string }).id, alreadyExists: true };
+      }
+    }
+    throw new Error(error.message);
+  }
+
+  return { id: (data as { id: string }).id, alreadyExists: false };
+}
 
   const { data, error } = await supabase
     .from("user_books")
