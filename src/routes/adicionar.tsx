@@ -134,10 +134,14 @@ async function searchByTerm(value: string) {
       return;
     }
     setSaving(true);
-    try {
-      const id = await addBookToShelf({ ...payload, status, format }, user.id);
+try {
+      const { id, alreadyExists } = await addBookToShelf({ ...payload, status, format }, user.id);
       await queryClient.invalidateQueries({ queryKey: ["user_books"] });
-      toast.success("Livro adicionado à estante");
+      if (alreadyExists) {
+        toast.info("Você já tem esse livro na sua estante");
+      } else {
+        toast.success("Livro adicionado à estante");
+      }
       navigate({ to: "/livro/$id", params: { id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível salvar");
