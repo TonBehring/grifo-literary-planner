@@ -24,6 +24,11 @@ export function BookCard({ userBook }: { userBook: UserBook }) {
           {book?.title ?? "Sem título"}
         </h3>
         <p className="truncate text-sm opacity-70">{book?.author ?? "Autor desconhecido"}</p>
+        {book?.genre && (
+          <span className="mt-1 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
+            {book.genre}
+          </span>
+        )}
 
         <div className="mt-4">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/15">
