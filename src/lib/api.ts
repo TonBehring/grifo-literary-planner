@@ -198,22 +198,7 @@ export async function addBookToShelf(
     throw new Error(error.message);
   }
 
-  return { id: (data as { id: string }).id, alreadyExists: false };
-}
-
-  const { data, error } = await supabase
-    .from("user_books")
-    .insert({
-      user_id: userId,
-      book_id: bookId,
-      status: input.status,
-      formato: input.format,
-      pagina_atual: 0,
-      data_inicio: input.status === "lendo" ? new Date().toISOString() : null,
-    })
-    .select("id")
-    .single();
-  return (unwrap(data, error) as { id: string }).id;
+ return { id: (data as { id: string }).id, alreadyExists: false };
 }
 
 export async function listNotes(userBookId: string): Promise<BookNote[]> {
