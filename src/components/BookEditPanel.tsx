@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { CoverPicker } from "@/components/CoverPicker";
 import { updateBookInfo, updateUserBook } from "@/lib/api";
 import { uploadCover } from "@/lib/cover-upload";
-import { FORMAT_LABEL, STATUS_LABEL, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
+import { FORMAT_LABEL, STATUS_LABEL, GENRE_OPTIONS, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 
 export function BookEditPanel({
@@ -20,6 +20,7 @@ export function BookEditPanel({
   const [cover, setCover] = useState<string | null>(ub.book?.cover_url ?? null);
   const [format, setFormat] = useState<BookFormat>(ub.format);
   const [status, setStatus] = useState<ShelfStatus>(ub.status);
+  const [genre, setGenre] = useState<string | null>(ub.book?.genre ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -36,9 +37,9 @@ export function BookEditPanel({
           author: author.trim() || null,
           page_count: pages ? Number(pages) : null,
           cover_url: cover,
+          genre,
         });
-      }
-      await updateUserBook(ub.id, { format, status });
+      }      await updateUserBook(ub.id, { format, status });
       onSaved();
       toast.success("Informações atualizadas");
     } catch (err) {
@@ -121,6 +122,15 @@ export function BookEditPanel({
         {(Object.keys(STATUS_LABEL) as ShelfStatus[]).map((s) => (
           <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
             {STATUS_LABEL[s]}
+          </Chip>
+        ))}
+      </div>
+
+      <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Gênero</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {GENRE_OPTIONS.map((g) => (
+          <Chip key={g} active={genre === g} onClick={() => setGenre(genre === g ? null : g)}>
+            {g}
           </Chip>
         ))}
       </div>
