@@ -29,17 +29,8 @@ type DbUserBook = {
   book: DbBook | null;
 };
 
-book: row.book
-      ? {
-          id: row.book.id,
-          title: row.book.titulo,
-          author: row.book.autor,
-          cover_url: row.book.capa_url,
-          isbn: row.book.isbn,
-          page_count: row.book.total_paginas,
-          genre: row.book.genero,
-        }
-      : null,
+function mapUserBook(row: DbUserBook): UserBook {
+  const totalPages = row.book?.total_paginas ?? null;
   const isPhysical = row.formato === "fisico";
   return {
     id: row.id,
@@ -63,6 +54,7 @@ book: row.book
           cover_url: row.book.capa_url,
           isbn: row.book.isbn,
           page_count: row.book.total_paginas,
+          genre: row.book.genero,
         }
       : null,
   };
