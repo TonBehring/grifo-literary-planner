@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
 type DbBook = {
   id: string;
@@ -11,6 +11,7 @@ type DbBook = {
   capa_url: string | null;
   isbn: string | null;
   total_paginas: number | null;
+  genero: string | null;
 };
 
 type DbUserBook = {
@@ -28,8 +29,17 @@ type DbUserBook = {
   book: DbBook | null;
 };
 
-function mapUserBook(row: DbUserBook): UserBook {
-  const totalPages = row.book?.total_paginas ?? null;
+book: row.book
+      ? {
+          id: row.book.id,
+          title: row.book.titulo,
+          author: row.book.autor,
+          cover_url: row.book.capa_url,
+          isbn: row.book.isbn,
+          page_count: row.book.total_paginas,
+          genre: row.book.genero,
+        }
+      : null,
   const isPhysical = row.formato === "fisico";
   return {
     id: row.id,
@@ -105,13 +115,20 @@ export async function updateUserBook(id: string, patch: Partial<UserBook>) {
 
 export async function updateBookInfo(
   bookId: string,
-  patch: { title?: string; author?: string | null; page_count?: number | null; cover_url?: string | null },
+  patch: {
+    title?: string;
+    author?: string | null;
+    page_count?: number | null;
+    cover_url?: string | null;
+    genre?: string | null;
+  },
 ) {
   const db: Record<string, unknown> = {};
   if (patch.title !== undefined) db["titulo"] = patch.title;
   if (patch.author !== undefined) db["autor"] = patch.author;
   if (patch.page_count !== undefined) db["total_paginas"] = patch.page_count;
   if (patch.cover_url !== undefined) db["capa_url"] = patch.cover_url;
+  if (patch.genre !== undefined) db["genero"] = patch.genre;
   if (Object.keys(db).length === 0) return;
   const { data, error } = await supabase.from("books").update(db).eq("id", bookId).select("id");
   if (error) throw new Error(error.message);
@@ -136,6 +153,7 @@ export type NewBookInput = {
   cover_url: string | null;
   isbn: string | null;
   page_count: number | null;
+  genre: string | null;
   status: ShelfStatus;
   format: BookFormat;
 };
@@ -164,6 +182,7 @@ export async function addBookToShelf(
         capa_url: input.cover_url,
         isbn: input.isbn,
         total_paginas: input.page_count,
+        genero: input.genre,
       })
       .select("id")
       .single();
