@@ -157,10 +157,14 @@ function BookDetail() {
               {ub.book.genre}
             </span>
           )}
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="mt-2 text-xs opacity-80">{pct}% concluído</p>
+         {ub.status !== "desejo_compra" && (
+            <>
+              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+              </div>
+              <p className="mt-2 text-xs opacity-80">{pct}% concluído</p>
+            </>
+          )}
           {ub.rating != null && (
             <div className="mt-3">
               <StarRating value={ub.rating} size="sm" />
@@ -226,44 +230,46 @@ function BookDetail() {
         </div>
       )}
 
-      <div className="panel-cream rounded-2xl p-5">
-        <h2 className="font-display text-xl">Atualizar progresso</h2>
-        <div className="mt-3 flex gap-2">
-          <input
-            value={progressInput}
-            onChange={(e) => setProgressInput(e.target.value)}
-            inputMode="numeric"
-            placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
-            className="flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-          />
-          <button
-            onClick={() => saveProgress.mutate()}
-            className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
-          >
-            Salvar
-          </button>
+    {ub.status !== "desejo_compra" && (
+        <div className="panel-cream rounded-2xl p-5">
+          <h2 className="font-display text-xl">Atualizar progresso</h2>
+          <div className="mt-3 flex gap-2">
+            <input
+              value={progressInput}
+              onChange={(e) => setProgressInput(e.target.value)}
+              inputMode="numeric"
+              placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
+              className="flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+            />
+            <button
+              onClick={() => saveProgress.mutate()}
+              className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
+            >
+              Salvar
+            </button>
+          </div>
+
+          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Humor do dia
+          </p>
+          <div className="mt-2">
+            <MoodPicker value={mood} onChange={setMood} />
+          </div>
+
+          {ub.status !== "lido" && (
+            <button
+              onClick={() => setCelebrate(true)}
+              className="mt-6 w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
+            >
+              Concluí este livro
+            </button>
+          )}
         </div>
-
-        <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-          Humor do dia
-        </p>
-        <div className="mt-2">
-          <MoodPicker value={mood} onChange={setMood} />
-        </div>
-
-        {ub.status !== "lido" && (
-          <button
-            onClick={() => setCelebrate(true)}
-            className="mt-6 w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
-          >
-            Concluí este livro
-          </button>
-        )}
-      </div>
-
+      )}
+      
+     {ub.status !== "desejo_compra" && (
       <div className="panel-cream rounded-2xl p-5">
-        <h2 className="font-display text-xl">Anotações e citações</h2>
-        <div className="mt-3 flex gap-2">
+        <h2 className="font-display text-xl">Anotações e citações</h2>        <div className="mt-3 flex gap-2">
           {(["citacao", "nota"] as const).map((k) => (
             <button
               key={k}
@@ -295,7 +301,7 @@ function BookDetail() {
           Guardar
         </button>
 
-        <div className="mt-6 space-y-3">
+       <div className="mt-6 space-y-3">
           {notes?.map((n) => (
             <blockquote
               key={n.id}
@@ -309,9 +315,9 @@ function BookDetail() {
           ))}
         </div>
       </div>
+      )}
 
-      <CelebrationModal
-        open={celebrate}
+      <CelebrationModal        open={celebrate}
         bookTitle={ub.book?.title ?? "Livro"}
         onOpenChange={setCelebrate}
         onSave={async ({ rating, review, favorite }) => {
