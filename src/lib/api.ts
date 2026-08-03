@@ -215,7 +215,7 @@ export async function addBookToShelf(
 export async function listNotes(userBookId: string): Promise<BookNote[]> {
   const { data, error } = await supabase
     .from("book_notes")
-    .select("id, user_book_id, conteudo, tipo, criado_em")
+    .select("id, user_book_id, conteudo, tipo, criado_em, pagina_referencia")
     .eq("user_book_id", userBookId)
     .order("criado_em", { ascending: false });
   const rows = (unwrap(data, error) ?? []) as unknown as Array<{
@@ -224,13 +224,14 @@ export async function listNotes(userBookId: string): Promise<BookNote[]> {
     conteudo: string;
     tipo: string;
     criado_em: string;
+    pagina_referencia: number | null;
   }>;
   return rows.map((r) => ({
     id: r.id,
     user_book_id: r.user_book_id,
     content: r.conteudo,
     kind: r.tipo === "citacao" ? "citacao" : "nota",
-    page: null,
+    page: r.pagina_referencia,
     created_at: r.criado_em,
   }));
 }
@@ -246,6 +247,7 @@ export async function addNote(note: {
     user_book_id: note.user_book_id,
     conteudo: note.content,
     tipo: note.kind === "citacao" ? "citacao" : "anotacao",
+    pagina_referencia: note.page,
   });
   if (error) throw new Error(error.message);
 }
