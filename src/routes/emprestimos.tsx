@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
@@ -79,8 +80,14 @@ function LoansPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["loans"] }),
   });
 
-  const lent = (data ?? []).filter((l) => l.direction === "emprestei" && !l.returned);
-  const borrowed = (data ?? []).filter((l) => l.direction === "peguei_emprestado" && !l.returned);
+  const lentActive = (data ?? []).filter((l) => l.direction === "emprestei" && !l.returned);
+  const lentReturned = (data ?? []).filter((l) => l.direction === "emprestei" && l.returned);
+  const borrowedActive = (data ?? []).filter(
+    (l) => l.direction === "peguei_emprestado" && !l.returned,
+  );
+  const borrowedReturned = (data ?? []).filter(
+    (l) => l.direction === "peguei_emprestado" && l.returned,
+  );
 
   return (
     <section>
@@ -137,51 +144,97 @@ function LoansPage() {
         </button>
       </div>
 
-      <LoanList title="Livros que emprestei" loans={lent} onToggle={toggle.mutate} />
-      <LoanList title="Livros que peguei emprestado" loans={borrowed} onToggle={toggle.mutate} />
+      <LoanList
+        title="Livros que emprestei"
+        activeLoans={lentActive}
+        returnedLoans={lentReturned}
+        onToggle={toggle.mutate}
+      />
+      <LoanList
+        title="Livros que peguei emprestado"
+        activeLoans={borrowedActive}
+        returnedLoans={borrowedReturned}
+        onToggle={toggle.mutate}
+      />
     </section>
   );
 }
 
 function LoanList({
   title,
-  loans,
+  activeLoans,
+  returnedLoans,
   onToggle,
 }: {
   title: string;
-  loans: Loan[];
+  activeLoans: Loan[];
+  returnedLoans: Loan[];
   onToggle: (input: { id: string; returned: boolean }) => void;
 }) {
+  const [showReturned, setShowReturned] = useState(false);
+
   return (
     <div className="mt-8">
       <h2 className="font-display text-xl">{title}</h2>
       <div className="mt-3 space-y-3">
-        {loans.length === 0 && (
+        {activeLoans.length === 0 && (
           <p className="text-sm text-muted-foreground">Nada por aqui ainda.</p>
         )}
-        {loans.map((l) => (
-          <div key={l.id} className="card-teal flex items-center gap-4 rounded-2xl p-4">
-            <div className="min-w-0 flex-1">
-              <h3 className="font-display truncate text-lg">{l.book_title}</h3>
-              <p className="text-sm opacity-70">
-                {l.person_name}
-                {l.due_date ? ` · até ${new Date(l.due_date).toLocaleDateString("pt-BR")}` : ""}
-              </p>
-            </div>
-            <button
-              onClick={() => onToggle({ id: l.id, returned: !l.returned })}
-              className={
-                "shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors " +
-                (l.returned
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-white/25 opacity-80")
-              }
-            >
-              {l.returned ? "Devolvido" : "Marcar devolvido"}
-            </button>
-          </div>
+        {activeLoans.map((l) => (
+          <LoanCard key={l.id} loan={l} onToggle={onToggle} />
         ))}
       </div>
+
+      {returnedLoans.length > 0 && (
+        <div className="mt-3">
+          <button
+            onClick={() => setShowReturned((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {showReturned ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            Ver devolvidos ({returnedLoans.length})
+          </button>
+
+          {showReturned && (
+            <div className="mt-3 space-y-3 opacity-60">
+              {returnedLoans.map((l) => (
+                <LoanCard key={l.id} loan={l} onToggle={onToggle} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoanCard({
+  loan,
+  onToggle,
+}: {
+  loan: Loan;
+  onToggle: (input: { id: string; returned: boolean }) => void;
+}) {
+  return (
+    <div className="card-teal flex items-center gap-4 rounded-2xl p-4">
+      <div className="min-w-0 flex-1">
+        <h3 className="font-display truncate text-lg">{loan.book_title}</h3>
+        <p className="text-sm opacity-70">
+          {loan.person_name}
+          {loan.due_date ? ` · até ${new Date(loan.due_date).toLocaleDateString("pt-BR")}` : ""}
+        </p>
+      </div>
+      <button
+        onClick={() => onToggle({ id: loan.id, returned: !loan.returned })}
+        className={
+          "shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors " +
+          (loan.returned
+            ? "bg-primary text-primary-foreground"
+            : "border border-white/25 opacity-80")
+        }
+      >
+        {loan.returned ? "Devolvido" : "Marcar devolvido"}
+      </button>
     </div>
   );
 }
