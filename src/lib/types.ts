@@ -1,5 +1,5 @@
 export type BookFormat = "fisico" | "ebook" | "audiobook";
-export type ShelfStatus = "lendo" | "quero_ler" | "lido";
+export type ShelfStatus = "lendo" | "quero_ler" | "lido" | "desejo_compra";
 
 export type Book = {
   id: string;
@@ -79,6 +79,7 @@ export const STATUS_LABEL: Record<ShelfStatus, string> = {
   lendo: "Lendo",
   quero_ler: "Quero Ler",
   lido: "Lidos",
+  desejo_compra: "Quero comprar",
 };
 
 export function progressOf(ub: Pick<UserBook, "format" | "current_page" | "total_pages" | "progress_percent" | "status">) {
