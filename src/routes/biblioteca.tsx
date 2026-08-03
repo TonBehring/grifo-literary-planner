@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { LayoutGrid } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
 import { listUserBooks } from "@/lib/api";
@@ -80,9 +81,15 @@ function LibraryPage() {
         {view === "biblioteca" ? (
           <button
             onClick={() => setShowAllGrouped(true)}
-            className="text-sm text-primary underline underline-offset-4"
+            className={
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors " +
+              (showAllGrouped
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-primary/30 text-primary hover:bg-primary/10")
+            }
           >
-            {libraryTotal} livros no total
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Ver tudo ({libraryTotal})
           </button>
         ) : (
           <p className="text-sm text-muted-foreground">{counts.desejo_compra} livros</p>
