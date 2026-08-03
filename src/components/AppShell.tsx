@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Library, HandHeart, Plus, LogOut, ShoppingCart, BarChart3 } from "lucide-react";
+import { BookOpen, Library, HandHeart, Plus, LogOut, ShoppingCart, BarChart3, UserRound } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
@@ -61,6 +61,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Plus className="h-4 w-4" /> Livro
             </Link>
           )}
+        <Link
+            to="/conta"
+            aria-label="Minha conta"
+            className="inline-flex items-center justify-center rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <UserRound className="h-4 w-4" />
+          </Link>
          <button
             aria-label="Sair da conta"
             onClick={() => {
