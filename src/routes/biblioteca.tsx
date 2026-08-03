@@ -44,6 +44,7 @@ function LibraryPage() {
     lendo: all?.filter((b) => b.status === "lendo").length ?? 0,
     quero_ler: all?.filter((b) => b.status === "quero_ler").length ?? 0,
     lido: all?.filter((b) => b.status === "lido").length ?? 0,
+    desejo_compra: all?.filter((b) => b.status === "desejo_compra").length ?? 0,
   };
 
   const data = all?.filter((b) => b.status === tab);
