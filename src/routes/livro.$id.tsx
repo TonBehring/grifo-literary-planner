@@ -52,6 +52,7 @@ function BookDetail() {
   const [mood, setMood] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
+  const [notePage, setNotePage] = useState("");
   const [celebrate, setCelebrate] = useState(false);
   const [editing, setEditing] = useState(false);
 const [confirmDelete, setConfirmDelete] = useState(false);
@@ -106,16 +107,17 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const saveNote = useMutation({
     mutationFn: async () => {
       if (!user || noteText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
-      await addNote({
+     await addNote({
         user_book_id: id,
         user_id: user.id,
         content: noteText.trim().slice(0, 2000),
         kind: noteKind,
-        page: null,
+        page: notePage ? Number(notePage) : null,
       });
     },
     onSuccess: () => {
       setNoteText("");
+      setNotePage("");
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
       toast.success("Anotação guardada");
     },
@@ -350,6 +352,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           placeholder="Grife o trecho que te marcou…"
           className="mt-3 w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
         />
+        <input
+          value={notePage}
+          onChange={(e) => setNotePage(e.target.value.replace(/\D/g, ""))}
+          inputMode="numeric"
+          placeholder="Página (opcional)"
+          className="mt-2 w-32 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+        />
         <button
           onClick={() => saveNote.mutate()}
           className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
@@ -367,6 +376,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               }
             >
               {n.content}
+              {n.page != null && (
+                <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
+                  p. {n.page}
+                </span>
+              )}
             </blockquote>
           ))}
         </div>
