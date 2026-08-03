@@ -79,8 +79,8 @@ function LoansPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["loans"] }),
   });
 
-  const lent = (data ?? []).filter((l) => l.direction === "emprestei");
-  const borrowed = (data ?? []).filter((l) => l.direction === "peguei_emprestado");
+  const lent = (data ?? []).filter((l) => l.direction === "emprestei" && !l.returned);
+  const borrowed = (data ?? []).filter((l) => l.direction === "peguei_emprestado" && !l.returned);
 
   return (
     <section>
