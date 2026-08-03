@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Library, HandHeart, Plus, LogOut, BarChart3 } from "lucide-react";
+import { BookOpen, Library, HandHeart, Plus, LogOut, ShoppingCart } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
   { to: "/biblioteca", label: "Biblioteca", icon: Library },
+  { to: "/desejos", label: "Quero comprar", icon: ShoppingCart },
   { to: "/emprestimos", label: "Empréstimos", icon: HandHeart },
   { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
 ];
