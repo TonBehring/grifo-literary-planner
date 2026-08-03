@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
   { to: "/biblioteca", label: "Biblioteca", icon: Library },
-  { to: "/desejos", label: "Quero comprar", icon: ShoppingCart },
   { to: "/emprestimos", label: "Empréstimos", icon: HandHeart },
   { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
 ];
