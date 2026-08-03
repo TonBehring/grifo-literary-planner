@@ -367,7 +367,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         </button>
 
        <div className="mt-6 space-y-3">
-          {notes?.map((n) => (
+         {notes?.map((n) => (
             <blockquote
               key={n.id}
               className={
@@ -375,6 +375,14 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                 (n.kind === "citacao" ? "font-display text-base italic" : "")
               }
             >
+              <span className="mb-2 flex items-center gap-1.5 text-[10px] font-sans not-italic uppercase tracking-[0.14em] text-primary">
+                {n.kind === "citacao" ? (
+                  <Quote className="h-3 w-3" />
+                ) : (
+                  <StickyNote className="h-3 w-3" />
+                )}
+                {n.kind === "citacao" ? "Citação" : "Nota"}
+              </span>
               {n.content}
               {n.page != null && (
                 <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
@@ -382,8 +390,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                 </span>
               )}
             </blockquote>
-          ))}
-        </div>
+          ))}        </div>
       </div>
       )}
 
