@@ -74,7 +74,7 @@ function LibraryPage() {
 
   return (
     <section>
-      <div className="flex items-baseline justify-between">
+     <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
         <h1 className="font-display text-4xl leading-tight">
           {view === "biblioteca" ? "Minha Biblioteca" : "Quero comprar"}
         </h1>
@@ -82,7 +82,7 @@ function LibraryPage() {
           <button
             onClick={() => setShowAllGrouped(true)}
             className={
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors " +
+              "inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors " +
               (showAllGrouped
                 ? "border-primary bg-primary/15 text-primary"
                 : "border-primary/30 text-primary hover:bg-primary/10")
