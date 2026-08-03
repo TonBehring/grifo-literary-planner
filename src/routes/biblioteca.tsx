@@ -13,7 +13,7 @@ export const Route = createFileRoute("/biblioteca")({
       { title: "Minha Biblioteca — Grifo" },
       {
         name: "description",
-        content: "Organize seus livros entre Lendo, Quero Ler e Lidos na sua biblioteca do Grifo.",
+        content: "Organize seus livros entre Lendo, Quero Ler e Lidos, ou veja sua lista de desejos de compra.",
       },
       { property: "og:title", content: "Minha Biblioteca — Grifo" },
       {
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/biblioteca")({
 const TABS: ShelfStatus[] = ["lendo", "quero_ler", "lido"];
 
 function LibraryPage() {
+  const [view, setView] = useState<"biblioteca" | "desejos">("biblioteca");
   const [tab, setTab] = useState<ShelfStatus>("lendo");
   const { user } = useAuth();
   const { data: all, isLoading } = useQuery({
@@ -47,41 +48,89 @@ function LibraryPage() {
     desejo_compra: all?.filter((b) => b.status === "desejo_compra").length ?? 0,
   };
 
-  const data = all?.filter((b) => b.status === tab);
+  const libraryData = all?.filter((b) => b.status === tab);
+  const wishlistData = all?.filter((b) => b.status === "desejo_compra");
 
   return (
     <section>
       <div className="flex items-baseline justify-between">
-        <h1 className="font-display text-4xl leading-tight">Minha Biblioteca</h1>
-        <p className="text-sm text-muted-foreground">{all?.length ?? 0} livros no total</p>
+        <h1 className="font-display text-4xl leading-tight">
+          {view === "biblioteca" ? "Minha Biblioteca" : "Quero comprar"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {view === "biblioteca"
+            ? `${(all?.length ?? 0) - counts.desejo_compra} livros no total`
+            : `${counts.desejo_compra} livros`}
+        </p>
       </div>
 
-      <div className="mt-6 flex gap-2 rounded-full border border-border bg-secondary/60 p-1 text-sm">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={
-              "flex-1 rounded-full py-2 transition-colors " +
-              (tab === t
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground")
-            }
-          >
-            {STATUS_LABEL[t]} ({counts[t]})
-          </button>
-        ))}
+      <div className="mt-5 flex gap-2 rounded-full border border-primary/30 p-1 text-sm">
+        <button
+          onClick={() => setView("biblioteca")}
+          className={
+            "flex-1 rounded-full py-2 transition-colors " +
+            (view === "biblioteca"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground")
+          }
+        >
+          Minha Biblioteca
+        </button>
+        <button
+          onClick={() => setView("desejos")}
+          className={
+            "flex-1 rounded-full py-2 transition-colors " +
+            (view === "desejos"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground")
+          }
+        >
+          Quero comprar ({counts.desejo_compra})
+        </button>
       </div>
 
-      <div className="mt-6 space-y-4">
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-        {data?.map((ub) => <BookCard key={ub.id} userBook={ub} />)}
-        {data?.length === 0 && !isLoading && (
-          <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
-            Nenhum livro nessa estante ainda.
-          </p>
-        )}
-      </div>
+      {view === "biblioteca" && (
+        <>
+          <div className="mt-4 flex gap-2 rounded-full border border-border bg-secondary/60 p-1 text-sm">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={
+                  "flex-1 rounded-full py-2 transition-colors " +
+                  (tab === t
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                {STATUS_LABEL[t]} ({counts[t]})
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+            {libraryData?.map((ub) => <BookCard key={ub.id} userBook={ub} />)}
+            {libraryData?.length === 0 && !isLoading && (
+              <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
+                Nenhum livro nessa estante ainda.
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {view === "desejos" && (
+        <div className="mt-6 space-y-4">
+          {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+          {wishlistData?.map((ub) => <BookCard key={ub.id} userBook={ub} />)}
+          {wishlistData?.length === 0 && !isLoading && (
+            <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
+              Nenhum livro na sua lista de desejos ainda.
+            </p>
+          )}
+        </div>
+      )}
     </section>
   );
 }
