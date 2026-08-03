@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
 import { listUserBooks } from "@/lib/api";
-import { STATUS_LABEL, type ShelfStatus } from "@/lib/types";
+import { STATUS_LABEL, type ShelfStatus, type UserBook } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/biblioteca")({
@@ -31,9 +31,28 @@ export const Route = createFileRoute("/biblioteca")({
 
 const TABS: ShelfStatus[] = ["lendo", "quero_ler", "lido"];
 
+function ShelfGroup({ status, books }: { status: ShelfStatus; books: UserBook[] }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="font-display text-lg text-muted-foreground">
+        {STATUS_LABEL[status]} ({books.length})
+      </h2>
+      {books.length === 0 && (
+        <p className="panel-cream rounded-2xl p-6 text-center text-sm text-muted-foreground">
+          Nenhum livro nessa estante ainda.
+        </p>
+      )}
+      {books.map((ub) => (
+        <BookCard key={ub.id} userBook={ub} />
+      ))}
+    </div>
+  );
+}
+
 function LibraryPage() {
   const [view, setView] = useState<"biblioteca" | "desejos">("biblioteca");
   const [tab, setTab] = useState<ShelfStatus>("lendo");
+  const [showAllGrouped, setShowAllGrouped] = useState(false);
   const { user } = useAuth();
   const { data: all, isLoading } = useQuery({
     queryKey: ["user_books", "all"],
@@ -48,6 +67,7 @@ function LibraryPage() {
     desejo_compra: all?.filter((b) => b.status === "desejo_compra").length ?? 0,
   };
 
+  const libraryTotal = (all?.length ?? 0) - counts.desejo_compra;
   const libraryData = all?.filter((b) => b.status === tab);
   const wishlistData = all?.filter((b) => b.status === "desejo_compra");
 
@@ -57,11 +77,16 @@ function LibraryPage() {
         <h1 className="font-display text-4xl leading-tight">
           {view === "biblioteca" ? "Minha Biblioteca" : "Quero comprar"}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {view === "biblioteca"
-            ? `${(all?.length ?? 0) - counts.desejo_compra} livros no total`
-            : `${counts.desejo_compra} livros`}
-        </p>
+        {view === "biblioteca" ? (
+          <button
+            onClick={() => setShowAllGrouped(true)}
+            className="text-sm text-primary underline underline-offset-4"
+          >
+            {libraryTotal} livros no total
+          </button>
+        ) : (
+          <p className="text-sm text-muted-foreground">{counts.desejo_compra} livros</p>
+        )}
       </div>
 
       <div className="mt-5 flex gap-2 rounded-full border border-primary/30 p-1 text-sm">
@@ -95,10 +120,13 @@ function LibraryPage() {
             {TABS.map((t) => (
               <button
                 key={t}
-                onClick={() => setTab(t)}
+                onClick={() => {
+                  setTab(t);
+                  setShowAllGrouped(false);
+                }}
                 className={
                   "flex-1 rounded-full py-2 transition-colors " +
-                  (tab === t
+                  (!showAllGrouped && tab === t
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground")
                 }
@@ -108,15 +136,26 @@ function LibraryPage() {
             ))}
           </div>
 
-          <div className="mt-6 space-y-4">
-            {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-            {libraryData?.map((ub) => <BookCard key={ub.id} userBook={ub} />)}
-            {libraryData?.length === 0 && !isLoading && (
-              <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
-                Nenhum livro nessa estante ainda.
-              </p>
-            )}
-          </div>
+          {isLoading && <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>}
+
+          {!isLoading && showAllGrouped && (
+            <div className="mt-6 space-y-8">
+              {TABS.map((t) => (
+                <ShelfGroup key={t} status={t} books={all?.filter((b) => b.status === t) ?? []} />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && !showAllGrouped && (
+            <div className="mt-6 space-y-4">
+              {libraryData?.map((ub) => <BookCard key={ub.id} userBook={ub} />)}
+              {libraryData?.length === 0 && (
+                <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
+                  Nenhum livro nessa estante ainda.
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
 
