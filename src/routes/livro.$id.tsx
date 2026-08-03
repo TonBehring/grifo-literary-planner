@@ -17,7 +17,7 @@ import {
   listNotes,
   updateUserBook,
 } from "@/lib/api";
-import { FORMAT_LABEL, progressOf } from "@/lib/types";
+import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/livro/$id")({
@@ -54,8 +54,10 @@ function BookDetail() {
   const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
   const [celebrate, setCelebrate] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [acquireFormat, setAcquireFormat] = useState<BookFormat>("fisico");
+  const [acquireStatus, setAcquireStatus] = useState<ShelfStatus>("quero_ler");
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -116,6 +118,22 @@ function BookDetail() {
       setNoteText("");
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
       toast.success("Anotação guardada");
+    },
+   onError: (e: Error) => toast.error(e.message),
+  });
+
+  const acquire = useMutation({
+    mutationFn: async () => {
+      await updateUserBook(id, {
+        status: acquireStatus,
+        format: acquireFormat,
+        started_at: acquireStatus === "lendo" ? new Date().toISOString() : null,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Livro adicionado à sua biblioteca!");
+      void queryClient.invalidateQueries({ queryKey: ["user_books"] });
+      navigate({ to: "/biblioteca" });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -230,7 +248,45 @@ function BookDetail() {
         </div>
       )}
 
-    {ub.status !== "desejo_compra" && (
+   {ub.status === "desejo_compra" && (
+        <div className="panel-cream rounded-2xl p-5">
+          <h2 className="font-display text-xl">Adquiri este livro</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Escolha o formato e onde ele vai entrar na sua biblioteca.
+          </p>
+
+          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Formato
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(Object.keys(FORMAT_LABEL) as BookFormat[]).map((f) => (
+              <Chip key={f} active={acquireFormat === f} onClick={() => setAcquireFormat(f)}>
+                {FORMAT_LABEL[f]}
+              </Chip>
+            ))}
+          </div>
+
+          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Estante
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["lendo", "quero_ler", "lido"] as ShelfStatus[]).map((s) => (
+              <Chip key={s} active={acquireStatus === s} onClick={() => setAcquireStatus(s)}>
+                {STATUS_LABEL[s]}
+              </Chip>
+            ))}
+          </div>
+
+          <button
+            onClick={() => acquire.mutate()}
+            disabled={acquire.isPending}
+            className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {acquire.isPending ? "Salvando…" : "Confirmar aquisição"}
+          </button>
+        </div>
+      )}
+      {ub.status !== "desejo_compra" && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">Atualizar progresso</h2>
           <div className="mt-3 flex gap-2">
@@ -341,5 +397,28 @@ function BookDetail() {
         }}
       />
     </section>
+  );
+}
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "rounded-full border px-4 py-2 text-sm transition-colors " +
+        (active
+          ? "border-primary bg-primary/20 text-foreground"
+          : "border-border text-muted-foreground hover:border-primary/50")
+      }
+    >
+      {children}
+    </button>
   );
 }
