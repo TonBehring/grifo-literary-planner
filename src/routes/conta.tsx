@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Camera } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadCover } from "@/lib/cover-upload";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/conta")({
@@ -19,41 +21,52 @@ export const Route = createFileRoute("/conta")({
 function AccountPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [fullName, setFullName] = useState((user?.user_metadata?.full_name as string) ?? "");
   const [nickname, setNickname] = useState((user?.user_metadata?.nickname as string) ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState((user?.user_metadata?.avatar_url as string) ?? "");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  async function save() {
-    if (newPassword && newPassword.length < 6) {
-      toast.error("A nova senha precisa ter pelo menos 6 caracteres.");
-      return;
-    }
-    if (newPassword && newPassword !== confirmPassword) {
-      toast.error("As senhas não coincidem.");
-      return;
-    }
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadCover(file, user.id);
+      const { error } = await supabase.auth.updateUser({ data: { avatar_url: url } });
+      if (error) throw error;
+      setAvatarUrl(url);
+      toast.success("Foto atualizada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a foto");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function save() {
     setSaving(true);
     try {
-      const payload: {
-        data: { full_name: string; nickname: string };
-        email?: string;
-        password?: string;
-      } = {
+      const payload: { data: { full_name: string; nickname: string }; email?: string } = {
         data: { full_name: fullName.trim(), nickname: nickname.trim() },
       };
       if (email.trim() && email.trim() !== user?.email) payload.email = email.trim();
-      if (newPassword) payload.password = newPassword;
 
       const { error } = await supabase.auth.updateUser(payload);
       if (error) throw error;
 
-      setNewPassword("");
-      setConfirmPassword("");
       toast.success(
         payload.email
           ? "Dados salvos! Confirme o novo e-mail na sua caixa de entrada para efetivar a troca."
@@ -66,11 +79,90 @@ function AccountPage() {
     }
   }
 
+  async function verifyCurrentPassword() {
+    if (!user?.email || !currentPassword) return;
+    setVerifying(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (error) {
+        toast.error("Senha atual incorreta.");
+        return;
+      }
+      setPasswordVerified(true);
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function saveNewPassword() {
+    if (newPassword.length < 6) {
+      toast.error("A nova senha precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Senha alterada com sucesso.");
+      setChangingPassword(false);
+      setPasswordVerified(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar a senha.");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  const initial = (nickname || fullName || user?.email || "?").trim().charAt(0).toUpperCase();
+
   return (
     <section>
       <h1 className="font-display text-4xl leading-tight">Minha conta</h1>
 
       <div className="panel-cream mt-6 space-y-4 rounded-2xl p-5">
+        <div className="flex items-center gap-4">
+          <div className="relative h-20 w-20 shrink-0">
+            <div className="h-20 w-20 overflow-hidden rounded-full bg-teal-deep">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Sua foto" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-2xl text-white/80">
+                  {initial}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadingAvatar}
+              aria-label="Trocar foto"
+              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow disabled:opacity-60"
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {uploadingAvatar ? "Enviando foto…" : "Toque no ícone da câmera para trocar sua foto."}
+          </p>
+        </div>
+
         <Field label="Nome completo">
           <input
             value={fullName}
@@ -103,32 +195,6 @@ function AccountPage() {
           Se trocar o e-mail, você vai receber uma confirmação no novo endereço antes da troca valer.
         </p>
 
-        <div className="border-t border-border pt-4">
-          <p className="mb-3 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Trocar senha (opcional)
-          </p>
-          <Field label="Nova senha">
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              minLength={6}
-              maxLength={72}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Confirmar nova senha">
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              minLength={6}
-              maxLength={72}
-              className={inputClass}
-            />
-          </Field>
-        </div>
-
         <button
           onClick={save}
           disabled={saving}
@@ -136,6 +202,80 @@ function AccountPage() {
         >
           {saving ? "Salvando…" : "Salvar alterações"}
         </button>
+
+        <div className="border-t border-border pt-4">
+          {!changingPassword && (
+            <button
+              onClick={() => setChangingPassword(true)}
+              className="text-sm text-primary underline underline-offset-4"
+            >
+              Trocar senha
+            </button>
+          )}
+
+          {changingPassword && !passwordVerified && (
+            <div className="space-y-3">
+              <Field label="Confirme sua senha atual">
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <div className="flex gap-2">
+                <button
+                  onClick={verifyCurrentPassword}
+                  disabled={verifying || !currentPassword}
+                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                >
+                  {verifying ? "Verificando…" : "Confirmar"}
+                </button>
+                <button
+                  onClick={() => {
+                    setChangingPassword(false);
+                    setCurrentPassword("");
+                  }}
+                  className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {changingPassword && passwordVerified && (
+            <div className="space-y-3">
+              <Field label="Nova senha">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  maxLength={72}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Confirmar nova senha">
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  minLength={6}
+                  maxLength={72}
+                  className={inputClass}
+                />
+              </Field>
+              <button
+                onClick={saveNewPassword}
+                disabled={savingPassword}
+                className="w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {savingPassword ? "Salvando…" : "Salvar nova senha"}
+              </button>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => {
