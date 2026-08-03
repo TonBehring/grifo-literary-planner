@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdicionarRouteImport } from './routes/adicionar'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
+import { Route as DesejosRouteImport } from './routes/desejos'
 import { Route as EmprestimosRouteImport } from './routes/emprestimos'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
 import { Route as LivroIdRouteImport } from './routes/livro.$id'
@@ -37,6 +38,11 @@ const BibliotecaRoute = BibliotecaRouteImport.update({
   path: '/biblioteca',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DesejosRoute = DesejosRouteImport.update({
+  id: '/desejos',
+  path: '/desejos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmprestimosRoute = EmprestimosRouteImport.update({
   id: '/emprestimos',
   path: '/emprestimos',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
   '/livro/$id': typeof LivroIdRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
   '/livro/$id': typeof LivroIdRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
   '/livro/$id': typeof LivroIdRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/adicionar'
     | '/auth'
     | '/biblioteca'
+    | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
     | '/livro/$id'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/adicionar'
     | '/auth'
     | '/biblioteca'
+    | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
     | '/livro/$id'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/adicionar'
     | '/auth'
     | '/biblioteca'
+    | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
     | '/livro/$id'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   AdicionarRoute: typeof AdicionarRoute
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
+  DesejosRoute: typeof DesejosRoute
   EmprestimosRoute: typeof EmprestimosRoute
   EstatisticasRoute: typeof EstatisticasRoute
   LivroIdRoute: typeof LivroIdRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BibliotecaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/desejos': {
+      id: '/desejos'
+      path: '/desejos'
+      fullPath: '/desejos'
+      preLoaderRoute: typeof DesejosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/emprestimos': {
       id: '/emprestimos'
       path: '/emprestimos'
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdicionarRoute: AdicionarRoute,
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
+  DesejosRoute: DesejosRoute,
   EmprestimosRoute: EmprestimosRoute,
   EstatisticasRoute: EstatisticasRoute,
   LivroIdRoute: LivroIdRoute,
@@ -187,13 +208,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
