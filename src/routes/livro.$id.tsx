@@ -132,6 +132,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         status: acquireStatus,
         format: acquireFormat,
         started_at: acquireStatus === "lendo" ? new Date().toISOString() : null,
+        abandon_reason: null,
       });
     },
     onSuccess: () => {
@@ -310,11 +311,15 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         </div>
       )}
 
-   {ub.status === "desejo_compra" && (
+   {(ub.status === "desejo_compra" || ub.status === "abandonado") && (
         <div className="panel-cream rounded-2xl p-5">
-          <h2 className="font-display text-xl">Adquiri este livro</h2>
+          <h2 className="font-display text-xl">
+            {ub.status === "abandonado" ? "Retomar leitura" : "Adquiri este livro"}
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Escolha o formato e onde ele vai entrar na sua biblioteca.
+            {ub.status === "abandonado"
+              ? "Escolha para onde este livro volta na sua biblioteca."
+              : "Escolha o formato e onde ele vai entrar na sua biblioteca."}
           </p>
 
           <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
@@ -332,7 +337,10 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             Estante
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {(["lendo", "quero_ler", "lido"] as ShelfStatus[]).map((s) => (
+            {(ub.status === "abandonado"
+              ? (["lendo", "quero_ler"] as ShelfStatus[])
+              : (["lendo", "quero_ler", "lido"] as ShelfStatus[])
+            ).map((s) => (
               <Chip key={s} active={acquireStatus === s} onClick={() => setAcquireStatus(s)}>
                 {STATUS_LABEL[s]}
               </Chip>
@@ -344,11 +352,14 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             disabled={acquire.isPending}
             className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {acquire.isPending ? "Salvando…" : "Confirmar aquisição"}
+            {acquire.isPending
+              ? "Salvando…"
+              : ub.status === "abandonado"
+                ? "Retomar este livro"
+                : "Confirmar aquisição"}
           </button>
         </div>
-      )}
-      {ub.status !== "desejo_compra" && (
+      )}      {ub.status !== "desejo_compra" && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">Atualizar progresso</h2>
           <div className="mt-3 flex gap-2">
