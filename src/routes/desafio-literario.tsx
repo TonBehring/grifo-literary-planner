@@ -252,7 +252,7 @@ function BoardView({ board }: { board: { id: string; periodo_tipo: PeriodoTipo; 
             </p>
             <h2 className="font-display mt-2 text-2xl leading-snug">{celebrate}</h2>
             <p className="mt-2 text-sm opacity-70">
-              {bingo ? "Bingo! Cartela completa." : "Mais um quadradinho grifado na sua cartela."}
+             {bingo ? "Bingo! Cartela completa." : "Mais uma meta grifada. Continue assim."}
             </p>
           </div>
           <button
