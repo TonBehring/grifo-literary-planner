@@ -135,7 +135,7 @@ function SetupView() {
           </button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{selected.length} selecionados</p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+       <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {DESAFIOS.map((d) => {
             const on = selected.includes(d.slug);
             return (
@@ -151,9 +151,46 @@ function SetupView() {
               </button>
             );
           })}
+          {customChallenges.map((texto) => {
+            const on = selected.includes(texto);
+            return (
+              <button
+                key={texto}
+                onClick={() => toggle(texto)}
+                className={cn(
+                  "rounded-xl border p-3 text-left text-sm transition-colors",
+                  on ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground",
+                )}
+              >
+                {texto}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <input
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCustom();
+              }
+            }}
+            maxLength={120}
+            placeholder="Criar um desafio meu (ex: Ler um livro em inglês)"
+            className="flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <button
+            onClick={addCustom}
+            disabled={!customText.trim()}
+            className="rounded-xl border border-primary px-4 text-sm font-medium text-primary disabled:opacity-50"
+          >
+            Adicionar
+          </button>
         </div>
       </div>
-
       <button
         disabled={selected.length === 0 || create.isPending}
         onClick={() => create.mutate()}
