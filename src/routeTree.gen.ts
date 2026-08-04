@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdicionarRouteImport } from './routes/adicionar'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
+import { Route as ContaRouteImport } from './routes/conta'
 import { Route as DesejosRouteImport } from './routes/desejos'
 import { Route as EmprestimosRouteImport } from './routes/emprestimos'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
@@ -36,6 +37,11 @@ const AuthRoute = AuthRouteImport.update({
 const BibliotecaRoute = BibliotecaRouteImport.update({
   id: '/biblioteca',
   path: '/biblioteca',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContaRoute = ContaRouteImport.update({
+  id: '/conta',
+  path: '/conta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DesejosRoute = DesejosRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/conta': typeof ContaRoute
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/conta': typeof ContaRoute
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/adicionar': typeof AdicionarRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/conta': typeof ContaRoute
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/adicionar'
     | '/auth'
     | '/biblioteca'
+    | '/conta'
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/adicionar'
     | '/auth'
     | '/biblioteca'
+    | '/conta'
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/adicionar'
     | '/auth'
     | '/biblioteca'
+    | '/conta'
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AdicionarRoute: typeof AdicionarRoute
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
+  ContaRoute: typeof ContaRoute
   DesejosRoute: typeof DesejosRoute
   EmprestimosRoute: typeof EmprestimosRoute
   EstatisticasRoute: typeof EstatisticasRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/biblioteca'
       fullPath: '/biblioteca'
       preLoaderRoute: typeof BibliotecaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conta': {
+      id: '/conta'
+      path: '/conta'
+      fullPath: '/conta'
+      preLoaderRoute: typeof ContaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/desejos': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdicionarRoute: AdicionarRoute,
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
+  ContaRoute: ContaRoute,
   DesejosRoute: DesejosRoute,
   EmprestimosRoute: EmprestimosRoute,
   EstatisticasRoute: EstatisticasRoute,
