@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { CoverPicker } from "@/components/CoverPicker";
-import { updateBookInfo, updateUserBook } from "@/lib/api";
+import { updateUserBook, updateUserBookOverrides } from "@/lib/api";
 import { uploadCover } from "@/lib/cover-upload";
 import { FORMAT_LABEL, STATUS_LABEL, GENRE_OPTIONS, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -31,19 +31,17 @@ export function BookEditPanel({
     }
     setSaving(true);
     try {
-      if (ub.book_id) {
-        await updateBookInfo(ub.book_id, {
-          title: title.trim(),
-          author: author.trim() || null,
-          page_count: pages ? Number(pages) : null,
-          cover_url: cover,
-          genre,
-        });
-      }      await updateUserBook(ub.id, { format, status });
+      await updateUserBookOverrides(ub.id, {
+        title: title.trim(),
+        author: author.trim() || null,
+        page_count: pages ? Number(pages) : null,
+        cover_url: cover,
+        genre,
+      });
+      await updateUserBook(ub.id, { format, status });
       onSaved();
       toast.success("Informações atualizadas");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível salvar");
+    } catch (err) {      toast.error(err instanceof Error ? err.message : "Não foi possível salvar");
     } finally {
       setSaving(false);
     }
