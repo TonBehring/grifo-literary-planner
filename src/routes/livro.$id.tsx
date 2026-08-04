@@ -59,6 +59,8 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [acquireFormat, setAcquireFormat] = useState<BookFormat>("fisico");
   const [acquireStatus, setAcquireStatus] = useState<ShelfStatus>("quero_ler");
+  const [abandoning, setAbandoning] = useState(false);
+  const [abandonReason, setAbandonReason] = useState("");
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -140,6 +142,21 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     onError: (e: Error) => toast.error(e.message),
   });
 
+ const abandon = useMutation({
+    mutationFn: async () => {
+      await updateUserBook(id, {
+        status: "abandonado",
+        abandon_reason: abandonReason.trim() || null,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Livro movido para abandonados");
+      setAbandoning(false);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -177,6 +194,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               {ub.book.genre}
             </span>
           )}
+          {ub.status === "abandonado" && ub.abandon_reason && (
+            <p className="mt-3 rounded-xl bg-white/10 p-3 text-xs opacity-80">
+              <strong>Motivo do abandono:</strong> {ub.abandon_reason}
+            </p>
+          )}
          {ub.status !== "desejo_compra" && (
             <>
               <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
@@ -201,6 +223,14 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               <Pencil className="h-3.5 w-3.5" />
               {editing ? "Fechar edição" : "Editar"}
             </button>
+            {(ub.status === "lendo" || ub.status === "quero_ler") && (
+              <button
+                onClick={() => setAbandoning((v) => !v)}
+                className="inline-flex items-center gap-1 text-muted-foreground underline underline-offset-4"
+              >
+                Abandonar
+              </button>
+            )}
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
@@ -224,6 +254,36 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             refresh();
           }}
         />
+      )}
+
+      {abandoning && (
+        <div className="panel-cream rounded-2xl p-5">
+          <p className="text-sm">
+            Por que você está abandonando “{ub.book?.title ?? "este livro"}”? (opcional)
+          </p>
+          <textarea
+            value={abandonReason}
+            onChange={(e) => setAbandonReason(e.target.value)}
+            rows={3}
+            placeholder="Ex: não me conectei com a história"
+            className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={() => abandon.mutate()}
+              disabled={abandon.isPending}
+              className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
+            >
+              {abandon.isPending ? "Salvando…" : "Confirmar abandono"}
+            </button>
+            <button
+              onClick={() => setAbandoning(false)}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {confirmDelete && (
@@ -314,7 +374,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             <MoodPicker value={mood} onChange={setMood} />
           </div>
 
-          {ub.status !== "lido" && (
+          {ub.status !== "lido" && ub.status !== "abandonado" && (
             <button
               onClick={() => setCelebrate(true)}
               className="mt-6 w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
