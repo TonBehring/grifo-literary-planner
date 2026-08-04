@@ -14,6 +14,7 @@ import { Route as AdicionarRouteImport } from './routes/adicionar'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
 import { Route as ContaRouteImport } from './routes/conta'
+import { Route as DesafioLiterarioRouteImport } from './routes/desafio-literario'
 import { Route as DesejosRouteImport } from './routes/desejos'
 import { Route as EmprestimosRouteImport } from './routes/emprestimos'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
@@ -44,6 +45,11 @@ const ContaRoute = ContaRouteImport.update({
   path: '/conta',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DesafioLiterarioRoute = DesafioLiterarioRouteImport.update({
+  id: '/desafio-literario',
+  path: '/desafio-literario',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DesejosRoute = DesejosRouteImport.update({
   id: '/desejos',
   path: '/desejos',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/conta': typeof ContaRoute
+  '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/conta': typeof ContaRoute
+  '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/conta': typeof ContaRoute
+  '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/biblioteca'
     | '/conta'
+    | '/desafio-literario'
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/biblioteca'
     | '/conta'
+    | '/desafio-literario'
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/biblioteca'
     | '/conta'
+    | '/desafio-literario'
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
   ContaRoute: typeof ContaRoute
+  DesafioLiterarioRoute: typeof DesafioLiterarioRoute
   DesejosRoute: typeof DesejosRoute
   EmprestimosRoute: typeof EmprestimosRoute
   EstatisticasRoute: typeof EstatisticasRoute
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/desafio-literario': {
+      id: '/desafio-literario'
+      path: '/desafio-literario'
+      fullPath: '/desafio-literario'
+      preLoaderRoute: typeof DesafioLiterarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/desejos': {
       id: '/desejos'
       path: '/desejos'
@@ -221,6 +241,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
   ContaRoute: ContaRoute,
+  DesafioLiterarioRoute: DesafioLiterarioRoute,
   DesejosRoute: DesejosRoute,
   EmprestimosRoute: EmprestimosRoute,
   EstatisticasRoute: EstatisticasRoute,
@@ -229,13 +250,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
