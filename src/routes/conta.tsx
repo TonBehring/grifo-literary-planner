@@ -23,10 +23,10 @@ function AccountPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [fullName, setFullName] = useState((user?.user_metadata?.full_name as string) ?? "");
-  const [nickname, setNickname] = useState((user?.user_metadata?.nickname as string) ?? "");
+  const [fullName, setFullName] = useState((user?.user_metadata?.['full_name'] as string) ?? "");
+  const [nickname, setNickname] = useState((user?.user_metadata?.['nickname'] as string) ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [avatarUrl, setAvatarUrl] = useState((user?.user_metadata?.avatar_url as string) ?? "");
+  const [avatarUrl, setAvatarUrl] = useState((user?.user_metadata?.['avatar_url'] as string) ?? "");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
 

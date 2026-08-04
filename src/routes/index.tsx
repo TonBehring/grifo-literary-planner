@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
