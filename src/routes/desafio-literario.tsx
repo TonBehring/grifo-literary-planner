@@ -80,6 +80,20 @@ function SetupView() {
   const queryClient = useQueryClient();
   const [tipo, setTipo] = useState<PeriodoTipo>("mes");
   const [selected, setSelected] = useState<string[]>(DESAFIOS.map((d) => d.slug));
+  const [customChallenges, setCustomChallenges] = useState<string[]>([]);
+  const [customText, setCustomText] = useState("");
+
+  const addCustom = () => {
+    const texto = customText.trim();
+    if (!texto) return;
+    if (DESAFIOS.some((d) => d.slug === texto) || customChallenges.includes(texto)) {
+      setCustomText("");
+      return;
+    }
+    setCustomChallenges((prev) => [...prev, texto]);
+    setSelected((prev) => [...prev, texto]);
+    setCustomText("");
+  };
 
   const create = useMutation({
     mutationFn: () => createBoard(tipo, selected),
