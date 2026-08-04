@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
 type DbBook = {
   id: string;
@@ -24,6 +24,7 @@ type DbUserBook = {
   nota: number | null;
   resenha: string | null;
   favoritado: boolean | null;
+  motivo_abandono: string | null;
   data_inicio: string | null;
   data_conclusao: string | null;
   book: DbBook | null;
@@ -43,7 +44,8 @@ function mapUserBook(row: DbUserBook): UserBook {
     progress_percent: isPhysical ? null : (row.pagina_atual ?? 0),
     rating: row.nota,
     review: row.resenha,
-    is_favorite: row.favoritado,
+is_favorite: row.favoritado,
+    abandon_reason: row.motivo_abandono,
     started_at: row.data_inicio,
     finished_at: row.data_conclusao,
     book: row.book
@@ -68,7 +70,8 @@ function toDbUserBookPatch(patch: Partial<UserBook>) {
   if (patch.progress_percent !== undefined) db["pagina_atual"] = patch.progress_percent;
   if (patch.rating !== undefined) db["nota"] = patch.rating;
   if (patch.review !== undefined) db["resenha"] = patch.review;
-  if (patch.is_favorite !== undefined) db["favoritado"] = patch.is_favorite;
+if (patch.is_favorite !== undefined) db["favoritado"] = patch.is_favorite;
+  if (patch.abandon_reason !== undefined) db["motivo_abandono"] = patch.abandon_reason;
   if (patch.started_at !== undefined) db["data_inicio"] = patch.started_at;
   if (patch.finished_at !== undefined) db["data_conclusao"] = patch.finished_at;
   return db;
