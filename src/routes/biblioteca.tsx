@@ -98,7 +98,7 @@ function LibraryPage() {
         )}
       </div>
 
-      <div className="mt-5 flex gap-2 rounded-full border border-primary/30 p-1 text-sm">
+      <div className="mt-5 flex gap-2 rounded-full border border-primary/30 p-1 text-xs sm:text-sm">
         <button
           onClick={() => setView("biblioteca")}
           className={
@@ -124,7 +124,7 @@ function LibraryPage() {
         <button
           onClick={() => setView("abandonados")}
           className={
-            "flex-1 rounded-full py-2 text-xs transition-colors sm:text-sm " +
+            "flex-1 rounded-full py-2 transition-colors " +
             (view === "abandonados"
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-foreground")
