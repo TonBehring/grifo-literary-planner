@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
 type DbBook = {
   id: string;
@@ -25,13 +25,29 @@ type DbUserBook = {
   resenha: string | null;
   favoritado: boolean | null;
   motivo_abandono: string | null;
+  titulo_override: string | null;
+  autor_override: string | null;
+  capa_url_override: string | null;
+  genero_override: string | null;
+  total_paginas_override: number | null;
   data_inicio: string | null;
   data_conclusao: string | null;
   book: DbBook | null;
 };
 
 function mapUserBook(row: DbUserBook): UserBook {
-  const totalPages = row.book?.total_paginas ?? null;
+  const effectiveBook = row.book
+    ? {
+        id: row.book.id,
+        titulo: row.titulo_override ?? row.book.titulo,
+        autor: row.autor_override ?? row.book.autor,
+        capa_url: row.capa_url_override ?? row.book.capa_url,
+        isbn: row.book.isbn,
+        total_paginas: row.total_paginas_override ?? row.book.total_paginas,
+        genero: row.genero_override ?? row.book.genero,
+      }
+    : null;
+  const totalPages = effectiveBook?.total_paginas ?? null;
   const isPhysical = row.formato === "fisico";
   return {
     id: row.id,
@@ -44,19 +60,19 @@ function mapUserBook(row: DbUserBook): UserBook {
     progress_percent: isPhysical ? null : (row.pagina_atual ?? 0),
     rating: row.nota,
     review: row.resenha,
-is_favorite: row.favoritado,
+    is_favorite: row.favoritado,
     abandon_reason: row.motivo_abandono,
     started_at: row.data_inicio,
     finished_at: row.data_conclusao,
-    book: row.book
+    book: effectiveBook
       ? {
-          id: row.book.id,
-          title: row.book.titulo,
-          author: row.book.autor,
-          cover_url: row.book.capa_url,
-          isbn: row.book.isbn,
-          page_count: row.book.total_paginas,
-          genre: row.book.genero,
+          id: effectiveBook.id,
+          title: effectiveBook.titulo,
+          author: effectiveBook.autor,
+          cover_url: effectiveBook.capa_url,
+          isbn: effectiveBook.isbn,
+          page_count: effectiveBook.total_paginas,
+          genre: effectiveBook.genero,
         }
       : null,
   };
@@ -105,6 +121,27 @@ export async function updateUserBook(id: string, patch: Partial<UserBook>) {
     .from("user_books")
     .update(toDbUserBookPatch(patch))
     .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateUserBookOverrides(
+  userBookId: string,
+  overrides: {
+    title?: string;
+    author?: string | null;
+    cover_url?: string | null;
+    genre?: string | null;
+    page_count?: number | null;
+  },
+) {
+  const db: Record<string, unknown> = {};
+  if (overrides.title !== undefined) db["titulo_override"] = overrides.title;
+  if (overrides.author !== undefined) db["autor_override"] = overrides.author;
+  if (overrides.cover_url !== undefined) db["capa_url_override"] = overrides.cover_url;
+  if (overrides.genre !== undefined) db["genero_override"] = overrides.genre;
+  if (overrides.page_count !== undefined) db["total_paginas_override"] = overrides.page_count;
+  if (Object.keys(db).length === 0) return;
+  const { error } = await supabase.from("user_books").update(db).eq("id", userBookId);
   if (error) throw new Error(error.message);
 }
 
