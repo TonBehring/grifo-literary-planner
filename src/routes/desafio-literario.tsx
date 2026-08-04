@@ -139,13 +139,14 @@ function SetupView() {
           <p className="font-display text-lg">Escolha os desafios</p>
           <button
             onClick={() =>
-              setSelected((prev) =>
-                prev.length === DESAFIOS.length ? [] : DESAFIOS.map((d) => d.slug),
-              )
+              setSelected((prev) => {
+                const todos = [...DESAFIOS.map((d) => d.slug), ...customChallenges];
+                return prev.length === todos.length ? [] : todos;
+              })
             }
             className="text-xs text-primary underline-offset-4 hover:underline"
           >
-            {selected.length === DESAFIOS.length ? "Limpar todos" : "Selecionar todos"}
+            {selected.length === DESAFIOS.length + customChallenges.length ? "Limpar todos" : "Selecionar todos"}
           </button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{selected.length} selecionados</p>
