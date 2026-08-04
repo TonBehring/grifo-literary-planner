@@ -30,10 +30,14 @@ export async function uploadCover(file: File, userId: string): Promise<string> {
     .from("capas")
     .upload(path, file, { cacheControl: "3600", upsert: false });
 
-  if (!error) {
-    const { data } = supabase.storage.from("capas").getPublicUrl(path);
-    if (data?.publicUrl) return data.publicUrl;
+if (error) {
+    console.error("Falha ao enviar imagem para o Storage:", error);
+    throw new Error("Não foi possível enviar a imagem. Tente novamente em alguns instantes.");
   }
 
-  return compressToDataUrl(file);
+  const { data } = supabase.storage.from("capas").getPublicUrl(path);
+  if (!data?.publicUrl) {
+    throw new Error("Não foi possível gerar o link da imagem enviada.");
+  }
+  return data.publicUrl;
 }
