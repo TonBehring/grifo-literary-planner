@@ -14,12 +14,12 @@ export const Route = createFileRoute("/biblioteca")({
       { title: "Minha Biblioteca — Grifo" },
       {
         name: "description",
-        content: "Organize seus livros entre Lendo, Quero Ler e Lidos, ou veja sua lista de desejos de compra.",
+        content: "Organize seus livros entre Lendo, Quero Ler, Lidos e Abandonados, ou veja sua lista de desejos de compra.",
       },
       { property: "og:title", content: "Minha Biblioteca — Grifo" },
       {
         property: "og:description",
-        content: "Todas as suas leituras organizadas em três estantes.",
+        content: "Todas as suas leituras organizadas em quatro estantes.",
       },
     ],
   }),
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/biblioteca")({
   ),
 });
 
-const TABS: ShelfStatus[] = ["lendo", "quero_ler", "lido"];
+const TABS: ShelfStatus[] = ["lendo", "quero_ler", "lido", "abandonado"];
 
 function ShelfGroup({ status, books }: { status: ShelfStatus; books: UserBook[] }) {
   return (
@@ -51,7 +51,7 @@ function ShelfGroup({ status, books }: { status: ShelfStatus; books: UserBook[] 
 }
 
 function LibraryPage() {
-  const [view, setView] = useState<"biblioteca" | "desejos" | "abandonados">("biblioteca");
+  const [view, setView] = useState<"biblioteca" | "desejos">("biblioteca");
   const [tab, setTab] = useState<ShelfStatus>("lendo");
   const [showAllGrouped, setShowAllGrouped] = useState(false);
   const { user } = useAuth();
@@ -72,13 +72,12 @@ function LibraryPage() {
   const libraryTotal = (all?.length ?? 0) - counts.desejo_compra;
   const libraryData = all?.filter((b) => b.status === tab);
   const wishlistData = all?.filter((b) => b.status === "desejo_compra");
-  const abandonedData = all?.filter((b) => b.status === "abandonado");
 
   return (
     <section>
-     <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
-       <h1 className="font-display text-4xl leading-tight">
-          {view === "biblioteca" ? "Minha Biblioteca" : view === "desejos" ? "Quero comprar" : "Abandonados"}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
+        <h1 className="font-display text-4xl leading-tight">
+          {view === "biblioteca" ? "Minha Biblioteca" : "Quero comprar"}
         </h1>
         {view === "biblioteca" ? (
           <button
@@ -98,7 +97,7 @@ function LibraryPage() {
         )}
       </div>
 
-      <div className="mt-5 flex gap-2 rounded-full border border-primary/30 p-1 text-xs sm:text-sm">
+      <div className="mt-5 flex gap-2 rounded-full border border-primary/30 p-1 text-sm">
         <button
           onClick={() => setView("biblioteca")}
           className={
@@ -121,22 +120,11 @@ function LibraryPage() {
         >
           Quero comprar ({counts.desejo_compra})
         </button>
-        <button
-          onClick={() => setView("abandonados")}
-          className={
-            "flex-1 rounded-full py-2 transition-colors " +
-            (view === "abandonados"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground")
-          }
-        >
-          Abandonados ({counts.abandonado})
-        </button>
       </div>
 
       {view === "biblioteca" && (
         <>
-          <div className="mt-4 flex gap-2 rounded-full border border-border bg-secondary/60 p-1 text-sm">
+          <div className="mt-4 flex gap-2 rounded-full border border-border bg-secondary/60 p-1 text-xs sm:text-sm">
             {TABS.map((t) => (
               <button
                 key={t}
@@ -186,28 +174,6 @@ function LibraryPage() {
           {wishlistData?.length === 0 && !isLoading && (
             <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
               Nenhum livro na sua lista de desejos ainda.
-            </p>
-          )}
-        </div>
-      )}
-
-      {view === "abandonados" && (
-        <div className="mt-6 space-y-3">
-          {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-          {abandonedData?.map((ub) => (
-            <div key={ub.id} className="panel-cream rounded-2xl p-4">
-              <p className="font-display text-lg">{ub.book?.title}</p>
-              <p className="text-sm text-muted-foreground">{ub.book?.author ?? "Autor desconhecido"}</p>
-              {ub.abandon_reason && (
-                <p className="mt-2 text-sm">
-                  <strong>Por quê?</strong> {ub.abandon_reason}
-                </p>
-              )}
-            </div>
-          ))}
-          {abandonedData?.length === 0 && !isLoading && (
-            <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
-              Nenhum livro abandonado por aqui.
             </p>
           )}
         </div>
