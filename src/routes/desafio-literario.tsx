@@ -244,7 +244,7 @@ function BoardView({ board }: { board: { id: string; periodo_tipo: PeriodoTipo; 
       </div>
 
       <Dialog open={celebrate !== null} onOpenChange={(o) => !o && setCelebrate(null)}>
-        <DialogContent className="card-teal max-w-md rounded-3xl border-none p-7">
+        <DialogContent className="panel-cream max-w-md rounded-3xl border-none p-7">
           <div className="text-center">
             <Sparkles className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-3 text-[11px] tracking-[0.2em] text-primary uppercase">
