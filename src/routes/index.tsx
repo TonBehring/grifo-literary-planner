@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
@@ -46,6 +47,14 @@ function Dashboard() {
         Sua estante viva
       </p>
       <h1 className="font-display mt-2 text-4xl leading-tight">Lendo Agora</h1>
+
+      <Link
+        to="/desafio-literario"
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        Desafio Literário
+      </Link>
 
       <div className="mt-7 space-y-4">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando leituras…</p>}
