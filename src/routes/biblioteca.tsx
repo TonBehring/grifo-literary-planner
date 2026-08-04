@@ -51,7 +51,7 @@ function ShelfGroup({ status, books }: { status: ShelfStatus; books: UserBook[] 
 }
 
 function LibraryPage() {
-  const [view, setView] = useState<"biblioteca" | "desejos">("biblioteca");
+  const [view, setView] = useState<"biblioteca" | "desejos" | "abandonados">("biblioteca");
   const [tab, setTab] = useState<ShelfStatus>("lendo");
   const [showAllGrouped, setShowAllGrouped] = useState(false);
   const { user } = useAuth();
@@ -66,17 +66,19 @@ function LibraryPage() {
     quero_ler: all?.filter((b) => b.status === "quero_ler").length ?? 0,
     lido: all?.filter((b) => b.status === "lido").length ?? 0,
     desejo_compra: all?.filter((b) => b.status === "desejo_compra").length ?? 0,
+    abandonado: all?.filter((b) => b.status === "abandonado").length ?? 0,
   };
 
   const libraryTotal = (all?.length ?? 0) - counts.desejo_compra;
   const libraryData = all?.filter((b) => b.status === tab);
   const wishlistData = all?.filter((b) => b.status === "desejo_compra");
+  const abandonedData = all?.filter((b) => b.status === "abandonado");
 
   return (
     <section>
      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
-        <h1 className="font-display text-4xl leading-tight">
-          {view === "biblioteca" ? "Minha Biblioteca" : "Quero comprar"}
+       <h1 className="font-display text-4xl leading-tight">
+          {view === "biblioteca" ? "Minha Biblioteca" : view === "desejos" ? "Quero comprar" : "Abandonados"}
         </h1>
         {view === "biblioteca" ? (
           <button
@@ -118,6 +120,17 @@ function LibraryPage() {
           }
         >
           Quero comprar ({counts.desejo_compra})
+        </button>
+        <button
+          onClick={() => setView("abandonados")}
+          className={
+            "flex-1 rounded-full py-2 text-xs transition-colors sm:text-sm " +
+            (view === "abandonados"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground")
+          }
+        >
+          Abandonados ({counts.abandonado})
         </button>
       </div>
 
@@ -173,6 +186,28 @@ function LibraryPage() {
           {wishlistData?.length === 0 && !isLoading && (
             <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
               Nenhum livro na sua lista de desejos ainda.
+            </p>
+          )}
+        </div>
+      )}
+
+      {view === "abandonados" && (
+        <div className="mt-6 space-y-3">
+          {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+          {abandonedData?.map((ub) => (
+            <div key={ub.id} className="panel-cream rounded-2xl p-4">
+              <p className="font-display text-lg">{ub.book?.title}</p>
+              <p className="text-sm text-muted-foreground">{ub.book?.author ?? "Autor desconhecido"}</p>
+              {ub.abandon_reason && (
+                <p className="mt-2 text-sm">
+                  <strong>Por quê?</strong> {ub.abandon_reason}
+                </p>
+              )}
+            </div>
+          ))}
+          {abandonedData?.length === 0 && !isLoading && (
+            <p className="panel-cream rounded-2xl p-8 text-center text-sm text-muted-foreground">
+              Nenhum livro abandonado por aqui.
             </p>
           )}
         </div>
