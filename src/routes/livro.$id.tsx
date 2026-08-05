@@ -17,7 +17,7 @@ import {
   listNotes,
   updateUserBook,
 } from "@/lib/api";
-import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type ShelfStatus } from "@/lib/types";
+import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/livro/$id")({
@@ -83,10 +83,17 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       if (!ub) return;
       const value = Number(progressInput);
       if (!Number.isFinite(value) || value < 0) throw new Error("Valor inválido");
-      const patch =
+      const patch: Partial<UserBook> =
         ub.format === "fisico"
           ? { current_page: Math.round(value) }
           : { progress_percent: Math.min(100, Math.round(value)) };
+      if (ub.status === "quero_ler" || ub.status === "abandonado") {
+        patch.status = "lendo";
+        patch.abandon_reason = null;
+        if (!ub.started_at) {
+          patch.started_at = new Date().toISOString();
+        }
+      }
       await updateUserBook(id, patch);
       if (mood && user) {
         await addReadingLog({
