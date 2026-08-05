@@ -3,10 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
 import { addLoan, findUserByEmail, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
 import type { Loan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
+
+const optionalEmailSchema = z.union([
+  z.literal(""),
+  z.string().trim().email("Informe um e-mail válido").max(254, "E-mail muito longo"),
+]);
 
 export const Route = createFileRoute("/emprestimos")({
   head: () => ({
@@ -40,7 +46,7 @@ function LoansPage() {
   const [dueDate, setDueDate] = useState("");
 
   const { data } = useQuery({
-    queryKey: ["loans"],
+    queryKey: ["loans", user?.id],
     queryFn: () => {
       if (!user) throw new Error("Sessão expirada");
       return listLoans(user.id);
@@ -58,7 +64,7 @@ function LoansPage() {
     mutationFn: async () => {
       if (!user) throw new Error("Sessão expirada");
       if (!userBookId || !personName.trim()) throw new Error("Escolha o livro e informe a pessoa");
-      const cleanEmail = personEmail.trim();
+      const cleanEmail = optionalEmailSchema.parse(personEmail.trim());
       const linkedUser = cleanEmail ? await findUserByEmail(cleanEmail) : null;
       await addLoan({
         user_id: user.id,
