@@ -62,12 +62,14 @@ export type ReadingLog = {
 export type Loan = {
   id: string;
   user_id: string;
+  linked_user_id: string | null;
   user_book_id: string | null;
   direction: "emprestei" | "peguei_emprestado";
   person_name: string;
   book_title: string;
   due_date: string | null;
   returned: boolean | null;
+  is_owner: boolean;
 };
 
 export const FORMAT_LABEL: Record<BookFormat, string> = {
