@@ -106,7 +106,16 @@ export function BookEditPanel({
         </p>
       </div>
 
-      <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
+     <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {(Object.keys(FORMAT_LABEL) as BookFormat[]).map((f) => (
+          <Chip key={f} active={format === f} onClick={() => setFormat(f)}>
+            {FORMAT_LABEL[f]}
+          </Chip>
+        ))}
+      </div>
+
+      <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Estante</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {(Object.keys(STATUS_LABEL) as ShelfStatus[])
           .filter((s) => s !== "abandonado")
@@ -115,15 +124,6 @@ export function BookEditPanel({
               {STATUS_LABEL[s]}
             </Chip>
           ))}
-      </div>
-
-      <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Estante</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {(Object.keys(STATUS_LABEL) as ShelfStatus[]).map((s) => (
-          <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
-            {STATUS_LABEL[s]}
-          </Chip>
-        ))}
       </div>
 
       <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Gênero</p>
