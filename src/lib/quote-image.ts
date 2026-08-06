@@ -117,18 +117,23 @@ export async function generateQuoteImage(opts: {
 
 export async function shareOrDownloadImage(blob: Blob, filename: string) {
   const file = new File([blob], filename, { type: "image/png" });
-  const nav = navigator as Navigator & {
-    canShare?: (data: { files: File[] }) => boolean;
-    share?: (data: { files: File[]; title?: string }) => Promise<void>;
-  };
-  if (nav.canShare?.({ files: [file] }) && nav.share) {
+  const canShare =
+    typeof navigator !== "undefined" &&
+    typeof (navigator as unknown as { canShare?: (data: unknown) => boolean }).canShare ===
+      "function" &&
+    (navigator as unknown as { canShare: (data: unknown) => boolean }).canShare({ files: [file] });
+
+  if (canShare) {
     try {
-      await nav.share({ files: [file], title: "Grifo" });
+      await (
+        navigator as unknown as { share: (data: unknown) => Promise<void> }
+      ).share({ files: [file], title: "Grifo" });
       return;
     } catch {
       /* usuário cancelou ou o navegador falhou; cai no download */
     }
   }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
