@@ -3,16 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
-import { addLoan, findUserByEmail, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
+import { addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
+import { listContacts, type Contato } from "@/lib/contatos";
 import type { Loan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-
-const optionalEmailSchema = z.union([
-  z.literal(""),
-  z.string().trim().email("Informe um e-mail válido").max(254, "E-mail muito longo"),
-]);
 
 export const Route = createFileRoute("/emprestimos")({
   head: () => ({
@@ -41,8 +36,9 @@ function LoansPage() {
   const queryClient = useQueryClient();
   const [direction, setDirection] = useState<Loan["direction"]>("emprestei");
   const [userBookId, setUserBookId] = useState("");
+  const [mode, setMode] = useState<"contato" | "manual">("contato");
+  const [contactId, setContactId] = useState("");
   const [personName, setPersonName] = useState("");
-  const [personEmail, setPersonEmail] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   const { data } = useQuery({
@@ -60,40 +56,43 @@ function LoansPage() {
     enabled: Boolean(user),
   });
 
+  const { data: contacts } = useQuery({
+    queryKey: ["contatos"],
+    queryFn: () => listContacts(),
+    enabled: Boolean(user),
+  });
+
   const create = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Sessão expirada");
-      if (!userBookId || !personName.trim()) throw new Error("Escolha o livro e informe a pessoa");
-      const cleanEmail = optionalEmailSchema.parse(personEmail.trim());
-      const linkedUser = cleanEmail ? await findUserByEmail(cleanEmail) : null;
+      if (!userBookId) throw new Error("Escolha o livro");
+      const selectedContact =
+        mode === "contato" ? (contacts ?? []).find((c) => c.id === contactId) : undefined;
+      if (mode === "contato" && !selectedContact) throw new Error("Escolha um contato");
+      if (mode === "manual" && !personName.trim()) throw new Error("Informe o nome da pessoa");
       await addLoan({
         user_id: user.id,
-        linked_user_id: linkedUser?.id ?? null,
+        linked_user_id: selectedContact?.id ?? null,
         user_book_id: userBookId,
         direction,
-        person_name: personName.trim().slice(0, 100),
+        person_name: selectedContact?.nome ?? personName.trim().slice(0, 100),
         due_date: dueDate || null,
         returned: false,
       });
-      return { linkedUser, attemptedLink: Boolean(cleanEmail) };
+      return { selectedContact };
     },
-    onSuccess: ({ linkedUser, attemptedLink }) => {
+    onSuccess: ({ selectedContact }) => {
       setUserBookId("");
+      setContactId("");
       setPersonName("");
-      setPersonEmail("");
       setDueDate("");
       void queryClient.invalidateQueries({ queryKey: ["loans"] });
-      if (linkedUser) {
-        toast.success(`Empréstimo vinculado a ${linkedUser.name}`);
-      } else if (attemptedLink) {
-        toast.warning("Conta não encontrada; o empréstimo foi salvo sem vínculo.");
-      } else {
-        toast.success("Empréstimo registrado");
-      }
+      toast.success(
+        selectedContact ? `Empréstimo vinculado a ${selectedContact.nome}` : "Empréstimo registrado",
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
   const toggle = useMutation({
     mutationFn: ({ id, returned }: { id: string; returned: boolean }) =>
       setLoanReturned(id, returned),
@@ -143,22 +142,49 @@ function LoansPage() {
             </option>
           ))}
         </select>
-        <input
-          value={personName}
-          onChange={(e) => setPersonName(e.target.value)}
-          maxLength={100}
-          placeholder={direction === "emprestei" ? "Para quem?" : "De quem?"}
-          className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
-        <input
-          type="email"
-          value={personEmail}
-          onChange={(e) => setPersonEmail(e.target.value)}
-          maxLength={254}
-          placeholder="E-mail da pessoa (se ela tiver conta no Grifo)"
-          aria-label="E-mail da pessoa"
-          className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
+       <div className="mt-3 flex gap-2">
+          {(["contato", "manual"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={
+                "flex-1 rounded-full border px-4 py-2 text-sm transition-colors " +
+                (mode === m
+                  ? "border-primary bg-primary/20"
+                  : "border-border text-muted-foreground")
+              }
+            >
+              {m === "contato" ? "Vincular a um contato" : "Pessoa sem conta no Grifo"}
+            </button>
+          ))}
+        </div>
+
+        {mode === "contato" ? (
+          <select
+            value={contactId}
+            onChange={(e) => setContactId(e.target.value)}
+            aria-label="Contato"
+            className="mt-3 w-full rounded-xl border border-border bg-transparent px-4 py-3 text-sm outline-none focus:border-primary"
+          >
+            <option value="">
+              {(contacts ?? []).length === 0 ? "Você ainda não tem contatos" : "Escolha um contato"}
+            </option>
+            {(contacts ?? []).map((c: Contato) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+                {c.username ? ` (@${c.username})` : ""}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            value={personName}
+            onChange={(e) => setPersonName(e.target.value)}
+            maxLength={100}
+            placeholder={direction === "emprestei" ? "Para quem?" : "De quem?"}
+            className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+        )}
         <input
           type="date"
           value={dueDate}
