@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Quote, StickyNote, Trash2, Pencil } from "lucide-react";
+import { Quote, Share2, StickyNote, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -17,7 +17,8 @@ import {
   listNotes,
   updateUserBook,
 } from "@/lib/api";
-import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type ShelfStatus, type UserBook } from "@/lib/types";
+import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
+import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/livro/$id")({
@@ -59,8 +60,9 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [acquireFormat, setAcquireFormat] = useState<BookFormat>("fisico");
   const [acquireStatus, setAcquireStatus] = useState<ShelfStatus>("quero_ler");
-  const [abandoning, setAbandoning] = useState(false);
+ const [abandoning, setAbandoning] = useState(false);
   const [abandonReason, setAbandonReason] = useState("");
+  const [sharingId, setSharingId] = useState<string | null>(null);
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -72,6 +74,29 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     queryFn: () => listNotes(id),
     enabled: Boolean(user),
   });
+
+  const { data: notes } = useQuery({
+    queryKey: ["notes", id],
+    queryFn: () => listNotes(id),
+    enabled: Boolean(user),
+  });
+
+  async function shareQuote(note: BookNote) {
+    setSharingId(note.id);
+    try {
+      const blob = await generateQuoteImage({
+        quote: note.content,
+        page: note.page,
+        bookTitle: ub?.book?.title ?? "Livro",
+        bookAuthor: ub?.book?.author,
+      });
+      await shareOrDownloadImage(blob, `grifo-citacao-${note.id}.png`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível gerar a imagem.");
+    } finally {
+      setSharingId(null);
+    }
+  }
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["user_book", id] });
@@ -445,31 +470,43 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         </button>
 
        <div className="mt-6 space-y-3">
-         {notes?.map((n) => (
-            <blockquote
-              key={n.id}
-              className={
-                "rounded-xl border-l-2 border-primary bg-secondary/50 p-4 text-sm " +
-                (n.kind === "citacao" ? "font-display text-base italic" : "")
-              }
-            >
-              <span className="mb-2 flex items-center gap-1.5 text-[10px] font-sans not-italic uppercase tracking-[0.14em] text-primary">
-                {n.kind === "citacao" ? (
-                  <Quote className="h-3 w-3" />
-                ) : (
-                  <StickyNote className="h-3 w-3" />
-                )}
-                {n.kind === "citacao" ? "Citação" : "Nota"}
-              </span>
-              {n.content}
-              {n.page != null && (
-                <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
-                  p. {n.page}
-                </span>
-              )}
-            </blockquote>
-          ))}        </div>
-      </div>
+        {notes?.map((n) => (
+           <blockquote
+             key={n.id}
+             className={
+               "rounded-xl border-l-2 border-primary bg-secondary/50 p-4 text-sm " +
+               (n.kind === "citacao" ? "font-display text-base italic" : "")
+             }
+           >
+             <span className="mb-2 flex items-center justify-between gap-1.5 text-[10px] font-sans not-italic uppercase tracking-[0.14em] text-primary">
+               <span className="flex items-center gap-1.5">
+                 {n.kind === "citacao" ? (
+                   <Quote className="h-3 w-3" />
+                 ) : (
+                   <StickyNote className="h-3 w-3" />
+                 )}
+                 {n.kind === "citacao" ? "Citação" : "Nota"}
+               </span>
+               {n.kind === "citacao" && (
+                 <button
+                   type="button"
+                   aria-label="Compartilhar citação"
+                   disabled={sharingId === n.id}
+                   onClick={() => void shareQuote(n)}
+                   className="not-italic text-primary disabled:opacity-50"
+                 >
+                   <Share2 className="h-3.5 w-3.5" />
+                 </button>
+               )}
+             </span>
+             {n.content}
+             {n.page != null && (
+               <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
+                 p. {n.page}
+               </span>
+             )}
+           </blockquote>
+         ))}        </div>      </div>
       )}
 
       <CelebrationModal        open={celebrate}
