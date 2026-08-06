@@ -75,13 +75,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     enabled: Boolean(user),
   });
 
-  const { data: notes } = useQuery({
-    queryKey: ["notes", id],
-    queryFn: () => listNotes(id),
-    enabled: Boolean(user),
-  });
-
-  async function shareQuote(note: BookNote) {
+   async function shareQuote(note: BookNote) {
     setSharingId(note.id);
     try {
       const blob = await generateQuoteImage({
