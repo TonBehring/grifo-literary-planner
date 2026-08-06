@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { listContacts } from "./contatos";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
@@ -325,20 +326,11 @@ export async function listLoans(currentUserId: string): Promise<Loan[]> {
     user_book: { book: { titulo: string } | null } | null;
   }>;
 
-  const ownerIds = [
-    ...new Set(rows.filter((row) => row.user_id !== currentUserId).map((row) => row.user_id)),
-  ];
-  const ownerNames = new Map<string, string>();
-  if (ownerIds.length > 0) {
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, nome_exibicao, email")
-      .in("id", ownerIds);
-    if (profilesError) throw new Error(profilesError.message);
-    for (const profile of profiles ?? []) {
-      const fallbackName = profile.email?.split("@")[0] ?? "Usuário do Grifo";
-      ownerNames.set(profile.id, profile.nome_exibicao?.trim() || fallbackName);
-    }
+  const needsNames = rows.some((row) => row.user_id !== currentUserId);
+  const contactNames = new Map<string, string>();
+  if (needsNames) {
+    const contacts = await listContacts();
+    for (const c of contacts) contactNames.set(c.id, c.nome);
   }
 
   return rows.map((r) => ({
@@ -355,7 +347,7 @@ export async function listLoans(currentUserId: string): Promise<Loan[]> {
     person_name:
       r.user_id === currentUserId
         ? r.pessoa_nome
-        : (ownerNames.get(r.user_id) ?? "Usuário do Grifo"),
+        : (contactNames.get(r.user_id) ?? "Usuário do Grifo"),
     book_title: r.user_book?.book?.titulo ?? "Livro",
     due_date: r.data_prevista_devolucao,
     returned: r.status === "devolvido",
@@ -372,16 +364,6 @@ export type NewLoanInput = {
   due_date: string | null;
   returned: boolean;
 };
-
-export async function findUserByEmail(email: string): Promise<{ id: string; name: string } | null> {
-  const { data, error } = await supabase.rpc("buscar_usuario_por_email", {
-    email_busca: email.trim(),
-  });
-  if (error) throw new Error(error.message);
-  const match = (data as Array<{ id: string; nome: string }> | null)?.[0];
-  return match ? { id: match.id, name: match.nome } : null;
-}
-
 export async function addLoan(loan: NewLoanInput) {
   const { error } = await supabase.from("loans").insert({
     user_id: loan.user_id,
