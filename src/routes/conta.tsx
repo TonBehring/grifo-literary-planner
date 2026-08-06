@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { Camera, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { ContatosPanel } from "@/components/ContatosPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCover } from "@/lib/cover-upload";
 import { useAuth } from "@/lib/auth";
@@ -301,15 +302,18 @@ const [changingPassword, setChangingPassword] = useState(false);
           )}
         </div>
 
-        <button
-          onClick={() => {
-            void signOut().then(() => navigate({ to: "/auth" }));
-          }}
-          className="w-full rounded-xl border border-destructive/40 py-3 text-sm text-destructive"
-        >
-          Sair da conta
-        </button>
       </div>
+
+      <ContatosPanel />
+
+      <button
+        onClick={() => {
+          void signOut().then(() => navigate({ to: "/auth" }));
+        }}
+        className="mt-6 w-full rounded-xl border border-destructive/40 py-3 text-sm text-destructive"
+      >
+        Sair da conta
+      </button>
     </section>
   );
 }
