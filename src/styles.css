@@ -181,3 +181,11 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
