@@ -51,7 +51,7 @@ type LogRow = { humor: string | null; paginas_lidas: number | null; data: string
 async function fetchFinished(userId: string) {
   const { data, error } = await supabase
     .from("user_books")
-    .select("id, data_conclusao, book:books(total_paginas)")
+    .select("id, data_conclusao, nota, resenha, book:books(total_paginas, genero)")
     .eq("user_id", userId)
     .eq("status", "lido")
     .gte("data_conclusao", `${YEAR}-01-01`)
@@ -60,8 +60,45 @@ async function fetchFinished(userId: string) {
   return (data ?? []) as unknown as Array<{
     id: string;
     data_conclusao: string | null;
-    book: { total_paginas: number | null } | null;
+    nota: number | null;
+    resenha: string | null;
+    book: { total_paginas: number | null; genero: string | null } | null;
   }>;
+}
+
+function currentStreak(logs: LogRow[]): number {
+  const days = new Set(logs.map((l) => dayKey(l.data)));
+  let streakCount = 0;
+  const cursor = new Date();
+  let key = cursor.toISOString().slice(0, 10);
+  if (!days.has(key)) {
+    cursor.setDate(cursor.getDate() - 1);
+    key = cursor.toISOString().slice(0, 10);
+  }
+  while (days.has(key)) {
+    streakCount += 1;
+    cursor.setDate(cursor.getDate() - 1);
+    key = cursor.toISOString().slice(0, 10);
+  }
+  return streakCount;
+}
+
+function topGenre(finished: Array<{ book: { genero: string | null } | null }>): string | null {
+  const counts = new Map<string, number>();
+  for (const f of finished) {
+    const g = f.book?.genero;
+    if (!g) continue;
+    counts.set(g, (counts.get(g) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [g, c] of counts) {
+    if (c > bestCount) {
+      best = g;
+      bestCount = c;
+    }
+  }
+  return best;
 }
 
 async function fetchLogs(userId: string, since: string) {
@@ -106,29 +143,37 @@ function StatsPage() {
   const totalPagesLogged = [...pagesByDay.values()].reduce((a, b) => a + b, 0);
   const avgPerDay = pagesByDay.size ? Math.round(totalPagesLogged / pagesByDay.size) : 0;
 
+  const avaliados = (finished.data ?? []).filter((f) => f.nota != null).length;
+  const resenhados = (finished.data ?? []).filter((f) => (f.resenha ?? "").trim().length > 0).length;
+  const streakDias = currentStreak(logs.data ?? []);
+  const generoFavorito = topGenre(finished.data ?? []);
+
   const loadingTop = finished.isLoading || logs.isLoading;
 
   return (
     <section className="pb-6">
       <h1 className="font-display text-4xl leading-tight">Estatísticas</h1>
 
-      <div className="card-teal mt-6 rounded-2xl p-5">
-        <h2 className="font-display text-xl">Sua leitura em {YEAR}</h2>
-        {loadingTop ? (
-          <p className="mt-4 text-sm opacity-70">Carregando...</p>
-        ) : booksRead === 0 && pagesByDay.size === 0 ? (
-          <p className="mt-4 text-sm opacity-70">
-            Comece a registrar seu progresso para ver suas estatísticas aqui.
-          </p>
-        ) : (
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <Stat value={String(booksRead)} label="livros lidos" />
-            <Stat value={pages.toLocaleString("pt-BR")} label="páginas" />
-            <Stat value={String(avgPerDay)} label="páginas/dia" />
+     <h2 className="font-display mt-6 text-xl">Sua leitura em {YEAR}</h2>
+      {loadingTop ? (
+        <p className="mt-4 text-sm opacity-70">Carregando...</p>
+      ) : booksRead === 0 && pagesByDay.size === 0 ? (
+        <p className="mt-4 text-sm opacity-70">
+          Comece a registrar seu progresso para ver suas estatísticas aqui.
+        </p>
+      ) : (
+        <div className="no-scrollbar mt-4 overflow-x-auto">
+          <div className="flex snap-x snap-mandatory gap-3 pb-1">
+            <StatCard label="Livros lidos" value={String(booksRead)} />
+            <StatCard label="Páginas" value={pages.toLocaleString("pt-BR")} />
+            <StatCard label="Ritmo" value={String(avgPerDay)} suffix="/dia" />
+            <StatCard label="Avaliações" value={String(avaliados)} suffix={` de ${booksRead}`} />
+            <StatCard label="Resenhas" value={String(resenhados)} suffix={` de ${booksRead}`} />
+            <StatCard label="Dias seguidos" value={String(streakDias)} />
+            {generoFavorito && <StatCard label="Gênero favorito" value={generoFavorito} small />}
           </div>
-        )}
-      </div>
-
+        </div>
+      )}
       <GoalCard userId={userId} booksRead={booksRead} />
 
       <div className="mt-8">
@@ -152,11 +197,24 @@ function StatsPage() {
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+function StatCard({
+  label,
+  value,
+  suffix,
+  small,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  small?: boolean;
+}) {
   return (
-    <div>
-      <p className="font-display text-3xl leading-none">{value}</p>
-      <p className="mt-1 text-xs opacity-70">{label}</p>
+    <div className="card-teal shrink-0 snap-center rounded-2xl px-4 py-3" style={{ minWidth: 108 }}>
+      <p className="text-[10px] uppercase tracking-[0.06em] opacity-75">{label}</p>
+      <p className={"font-display mt-2 " + (small ? "text-base" : "text-2xl")}>
+        {value}
+        {suffix && <span className="font-sans text-xs opacity-80">{suffix}</span>}
+      </p>
     </div>
   );
 }
