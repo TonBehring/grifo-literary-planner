@@ -64,6 +64,8 @@ const [confirmDelete, setConfirmDelete] = useState(false);
  const [abandoning, setAbandoning] = useState(false);
   const [abandonReason, setAbandonReason] = useState("");
  const [sharingId, setSharingId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
