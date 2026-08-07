@@ -39,6 +39,7 @@ export type UserBook = {
   is_favorite: boolean | null;
   started_at: string | null;
   finished_at: string | null;
+  origem_emprestimo_id: string | null;
   book: Book | null;
 };
 
@@ -64,12 +65,15 @@ export type Loan = {
   user_id: string;
   linked_user_id: string | null;
   user_book_id: string | null;
+  book_id: string | null;
   direction: "emprestei" | "peguei_emprestado";
   person_name: string;
   book_title: string;
   due_date: string | null;
   returned: boolean | null;
   is_owner: boolean;
+  aceito: boolean;
+  copia_user_book_id: string | null;
 };
 
 export const FORMAT_LABEL: Record<BookFormat, string> = {
