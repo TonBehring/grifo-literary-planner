@@ -12,12 +12,13 @@ import { StarRating } from "@/components/StarRating";
 import {
   addNote,
   addReadingLog,
+  deleteNote,
   deleteUserBook,
   getUserBook,
   listNotes,
+  updateNote,
   updateUserBook,
-} from "@/lib/api";
-import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
+} from "@/lib/api";import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { useAuth } from "@/lib/auth";
 
@@ -62,7 +63,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const [acquireStatus, setAcquireStatus] = useState<ShelfStatus>("quero_ler");
  const [abandoning, setAbandoning] = useState(false);
   const [abandonReason, setAbandonReason] = useState("");
-  const [sharingId, setSharingId] = useState<string | null>(null);
+ const [sharingId, setSharingId] = useState<string | null>(null);
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -152,6 +153,30 @@ const [confirmDelete, setConfirmDelete] = useState(false);
    onError: (e: Error) => toast.error(e.message),
   });
 
+  const editNote = useMutation({
+    mutationFn: async (noteId: string) => {
+      if (editText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
+      await updateNote(noteId, { content: editText.trim().slice(0, 2000) });
+    },
+    onSuccess: () => {
+      setEditingNoteId(null);
+      setEditText("");
+      void queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      toast.success("Anotação atualizada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeNote = useMutation({
+    mutationFn: async (noteId: string) => {
+      await deleteNote(noteId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      toast.success("Anotação excluída");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const acquire = useMutation({
     mutationFn: async () => {
       await updateUserBook(id, {
@@ -481,28 +506,83 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                  )}
                  {n.kind === "citacao" ? "Citação" : "Nota"}
                </span>
-               {n.kind === "citacao" && (
+               <span className="flex items-center gap-2">
+                 {n.kind === "citacao" && (
+                   <button
+                     type="button"
+                     aria-label="Compartilhar citação"
+                     disabled={sharingId === n.id}
+                     onClick={() => void shareQuote(n)}
+                     className="not-italic text-primary disabled:opacity-50"
+                   >
+                     <Share2 className="h-3.5 w-3.5" />
+                   </button>
+                 )}
                  <button
                    type="button"
-                   aria-label="Compartilhar citação"
-                   disabled={sharingId === n.id}
-                   onClick={() => void shareQuote(n)}
-                   className="not-italic text-primary disabled:opacity-50"
+                   aria-label="Editar"
+                   onClick={() => {
+                     setEditingNoteId(n.id);
+                     setEditText(n.content);
+                   }}
+                   className="not-italic text-primary"
                  >
-                   <Share2 className="h-3.5 w-3.5" />
+                   <Pencil className="h-3.5 w-3.5" />
                  </button>
-               )}
-             </span>
-             {n.content}
-             {n.page != null && (
-               <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
-                 p. {n.page}
+                 <button
+                   type="button"
+                   aria-label="Excluir"
+                   onClick={() => {
+                     if (confirm("Excluir esta anotação?")) removeNote.mutate(n.id);
+                   }}
+                   className="not-italic text-primary"
+                 >
+                   <Trash2 className="h-3.5 w-3.5" />
+                 </button>
                </span>
+             </span>
+             {editingNoteId === n.id ? (
+               <div className="not-italic font-sans">
+                 <textarea
+                   value={editText}
+                   onChange={(e) => setEditText(e.target.value)}
+                   rows={4}
+                   maxLength={2000}
+                   className="w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
+                 />
+                 <div className="mt-2 flex gap-2">
+                   <button
+                     type="button"
+                     onClick={() => editNote.mutate(n.id)}
+                     className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground"
+                   >
+                     Salvar
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => {
+                       setEditingNoteId(null);
+                       setEditText("");
+                     }}
+                     className="rounded-xl border border-border px-4 py-2 text-xs"
+                   >
+                     Cancelar
+                   </button>
+                 </div>
+               </div>
+             ) : (
+               <>
+                 {n.content}
+                 {n.page != null && (
+                   <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
+                     p. {n.page}
+                   </span>
+                 )}
+               </>
              )}
            </blockquote>
          ))}        </div>      </div>
       )}
-
       <CelebrationModal        open={celebrate}
         bookTitle={ub.book?.title ?? "Livro"}
         onOpenChange={setCelebrate}
