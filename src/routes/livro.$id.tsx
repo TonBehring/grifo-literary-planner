@@ -125,11 +125,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         }
       }
       await updateUserBook(id, patch);
-      if (mood && user) {
+      if (user) {
         await addReadingLog({
           user_book_id: id,
           user_id: user.id,
-          mood,
+          mood: mood ?? null,
           pages_read: ub.format === "fisico" ? Math.round(value) : null,
         });
       }
