@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
+import { acceptLoan, addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
 import { listContacts, type Contato } from "@/lib/contatos";
 import type { Loan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -66,6 +66,8 @@ function LoansPage() {
     mutationFn: async () => {
       if (!user) throw new Error("Sessão expirada");
       if (!userBookId) throw new Error("Escolha o livro");
+      const selectedBook = (shelf ?? []).find((ub) => ub.id === userBookId);
+      if (!selectedBook) throw new Error("Livro não encontrado na sua estante");
       const selectedContact =
         mode === "contato" ? (contacts ?? []).find((c) => c.id === contactId) : undefined;
       if (mode === "contato" && !selectedContact) throw new Error("Escolha um contato");
@@ -74,6 +76,7 @@ function LoansPage() {
         user_id: user.id,
         linked_user_id: selectedContact?.id ?? null,
         user_book_id: userBookId,
+        book_id: selectedBook.book_id,
         direction,
         person_name: selectedContact?.nome ?? personName.trim().slice(0, 100),
         due_date: dueDate || null,
@@ -98,6 +101,22 @@ function LoansPage() {
       setLoanReturned(id, returned),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["loans"] }),
   });
+
+  const accept = useMutation({
+    mutationFn: async (loan: Loan) => {
+      if (!user) throw new Error("Sessão expirada");
+      if (!loan.book_id) throw new Error("Livro não encontrado para este empréstimo");
+      await acceptLoan(loan.id, loan.book_id, user.id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["loans"] });
+      void queryClient.invalidateQueries({ queryKey: ["user_books"] });
+      toast.success("Empréstimo aceito! Agora você já pode acompanhar sua leitura.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const pendingIncoming = (data ?? []).filter((l) => !l.is_owner && !l.aceito && !l.returned);
 
   const lentActive = (data ?? []).filter((l) => l.direction === "emprestei" && !l.returned);
   const lentReturned = (data ?? []).filter((l) => l.direction === "emprestei" && l.returned);
@@ -199,6 +218,32 @@ function LoansPage() {
         </button>
       </div>
 
+      {pendingIncoming.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-display text-xl">Aguardando seu aceite</h2>
+          <div className="mt-3 space-y-3">
+            {pendingIncoming.map((l) => (
+              <div key={l.id} className="card-teal flex items-center gap-4 rounded-2xl p-4">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-display truncate text-lg">{l.book_title}</h3>
+                  <p className="text-sm opacity-70">
+                    {l.person_name} quer te emprestar este livro
+                    {l.due_date ? ` · até ${new Date(l.due_date).toLocaleDateString("pt-BR")}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => accept.mutate(l)}
+                  disabled={accept.isPending}
+                  className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                >
+                  {accept.isPending ? "Aceitando…" : "Aceitar"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <LoanList
         title="Livros que emprestei"
         activeLoans={lentActive}
@@ -270,11 +315,22 @@ function LoanCard({
   loan: Loan;
   onToggle: (input: { id: string; returned: boolean }) => void;
 }) {
+  const targetId = loan.is_owner ? loan.user_book_id : loan.copia_user_book_id;
   return (
     <div className="card-teal flex items-center gap-4 rounded-2xl p-4">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-display truncate text-lg">{loan.book_title}</h3>
+          {targetId ? (
+            <Link
+              to="/livro/$id"
+              params={{ id: targetId }}
+              className="font-display truncate text-lg underline-offset-4 hover:underline"
+            >
+              {loan.book_title}
+            </Link>
+          ) : (
+            <h3 className="font-display truncate text-lg">{loan.book_title}</h3>
+          )}
           {loan.linked_user_id && (
             <span className="rounded-full border border-primary/40 px-2 py-0.5 text-[10px] text-primary">
               Conta vinculada
