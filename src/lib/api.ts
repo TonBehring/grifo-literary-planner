@@ -293,6 +293,19 @@ export async function addNote(note: {
   if (error) throw new Error(error.message);
 }
 
+export async function updateNote(id: string, patch: { content?: string; page?: number | null }) {
+  const payload: Record<string, unknown> = {};
+  if (patch.content !== undefined) payload.conteudo = patch.content;
+  if (patch.page !== undefined) payload.pagina_referencia = patch.page;
+  const { error } = await supabase.from("book_notes").update(payload).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteNote(id: string) {
+  const { error } = await supabase.from("book_notes").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function addReadingLog(log: {
   user_book_id: string;
   user_id: string;
