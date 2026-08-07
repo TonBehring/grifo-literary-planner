@@ -203,42 +203,66 @@ try {
 
       {searching && <p className="mt-6 text-sm text-muted-foreground">Buscando…</p>}
 
-      <div className="mt-6 space-y-3">
-        {results.map((v) => (
-          <button
-            key={v.id}
-            onClick={() => {
-              setSelected(v);
-              setManual(false);
-            }}
-            className={
-              "flex w-full gap-4 rounded-2xl p-3 text-left transition-colors " +
-              (!manual && selected?.id === v.id ? "card-teal" : "panel-cream")
-            }
-          >
+      {selected && !manual ? (
+        <div className="mt-6">
+          <div className="card-teal flex w-full gap-4 rounded-2xl p-3 text-left">
             <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
-              <BookCover src={v.cover_url} title={v.title} />
+              <BookCover src={selected.cover_url} title={selected.title} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-display truncate text-lg">{v.title}</h3>
-              <p className="truncate text-sm opacity-70">{v.author ?? "Autor desconhecido"}</p>
-              {v.page_count && <p className="mt-1 text-xs opacity-60">{v.page_count} páginas</p>}
+              <h3 className="font-display truncate text-lg">{selected.title}</h3>
+              <p className="truncate text-sm opacity-70">
+                {selected.author ?? "Autor desconhecido"}
+              </p>
+              {selected.page_count && (
+                <p className="mt-1 text-xs opacity-60">{selected.page_count} páginas</p>
+              )}
             </div>
+          </div>
+          <button
+            onClick={() => setSelected(null)}
+            className="mt-3 text-sm text-primary underline underline-offset-4"
+          >
+            Trocar livro
           </button>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-6 space-y-3">
+            {results.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => {
+                  setSelected(v);
+                  setManual(false);
+                }}
+                className="flex w-full gap-4 rounded-2xl p-3 text-left transition-colors panel-cream"
+              >
+                <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
+                  <BookCover src={v.cover_url} title={v.title} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-display truncate text-lg">{v.title}</h3>
+                  <p className="truncate text-sm opacity-70">{v.author ?? "Autor desconhecido"}</p>
+                  {v.page_count && <p className="mt-1 text-xs opacity-60">{v.page_count} páginas</p>}
+                </div>
+              </button>
+            ))}
+          </div>
 
-      {searched && !searching && (
-        <button
-          onClick={() => {
-            setManual(true);
-            setSelected(null);
-            if (!manualTitle) setManualTitle(term.trim());
-          }}
-          className="mt-6 text-sm text-primary underline underline-offset-4"
-        >
-          Não achou? Cadastrar manualmente
-        </button>
+          {searched && !searching && (
+            <button
+              onClick={() => {
+                setManual(true);
+                setSelected(null);
+                if (!manualTitle) setManualTitle(term.trim());
+              }}
+              className="mt-6 text-sm text-primary underline underline-offset-4"
+            >
+              Não achou? Cadastrar manualmente
+            </button>
+          )}
+        </>
       )}
 
       {manual && (
