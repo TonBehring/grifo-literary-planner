@@ -66,6 +66,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
  const [sharingId, setSharingId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -174,11 +175,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       await deleteNote(noteId);
     },
     onSuccess: () => {
+      setDeletingNoteId(null);
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
       toast.success("Anotação excluída");
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  
   const acquire = useMutation({
     mutationFn: async () => {
       await updateUserBook(id, {
@@ -523,14 +526,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                 <button
                   type="button"
                   aria-label="Excluir"
-                  onClick={() => {
-                    if (confirm("Excluir esta anotação?")) removeNote.mutate(n.id);
-                  }}
+                  onClick={() => setDeletingNoteId(n.id)}
                   className="not-italic text-primary"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
-                {n.kind === "citacao" && (
+                 
+                 {n.kind === "citacao" && (
                   <button
                     type="button"
                     aria-label="Compartilhar citação"
@@ -542,7 +544,28 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                   </button>
                 )}
               </span>             </span>
-             {editingNoteId === n.id ? (
+             {deletingNoteId === n.id ? (
+               <div className="not-italic font-sans">
+                 <p className="text-sm text-foreground">Excluir esta {n.kind === "citacao" ? "citação" : "nota"}?</p>
+                 <div className="mt-3 flex gap-2">
+                   <button
+                     type="button"
+                     onClick={() => removeNote.mutate(n.id)}
+                     disabled={removeNote.isPending}
+                     className="rounded-xl bg-destructive px-4 py-2 text-xs font-medium text-destructive-foreground disabled:opacity-60"
+                   >
+                     {removeNote.isPending ? "Excluindo…" : "Sim, excluir"}
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setDeletingNoteId(null)}
+                     className="rounded-xl border border-border px-4 py-2 text-xs"
+                   >
+                     Cancelar
+                   </button>
+                 </div>
+               </div>
+             ) : editingNoteId === n.id ? (
                <div className="not-italic font-sans">
                  <textarea
                    value={editText}
