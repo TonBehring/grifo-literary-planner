@@ -509,40 +509,39 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                  {n.kind === "citacao" ? "Citação" : "Nota"}
                </span>
                <span className="flex items-center gap-2">
-                 {n.kind === "citacao" && (
-                   <button
-                     type="button"
-                     aria-label="Compartilhar citação"
-                     disabled={sharingId === n.id}
-                     onClick={() => void shareQuote(n)}
-                     className="not-italic text-primary disabled:opacity-50"
-                   >
-                     <Share2 className="h-3.5 w-3.5" />
-                   </button>
-                 )}
-                 <button
-                   type="button"
-                   aria-label="Editar"
-                   onClick={() => {
-                     setEditingNoteId(n.id);
-                     setEditText(n.content);
-                   }}
-                   className="not-italic text-primary"
-                 >
-                   <Pencil className="h-3.5 w-3.5" />
-                 </button>
-                 <button
-                   type="button"
-                   aria-label="Excluir"
-                   onClick={() => {
-                     if (confirm("Excluir esta anotação?")) removeNote.mutate(n.id);
-                   }}
-                   className="not-italic text-primary"
-                 >
-                   <Trash2 className="h-3.5 w-3.5" />
-                 </button>
-               </span>
-             </span>
+                <button
+                  type="button"
+                  aria-label="Editar"
+                  onClick={() => {
+                    setEditingNoteId(n.id);
+                    setEditText(n.content);
+                  }}
+                  className="not-italic text-primary"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Excluir"
+                  onClick={() => {
+                    if (confirm("Excluir esta anotação?")) removeNote.mutate(n.id);
+                  }}
+                  className="not-italic text-primary"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+                {n.kind === "citacao" && (
+                  <button
+                    type="button"
+                    aria-label="Compartilhar citação"
+                    disabled={sharingId === n.id}
+                    onClick={() => void shareQuote(n)}
+                    className="not-italic text-primary disabled:opacity-50"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </span>             </span>
              {editingNoteId === n.id ? (
                <div className="not-italic font-sans">
                  <textarea
