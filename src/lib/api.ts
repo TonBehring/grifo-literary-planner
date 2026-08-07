@@ -3,7 +3,7 @@ import { listContacts } from "./contatos";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
 type DbBook = {
   id: string;
@@ -33,6 +33,7 @@ type DbUserBook = {
   total_paginas_override: number | null;
   data_inicio: string | null;
   data_conclusao: string | null;
+  origem_emprestimo_id: string | null;
   book: DbBook | null;
 };
 
@@ -65,6 +66,7 @@ function mapUserBook(row: DbUserBook): UserBook {
     abandon_reason: row.motivo_abandono,
     started_at: row.data_inicio,
     finished_at: row.data_conclusao,
+    origem_emprestimo_id: row.origem_emprestimo_id,
     book: effectiveBook
       ? {
           id: effectiveBook.id,
@@ -324,7 +326,7 @@ export async function listLoans(currentUserId: string): Promise<Loan[]> {
   const { data, error } = await supabase
     .from("loans")
     .select(
-      "id, user_id, linked_user_id, user_book_id, direction, pessoa_nome, data_prevista_devolucao, status, user_book:user_books(book:books(titulo))",
+      "id, user_id, linked_user_id, user_book_id, book_id, direction, pessoa_nome, data_prevista_devolucao, status, aceito, copia_user_book_id, book:books(titulo)",
     )
     .order("data_prevista_devolucao", { ascending: true });
   const rows = (unwrap(data, error) ?? []) as unknown as Array<{
@@ -332,11 +334,14 @@ export async function listLoans(currentUserId: string): Promise<Loan[]> {
     user_id: string;
     linked_user_id: string | null;
     user_book_id: string | null;
+    book_id: string | null;
     direction: Loan["direction"];
     pessoa_nome: string;
     data_prevista_devolucao: string | null;
     status: string;
-    user_book: { book: { titulo: string } | null } | null;
+    aceito: boolean;
+    copia_user_book_id: string | null;
+    book: { titulo: string } | null;
   }>;
 
   const needsNames = rows.some((row) => row.user_id !== currentUserId);
@@ -351,6 +356,7 @@ export async function listLoans(currentUserId: string): Promise<Loan[]> {
     user_id: r.user_id,
     linked_user_id: r.linked_user_id,
     user_book_id: r.user_book_id,
+    book_id: r.book_id,
     direction:
       r.user_id === currentUserId
         ? r.direction
@@ -361,17 +367,60 @@ export async function listLoans(currentUserId: string): Promise<Loan[]> {
       r.user_id === currentUserId
         ? r.pessoa_nome
         : (contactNames.get(r.user_id) ?? "Usuário do Grifo"),
-    book_title: r.user_book?.book?.titulo ?? "Livro",
+    book_title: r.book?.titulo ?? "Livro",
     due_date: r.data_prevista_devolucao,
     returned: r.status === "devolvido",
     is_owner: r.user_id === currentUserId,
+    aceito: r.aceito,
+    copia_user_book_id: r.copia_user_book_id,
   }));
+}
+
+export async function getActiveLoanForUserBook(
+  userBookId: string,
+): Promise<{ id: string; person_name: string; due_date: string | null } | null> {
+  const { data, error } = await supabase
+    .from("loans")
+    .select("id, pessoa_nome, data_prevista_devolucao")
+    .eq("user_book_id", userBookId)
+    .eq("direction", "emprestei")
+    .neq("status", "devolvido")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const row = data as { id: string; pessoa_nome: string; data_prevista_devolucao: string | null };
+  return { id: row.id, person_name: row.pessoa_nome, due_date: row.data_prevista_devolucao };
+}
+
+export async function acceptLoan(loanId: string, bookId: string, userId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from("user_books")
+    .insert({
+      user_id: userId,
+      book_id: bookId,
+      status: "lendo",
+      formato: "fisico",
+      pagina_atual: 0,
+      data_inicio: new Date().toISOString(),
+      origem_emprestimo_id: loanId,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  const newId = (data as { id: string }).id;
+  const { error: updateError } = await supabase
+    .from("loans")
+    .update({ aceito: true, copia_user_book_id: newId })
+    .eq("id", loanId);
+  if (updateError) throw new Error(updateError.message);
+  return newId;
 }
 
 export type NewLoanInput = {
   user_id: string;
   linked_user_id: string | null;
   user_book_id: string | null;
+  book_id: string;
   direction: Loan["direction"];
   person_name: string;
   due_date: string | null;
@@ -382,6 +431,7 @@ export async function addLoan(loan: NewLoanInput) {
     user_id: loan.user_id,
     linked_user_id: loan.linked_user_id,
     user_book_id: loan.user_book_id,
+    book_id: loan.book_id,
     direction: loan.direction,
     pessoa_nome: loan.person_name,
     data_prevista_devolucao: loan.due_date,
