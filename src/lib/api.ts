@@ -332,7 +332,7 @@ export async function deleteNote(id: string) {
 export async function addReadingLog(log: {
   user_book_id: string;
   user_id: string;
-  mood: string;
+  mood: string | null;
   pages_read: number | null;
 }) {
   const { error } = await supabase.from("reading_logs").insert({
