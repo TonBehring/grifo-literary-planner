@@ -14,11 +14,13 @@ import {
   addReadingLog,
   deleteNote,
   deleteUserBook,
+  getActiveLoanForUserBook,
   getUserBook,
   listNotes,
   updateNote,
   updateUserBook,
-} from "@/lib/api";import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
+} from "@/lib/api";
+import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { useAuth } from "@/lib/auth";
 
@@ -76,6 +78,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: notes } = useQuery({
     queryKey: ["notes", id],
     queryFn: () => listNotes(id),
+    enabled: Boolean(user),
+  });
+  const { data: activeLoan } = useQuery({
+    queryKey: ["active-loan", id],
+    queryFn: () => getActiveLoanForUserBook(id),
     enabled: Boolean(user),
   });
 
@@ -251,6 +258,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               {ub.book.genre}
             </span>
           )}
+          {ub.origem_emprestimo_id && (
+            <span className="mt-1 ml-2 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
+              Empréstimo recebido
+            </span>
+          )}
           {ub.status === "abandonado" && ub.abandon_reason && (
             <p className="mt-3 rounded-xl bg-white/10 p-3 text-xs opacity-80">
               <strong>Motivo do abandono:</strong> {ub.abandon_reason}
@@ -415,7 +427,19 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                 : "Confirmar aquisição"}
           </button>
         </div>
-      )}      {ub.status !== "desejo_compra" && (
+      )}
+      {activeLoan && ub.status !== "desejo_compra" && (
+        <div className="panel-cream rounded-2xl border border-primary/30 p-5">
+          <p className="text-sm">
+            <strong>Este livro está emprestado</strong> para {activeLoan.person_name}
+            {activeLoan.due_date
+              ? ` até ${new Date(activeLoan.due_date).toLocaleDateString("pt-BR")}`
+              : ""}
+            . Atualizações de progresso e novas anotações ficam bloqueadas até a devolução.
+          </p>
+        </div>
+      )}
+      {ub.status !== "desejo_compra" && !activeLoan && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">Atualizar progresso</h2>
           <div className="mt-3 flex gap-2">
@@ -454,44 +478,53 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       
      {ub.status !== "desejo_compra" && (
       <div className="panel-cream rounded-2xl p-5">
-        <h2 className="font-display text-xl">Anotações e citações</h2>        <div className="mt-3 flex gap-2">
-          {(["citacao", "nota"] as const).map((k) => (
+        <h2 className="font-display text-xl">Anotações e citações</h2>
+        {activeLoan ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Novas anotações ficam bloqueadas enquanto o livro está emprestado.
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 flex gap-2">
+              {(["citacao", "nota"] as const).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setNoteKind(k)}
+                  className={
+                    "flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors " +
+                    (noteKind === k
+                      ? "border-primary bg-primary/20"
+                      : "border-border text-muted-foreground")
+                  }
+                >
+                  {k === "citacao" ? <Quote className="h-4 w-4" /> : <StickyNote className="h-4 w-4" />}
+                  {k === "citacao" ? "Citação" : "Nota"}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="Grife o trecho que te marcou…"
+              className="mt-3 w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
+            />
+            <input
+              value={notePage}
+              onChange={(e) => setNotePage(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              placeholder="Página (opcional)"
+              className="mt-2 w-32 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
             <button
-              key={k}
-              onClick={() => setNoteKind(k)}
-              className={
-                "flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors " +
-                (noteKind === k
-                  ? "border-primary bg-primary/20"
-                  : "border-border text-muted-foreground")
-              }
+              onClick={() => saveNote.mutate()}
+              className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
             >
-              {k === "citacao" ? <Quote className="h-4 w-4" /> : <StickyNote className="h-4 w-4" />}
-              {k === "citacao" ? "Citação" : "Nota"}
+              Guardar
             </button>
-          ))}
-        </div>
-        <textarea
-          value={noteText}
-          onChange={(e) => setNoteText(e.target.value)}
-          rows={4}
-          maxLength={2000}
-          placeholder="Grife o trecho que te marcou…"
-          className="mt-3 w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
-        />
-        <input
-          value={notePage}
-          onChange={(e) => setNotePage(e.target.value.replace(/\D/g, ""))}
-          inputMode="numeric"
-          placeholder="Página (opcional)"
-          className="mt-2 w-32 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-        />
-        <button
-          onClick={() => saveNote.mutate()}
-          className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
-        >
-          Guardar
-        </button>
+          </>
+        )}
 
        <div className="mt-6 space-y-3">
         {notes?.map((n) => (
