@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -46,7 +52,12 @@ function dayKey(value: string) {
   return value.slice(0, 10);
 }
 
-type LogRow = { humor: string | null; paginas_lidas: number | null; data: string };
+type LogRow = {
+  humor: string | null;
+  paginas_lidas: number | null;
+  data: string;
+  livro_titulo: string | null;
+};
 
 async function fetchFinished(userId: string) {
   const { data, error } = await supabase
@@ -104,12 +115,24 @@ function topGenre(finished: Array<{ book: { genero: string | null } | null }>): 
 async function fetchLogs(userId: string, since: string) {
   const { data, error } = await supabase
     .from("reading_logs")
-    .select("humor, paginas_lidas, data, user_book:user_books!inner(user_id)")
+    .select(
+      "humor, paginas_lidas, data, user_book:user_books!inner(user_id, book:books(titulo))",
+    )
     .eq("user_book.user_id", userId)
     .gte("data", since)
     .order("data", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as LogRow[];
+  return ((data ?? []) as unknown as Array<{
+    humor: string | null;
+    paginas_lidas: number | null;
+    data: string;
+    user_book: { book: { titulo: string } | null } | null;
+  }>).map((r) => ({
+    humor: r.humor,
+    paginas_lidas: r.paginas_lidas,
+    data: r.data,
+    livro_titulo: r.user_book?.book?.titulo ?? null,
+  }));
 }
 
 function StatsPage() {
@@ -333,18 +356,23 @@ function MoodStrip({ logs }: { logs: LogRow[] }) {
 }
 
 function Streak({ logs }: { logs: LogRow[] }) {
-  const counts = new Map<string, number>();
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  const entriesByDay = new Map<string, LogRow[]>();
   for (const l of logs) {
     const k = dayKey(l.data);
-    counts.set(k, (counts.get(k) ?? 0) + 1);
+    const list = entriesByDay.get(k) ?? [];
+    list.push(l);
+    entriesByDay.set(k, list);
   }
 
   const days: Array<{ key: string; count: number }> = [];
   for (let i = 89; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-    days.push({ key: d, count: counts.get(d) ?? 0 });
+    days.push({ key: d, count: entriesByDay.get(d)?.length ?? 0 });
   }
   const active = days.filter((d) => d.count > 0).length;
+  const selectedEntries = selectedDay ? (entriesByDay.get(selectedDay) ?? []) : [];
 
   return (
     <div className="panel-cream mt-3 rounded-2xl p-5">
@@ -361,15 +389,45 @@ function Streak({ logs }: { logs: LogRow[] }) {
         {days.map((d) => {
           const opacity = d.count === 0 ? 0.08 : d.count === 1 ? 0.4 : d.count === 2 ? 0.7 : 1;
           return (
-            <div
+            <button
               key={d.key}
+              type="button"
+              disabled={d.count === 0}
+              onClick={() => setSelectedDay(d.key)}
+              aria-label={`${new Date(`${d.key}T12:00:00`).toLocaleDateString("pt-BR")}, ${d.count} registro(s)`}
               title={`${new Date(`${d.key}T12:00:00`).toLocaleDateString("pt-BR")} · ${d.count} registro(s)`}
-              className="h-3.5 w-3.5 rounded-[3px] bg-teal"
+              className="h-3.5 w-3.5 rounded-[3px] bg-teal disabled:cursor-default"
               style={{ opacity }}
             />
           );
         })}
       </div>
+
+      <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              {selectedDay &&
+                new Date(`${selectedDay}T12:00:00`).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {selectedEntries.map((entry, i) => (
+              <div key={i} className="panel-cream rounded-xl p-3 text-sm">
+                <p className="font-display text-base">{entry.livro_titulo ?? "Livro"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {entry.paginas_lidas ? `${entry.paginas_lidas} páginas` : "Progresso registrado"}
+                  {entry.humor && ` · ${MOOD_EMOJI[entry.humor] ?? ""} ${entry.humor}`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
