@@ -102,23 +102,31 @@ function unwrap<T>(data: T | null, error: { message: string } | null): T {
 }
 
 export async function listUserBooks(status?: ShelfStatus): Promise<UserBook[]> {
-  const { data: returnedLoans, error: loansError } = await supabase
-    .from("loans")
-    .select("copia_user_book_id")
-    .not("copia_user_book_id", "is", null)
-    .eq("status", "devolvido");
-  if (loansError) throw new Error(loansError.message);
-  const hiddenIds = new Set(
-    ((returnedLoans ?? []) as Array<{ copia_user_book_id: string }>).map(
-      (l) => l.copia_user_book_id,
-    ),
-  );
-
   let query = supabase.from("user_books").select(USER_BOOK_SELECT);
   if (status) query = query.eq("status", status);
   const { data, error } = await query.order("criado_em", { ascending: false });
   const rows = (unwrap(data, error) ?? []) as unknown as DbUserBook[];
-  return rows.filter((r) => !hiddenIds.has(r.id)).map(mapUserBook);
+
+  const loanIds = rows
+    .map((r) => r.origem_emprestimo_id)
+    .filter((v): v is string => Boolean(v));
+  let returnedLoanIds = new Set<string>();
+  if (loanIds.length > 0) {
+    const { data: loanRows, error: loansError } = await supabase
+      .from("loans")
+      .select("id, status")
+      .in("id", loanIds);
+    if (loansError) throw new Error(loansError.message);
+    returnedLoanIds = new Set(
+      ((loanRows ?? []) as Array<{ id: string; status: string }>)
+        .filter((l) => l.status === "devolvido")
+        .map((l) => l.id),
+    );
+  }
+
+  return rows
+    .filter((r) => !(r.origem_emprestimo_id && returnedLoanIds.has(r.origem_emprestimo_id)))
+    .map(mapUserBook);
 }
 
 export async function getUserBook(id: string): Promise<UserBook> {
@@ -419,8 +427,30 @@ export async function acceptLoan(loanId: string, bookId: string, userId: string)
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
-  const newId = (data as { id: string }).id;
+
+  let newId: string;
+  if (error) {
+    if (error.code !== "23505") throw new Error(error.message);
+    const { data: existing, error: findError } = await supabase
+      .from("user_books")
+      .select("id, origem_emprestimo_id")
+      .eq("user_id", userId)
+      .eq("book_id", bookId)
+      .maybeSingle();
+    if (findError || !existing) throw new Error(error.message);
+    const existingRow = existing as { id: string; origem_emprestimo_id: string | null };
+    newId = existingRow.id;
+    if (existingRow.origem_emprestimo_id) {
+      const { error: reuseError } = await supabase
+        .from("user_books")
+        .update({ origem_emprestimo_id: loanId })
+        .eq("id", newId);
+      if (reuseError) throw new Error(reuseError.message);
+    }
+  } else {
+    newId = (data as { id: string }).id;
+  }
+
   const { error: updateError } = await supabase
     .from("loans")
     .update({ aceito: true, copia_user_book_id: newId })
