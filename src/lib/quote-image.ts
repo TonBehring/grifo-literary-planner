@@ -39,7 +39,7 @@ export async function generateQuoteImage(opts: {
   bookAuthor?: string | null;
 }): Promise<Blob> {
   await document.fonts.load('italic 500 64px "Playfair Display"');
-  await document.fonts.load('600 34px "Playfair Display"');
+  await document.fonts.load('600 68px "Playfair Display"');
   await document.fonts.load('600 30px "Inter"');
   await document.fonts.ready;
 
@@ -103,8 +103,8 @@ export async function generateQuoteImage(opts: {
 
   ctx.textAlign = "center";
   ctx.fillStyle = gold;
-  ctx.font = '600 34px "Playfair Display", Georgia, serif';
-  ctx.fillText("Grifo\u2022", W / 2, H - 72);
+  ctx.font = '600 68px "Playfair Display", Georgia, serif';
+  ctx.fillText("Grifo\u2022", W / 2, H - 96);
   ctx.textAlign = "left";
 
   return await new Promise<Blob>((resolve, reject) => {
