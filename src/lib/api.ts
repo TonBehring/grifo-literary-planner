@@ -102,10 +102,23 @@ function unwrap<T>(data: T | null, error: { message: string } | null): T {
 }
 
 export async function listUserBooks(status?: ShelfStatus): Promise<UserBook[]> {
+  const { data: returnedLoans, error: loansError } = await supabase
+    .from("loans")
+    .select("copia_user_book_id")
+    .not("copia_user_book_id", "is", null)
+    .eq("status", "devolvido");
+  if (loansError) throw new Error(loansError.message);
+  const hiddenIds = new Set(
+    ((returnedLoans ?? []) as Array<{ copia_user_book_id: string }>).map(
+      (l) => l.copia_user_book_id,
+    ),
+  );
+
   let query = supabase.from("user_books").select(USER_BOOK_SELECT);
   if (status) query = query.eq("status", status);
   const { data, error } = await query.order("criado_em", { ascending: false });
-  return ((unwrap(data, error) ?? []) as unknown as DbUserBook[]).map(mapUserBook);
+  const rows = (unwrap(data, error) ?? []) as unknown as DbUserBook[];
+  return rows.filter((r) => !hiddenIds.has(r.id)).map(mapUserBook);
 }
 
 export async function getUserBook(id: string): Promise<UserBook> {
