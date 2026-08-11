@@ -35,7 +35,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 const [name, setName] = useState("");
@@ -56,6 +56,16 @@ const [name, setName] = useState("");
     }
     setBusy(true);
     try {
+      if (mode === "reset") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/redefinir-senha`,
+        });
+        if (error) throw error;
+        toast.success("Se esse e-mail estiver cadastrado, enviamos um link para redefinir a senha.");
+        setMode("login");
+        setPassword("");
+        return;
+      }
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -95,21 +105,29 @@ const [name, setName] = useState("");
         </div>
 
         <form onSubmit={submit} className="card-teal mt-8 rounded-3xl p-6">
-          <div className="mb-6 flex rounded-full bg-white/10 p-1 text-sm">
-            {(["login", "signup"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={
-                  "flex-1 rounded-full py-2 transition-colors " +
-                  (mode === m ? "bg-primary text-primary-foreground" : "opacity-70")
-                }
-              >
-                {m === "login" ? "Entrar" : "Criar conta"}
-              </button>
-            ))}
-          </div>
+          {mode !== "reset" && (
+            <div className="mb-6 flex rounded-full bg-white/10 p-1 text-sm">
+              {(["login", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={
+                    "flex-1 rounded-full py-2 transition-colors " +
+                    (mode === m ? "bg-primary text-primary-foreground" : "opacity-70")
+                  }
+                >
+                  {m === "login" ? "Entrar" : "Criar conta"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === "reset" && (
+            <p className="mb-5 text-sm opacity-80">
+              Informe seu e-mail e enviaremos um link para você criar uma nova senha.
+            </p>
+          )}
 
           {mode === "signup" && (
             <Field label="Nome">
@@ -134,35 +152,63 @@ const [name, setName] = useState("");
             />
           </Field>
 
-<Field label="Senha">
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={mode === "signup" ? 6 : undefined}
-                maxLength={72}
-                required
-                className={inputClass + " pr-10"}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                className="absolute inset-y-0 right-3 flex items-center text-white/60 hover:text-white"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </Field>
+          {mode !== "reset" && (
+            <Field label="Senha">
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={mode === "signup" ? 6 : undefined}
+                  maxLength={72}
+                  required
+                  className={inputClass + " pr-10"}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute inset-y-0 right-3 flex items-center text-white/60 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </Field>
+          )}
+
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={() => setMode("reset")}
+              className="-mt-2 mb-4 block text-xs text-white/70 underline underline-offset-4 hover:text-white"
+            >
+              Esqueci minha senha
+            </button>
+          )}
 
           <button
             type="submit"
             disabled={busy}
             className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            {busy ? "Aguarde…" : mode === "login" ? "Entrar" : "Criar minha estante"}
+            {busy
+              ? "Aguarde…"
+              : mode === "login"
+                ? "Entrar"
+                : mode === "signup"
+                  ? "Criar minha estante"
+                  : "Enviar link de redefinição"}
           </button>
+
+          {mode === "reset" && (
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              className="mt-3 block w-full text-center text-xs text-white/70 underline underline-offset-4 hover:text-white"
+            >
+              Voltar para o login
+            </button>
+          )}
         </form>
       </div>
     </div>
