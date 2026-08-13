@@ -23,7 +23,7 @@ import {
 import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { useAuth } from "@/lib/auth";
-
+ 
 export const Route = createFileRoute("/livro/$id")({
   head: () => ({
     meta: [
@@ -45,13 +45,13 @@ export const Route = createFileRoute("/livro/$id")({
     </AppShell>
   ),
 });
-
+ 
 function BookDetail() {
   const { id } = Route.useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
+ 
   const [progressInput, setProgressInput] = useState("");
   const [mood, setMood] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -69,7 +69,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
-
+ 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
     queryFn: () => getUserBook(id),
@@ -85,7 +85,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     queryFn: () => getActiveLoanForUserBook(id),
     enabled: Boolean(user),
   });
-
+ 
    async function shareQuote(note: BookNote) {
     setSharingId(note.id);
     try {
@@ -102,21 +102,38 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       setSharingId(null);
     }
   }
-
+ 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["user_book", id] });
     void queryClient.invalidateQueries({ queryKey: ["user_books"] });
   };
-
+ 
   const saveProgress = useMutation({
     mutationFn: async () => {
       if (!ub) return;
       const value = Number(progressInput);
-      if (!Number.isFinite(value) || value < 0) throw new Error("Valor inválido");
+      if (!Number.isFinite(value) || value < 1) {
+        throw new Error("Informe um valor válido, maior que zero.");
+      }
+      const rounded = Math.round(value);
       const patch: Partial<UserBook> =
         ub.format === "fisico"
-          ? { current_page: Math.round(value) }
-          : { progress_percent: Math.min(100, Math.round(value)) };
+          ? { current_page: rounded }
+          : { progress_percent: Math.min(100, rounded) };
+      if (ub.format === "fisico" && ub.current_page != null && rounded < ub.current_page) {
+        throw new Error(
+          `A página não pode ser menor que a última registrada (${ub.current_page}).`,
+        );
+      }
+      if (
+        ub.format !== "fisico" &&
+        ub.progress_percent != null &&
+        Math.min(100, rounded) < ub.progress_percent
+      ) {
+        throw new Error(
+          `O progresso não pode ser menor que o já registrado (${ub.progress_percent}%).`,
+        );
+      }
       if (ub.status === "quero_ler" || ub.status === "abandonado") {
         patch.status = "lendo";
         patch.abandon_reason = null;
@@ -142,7 +159,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
+ 
   const saveNote = useMutation({
     mutationFn: async () => {
       if (!user || noteText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
@@ -162,7 +179,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
    onError: (e: Error) => toast.error(e.message),
   });
-
+ 
   const editNote = useMutation({
     mutationFn: async (noteId: string) => {
       if (editText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
@@ -176,7 +193,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
+ 
   const removeNote = useMutation({
     mutationFn: async (noteId: string) => {
       await deleteNote(noteId);
@@ -205,7 +222,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
+ 
  const abandon = useMutation({
     mutationFn: async () => {
       await updateUserBook(id, {
@@ -220,7 +237,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
+ 
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -234,13 +251,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       setDeleting(false);
     }
   }
-
+ 
   if (isLoading || !ub) {
     return <p className="text-sm text-muted-foreground">Carregando livro…</p>;
   }
-
+ 
   const pct = progressOf(ub);
-
+ 
   return (
     <section className="space-y-7">
       <div className="card-teal flex gap-5 rounded-3xl p-5">
@@ -314,7 +331,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       </div>
-
+ 
       {editing && (
         <BookEditPanel
           ub={ub}
@@ -324,7 +341,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           }}
         />
       )}
-
+ 
       {abandoning && (
         <div className="panel-cream rounded-2xl p-5">
           <p className="text-sm">
@@ -354,7 +371,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       )}
-
+ 
       {confirmDelete && (
         <div className="panel-cream rounded-2xl border-destructive/40 p-5">
           <p className="text-sm">
@@ -378,7 +395,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       )}
-
+ 
    {(ub.status === "desejo_compra" || ub.status === "abandonado") && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">
@@ -389,7 +406,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               ? "Escolha para onde este livro volta na sua biblioteca."
               : "Escolha o formato e onde ele vai entrar na sua biblioteca."}
           </p>
-
+ 
           <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
             Formato
           </p>
@@ -400,7 +417,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               </Chip>
             ))}
           </div>
-
+ 
           <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
             Estante
           </p>
@@ -414,7 +431,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               </Chip>
             ))}
           </div>
-
+ 
           <button
             onClick={() => acquire.mutate()}
             disabled={acquire.isPending}
@@ -457,14 +474,14 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               Salvar
             </button>
           </div>
-
+ 
           <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
             Humor do dia
           </p>
           <div className="mt-2">
             <MoodPicker value={mood} onChange={setMood} />
           </div>
-
+ 
           {ub.status !== "lido" && ub.status !== "abandonado" && (
             <button
               onClick={() => setCelebrate(true)}
@@ -525,7 +542,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             </button>
           </>
         )}
-
+ 
        <div className="mt-6 space-y-3">
         {notes?.map((n) => (
            <blockquote
