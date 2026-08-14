@@ -261,8 +261,21 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <section className="space-y-7">
       <div className="card-teal flex gap-5 rounded-3xl p-5">
-        <div className="h-40 w-28 shrink-0 overflow-hidden rounded-lg bg-teal-deep">
-          <BookCover src={ub.book?.cover_url} title={ub.book?.title} />
+        <div className="flex w-28 shrink-0 flex-col gap-2">
+          <div className="h-40 w-28 overflow-hidden rounded-lg bg-teal-deep">
+            <BookCover src={ub.book?.cover_url} title={ub.book?.title} />
+          </div>
+          {!activeLoan &&
+            ub.status !== "desejo_compra" &&
+            ub.status !== "lido" &&
+            ub.status !== "abandonado" && (
+              <button
+                onClick={() => setCelebrate(true)}
+                className="rounded-lg border border-primary/60 py-1.5 text-center text-[11px] font-medium leading-tight text-cream transition-colors hover:bg-primary/20"
+              >
+                Terminei este livro
+              </button>
+            )}
         </div>
         <div className="min-w-0">
           <p className="text-[11px] tracking-[0.18em] text-primary uppercase">
@@ -331,18 +344,6 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       </div>
-
-      {!activeLoan &&
-        ub.status !== "desejo_compra" &&
-        ub.status !== "lido" &&
-        ub.status !== "abandonado" && (
-          <button
-            onClick={() => setCelebrate(true)}
-            className="w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
-          >
-            Terminei este livro
-          </button>
-        )}
  
       {editing && (
         <BookEditPanel
@@ -483,7 +484,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               onClick={() => saveProgress.mutate()}
               className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
             >
-              Salvar progresso
+              Registrar leitura
             </button>
           </div>
  
@@ -493,9 +494,6 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           <div className="mt-2">
             <MoodPicker value={mood} onChange={setMood} />
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            A página e o humor só são salvos quando você toca em "Salvar progresso".
-          </p>
         </div>
       )}
       
