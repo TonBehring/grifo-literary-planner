@@ -323,6 +323,7 @@ function GoalCard({ userId, booksRead }: { userId: string; booksRead: number }) 
 }
 
 function MoodStrip({ logs }: { logs: LogRow[] }) {
+  const [revealed, setRevealed] = useState<number | null>(null);
   const since = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
   const recent = logs.filter((l) => dayKey(l.data) >= since && l.humor);
 
@@ -338,7 +339,12 @@ function MoodStrip({ logs }: { logs: LogRow[] }) {
     <div className="card-teal mt-3 overflow-x-auto rounded-2xl p-4">
       <div className="flex min-w-max gap-4">
         {recent.map((l, i) => (
-          <div key={`${l.data}-${i}`} className="flex w-14 flex-col items-center gap-1">
+          <button
+            key={`${l.data}-${i}`}
+            type="button"
+            onClick={() => setRevealed(revealed === i ? null : i)}
+            className="flex w-14 shrink-0 flex-col items-center gap-1"
+          >
             <span className="text-2xl leading-none">
               {MOOD_EMOJI[l.humor ?? ""] ?? "📖"}
             </span>
@@ -348,7 +354,12 @@ function MoodStrip({ logs }: { logs: LogRow[] }) {
                 month: "2-digit",
               })}
             </span>
-          </div>
+            {revealed === i && (
+              <span className="text-center text-[9px] leading-tight font-medium text-primary">
+                {l.humor}
+              </span>
+            )}
+          </button>
         ))}
       </div>
     </div>
