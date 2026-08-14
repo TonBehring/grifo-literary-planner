@@ -271,7 +271,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             ub.status !== "abandonado" && (
               <button
                 onClick={() => setCelebrate(true)}
-                className="rounded-lg border border-primary/60 py-1.5 text-center text-[11px] font-medium leading-tight text-cream transition-colors hover:bg-primary/20"
+                className="rounded-lg border border-primary/60 py-2.5 text-center text-[11px] font-medium leading-tight text-cream transition-colors hover:bg-primary/20"
               >
                 Terminei este livro
               </button>
@@ -472,27 +472,28 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       {ub.status !== "desejo_compra" && !activeLoan && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">Atualizar progresso</h2>
-          <div className="mt-3 flex gap-2">
+
+          <p className="mt-3 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Humor do dia
+          </p>
+          <div className="mt-2">
+            <MoodPicker value={mood} onChange={setMood} />
+          </div>
+
+          <div className="mt-5 flex items-center gap-2">
             <input
               value={progressInput}
               onChange={(e) => setProgressInput(e.target.value)}
               inputMode="numeric"
               placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
-              className="flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+              className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <button
               onClick={() => saveProgress.mutate()}
-              className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
+              className="shrink-0 whitespace-nowrap rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
             >
-              Registrar leitura
+              Registrar
             </button>
-          </div>
- 
-          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Humor do dia
-          </p>
-          <div className="mt-2">
-            <MoodPicker value={mood} onChange={setMood} />
           </div>
         </div>
       )}
