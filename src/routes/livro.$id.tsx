@@ -331,6 +331,18 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       </div>
+
+      {!activeLoan &&
+        ub.status !== "desejo_compra" &&
+        ub.status !== "lido" &&
+        ub.status !== "abandonado" && (
+          <button
+            onClick={() => setCelebrate(true)}
+            className="w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
+          >
+            Terminei este livro
+          </button>
+        )}
  
       {editing && (
         <BookEditPanel
@@ -471,7 +483,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               onClick={() => saveProgress.mutate()}
               className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
             >
-              Salvar
+              Salvar progresso
             </button>
           </div>
  
@@ -481,15 +493,9 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           <div className="mt-2">
             <MoodPicker value={mood} onChange={setMood} />
           </div>
- 
-          {ub.status !== "lido" && ub.status !== "abandonado" && (
-            <button
-              onClick={() => setCelebrate(true)}
-              className="mt-6 w-full rounded-xl border border-primary py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10"
-            >
-              Concluí este livro
-            </button>
-          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            A página e o humor só são salvos quando você toca em "Salvar progresso".
+          </p>
         </div>
       )}
       
