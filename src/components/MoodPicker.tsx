@@ -12,7 +12,7 @@ export function MoodPicker({
   onChange,
 }: {
   value: string | null;
-  onChange: (mood: string) => void;
+  onChange: (mood: string | null) => void;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -22,7 +22,7 @@ export function MoodPicker({
           <button
             key={m.label}
             type="button"
-            onClick={() => onChange(m.label)}
+            onClick={() => onChange(active ? null : m.label)}
             className={
               "flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all " +
               (active
