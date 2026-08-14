@@ -21,16 +21,17 @@ export function MoodPicker({
         return (
           <button
             key={m.label}
+            type="button"
             onClick={() => onChange(m.label)}
             className={
-              "flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors " +
+              "flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all " +
               (active
                 ? "border-primary bg-primary/15 text-foreground"
                 : "border-border text-muted-foreground hover:border-primary/50")
             }
           >
             <span className="text-lg leading-none">{m.emoji}</span>
-            {m.label}
+            {active && <span className="whitespace-nowrap">{m.label}</span>}
           </button>
         );
       })}
