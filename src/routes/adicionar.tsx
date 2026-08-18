@@ -50,6 +50,9 @@ function AddBookPage() {
 const [format, setFormat] = useState<BookFormat>("fisico");
   const [status, setStatus] = useState<ShelfStatus>("lendo");
   const [genre, setGenre] = useState<string | null>(null);
+  const [preCadastro, setPreCadastro] = useState(false);
+  const [startedDate, setStartedDate] = useState("");
+  const [finishedDate, setFinishedDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [manual, setManual] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
@@ -134,9 +137,24 @@ async function searchByTerm(value: string) {
       toast.error("Faça login para adicionar livros");
       return;
     }
+    if (preCadastro && startedDate && finishedDate && startedDate > finishedDate) {
+      toast.error("A data de início não pode ser depois da data de conclusão");
+      return;
+    }
     setSaving(true);
 try {
-      const { id, alreadyExists } = await addBookToShelf({ ...payload, status, format, genre }, user.id);
+      const { id, alreadyExists } = await addBookToShelf(
+        {
+          ...payload,
+          status: preCadastro ? "lido" : status,
+          format,
+          genre,
+          pre_cadastro: preCadastro,
+          started_at: preCadastro && startedDate ? `${startedDate}T12:00:00` : null,
+          finished_at: preCadastro && finishedDate ? `${finishedDate}T12:00:00` : null,
+        },
+        user.id,
+      );
       await queryClient.invalidateQueries({ queryKey: ["user_books"] });
       if (alreadyExists) {
         toast.info("Você já tem esse livro na sua estante");
@@ -337,16 +355,68 @@ try {
             ))}
           </div>
 
-          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Estante
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(Object.keys(STATUS_LABEL) as ShelfStatus[]).map((s) => (
-              <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
-                {STATUS_LABEL[s]}
-              </Chip>
-            ))}
-          </div>
+          <label className="mt-5 flex items-start gap-3 rounded-xl border border-border px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={preCadastro}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setPreCadastro(checked);
+                if (checked) setStatus("lido");
+              }}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              Já li esse livro antes de usar o Grifo
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Ele entra nas suas estatísticas (livros lidos, páginas, histórico), mas não aparece
+                na sua Biblioteca.
+              </span>
+            </span>
+          </label>
+
+          {preCadastro ? (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                  Início (opcional)
+                </span>
+                <input
+                  type="date"
+                  value={startedDate}
+                  max={finishedDate || undefined}
+                  onChange={(e) => setStartedDate(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-border bg-card/0 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                  Conclusão (opcional)
+                </span>
+                <input
+                  type="date"
+                  value={finishedDate}
+                  min={startedDate || undefined}
+                  onChange={(e) => setFinishedDate(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-border bg-card/0 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </label>
+            </div>
+          ) : (
+            <>
+              <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Estante
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(Object.keys(STATUS_LABEL) as ShelfStatus[]).map((s) => (
+                  <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
+                    {STATUS_LABEL[s]}
+                  </Chip>
+                ))}
+              </div>
+            </>
+          )}
+
           <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
             Gênero
           </p>
