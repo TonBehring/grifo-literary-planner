@@ -1,99 +1,468 @@
-export type BookFormat = "fisico" | "ebook" | "audiobook";
-export type ShelfStatus = "lendo" | "quero_ler" | "lido" | "desejo_compra" | "abandonado";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { lazy, Suspense, useState } from "react";
+import { Camera, Search } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AppShell } from "@/components/AppShell";
+import { BookCover } from "@/components/BookCover";
+import { CoverPicker } from "@/components/CoverPicker";
+import { addBookToShelf, searchGoogleBooks, searchLocalCatalog, type GoogleVolume } from "@/lib/api";
+import { FORMAT_LABEL, STATUS_LABEL, GENRE_OPTIONS, type BookFormat, type ShelfStatus } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import { uploadCover } from "@/lib/cover-upload";
 
-export type Book = {
-  id: string;
-  title: string;
-  author: string | null;
-  cover_url: string | null;
-  isbn: string | null;
-  page_count: number | null;
-  genre: string | null;
-};
+const IsbnScannerView = lazy(() => import("@/components/IsbnScannerView"));
 
-export const GENRE_OPTIONS = [
-  "Religioso",
-  "Literatura",
-  "Romance",
-  "Ficção Científica",
-  "Fantasia",
-  "Autoajuda",
-  "Biografia",
-  "Infantil",
-  "Técnico/Acadêmico",
-  "Outro",
-] as const;
+export const Route = createFileRoute("/adicionar")({
+  head: () => ({
+    meta: [
+      { title: "Adicionar livro — Grifo" },
+      {
+        name: "description",
+        content: "Busque por título ou ISBN e adicione um novo livro à sua estante no Grifo.",
+      },
+      { property: "og:title", content: "Adicionar livro — Grifo" },
+      {
+        property: "og:description",
+        content: "Busca por título ou ISBN para incluir livros na sua biblioteca.",
+      },
+    ],
+  }),
+  component: () => (
+    <AppShell>
+      <AddBookPage />
+    </AppShell>
+  ),
+});
 
-export type UserBook = {
-  id: string;
-  user_id: string;
-  book_id: string;
-  status: ShelfStatus;
-  format: BookFormat;
-  current_page: number | null;
-  total_pages: number | null;
-  progress_percent: number | null;
-  rating: number | null;
-  review: string | null;
-  abandon_reason: string | null;
-  is_favorite: boolean | null;
-  started_at: string | null;
-  finished_at: string | null;
-  origem_emprestimo_id: string | null;
-  book: Book | null;
-};
+function AddBookPage() {
+  const [term, setTerm] = useState("");
+  const [results, setResults] = useState<GoogleVolume[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState<GoogleVolume | null>(null);
+const [format, setFormat] = useState<BookFormat>("fisico");
+  const [status, setStatus] = useState<ShelfStatus>("lendo");
+  const [genre, setGenre] = useState<string | null>(null);
+  const [preCadastro, setPreCadastro] = useState(false);
+  const [startedDate, setStartedDate] = useState("");
+  const [finishedDate, setFinishedDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualAuthor, setManualAuthor] = useState("");
+  const [manualPages, setManualPages] = useState("");
+  const [manualCover, setManualCover] = useState<string | null>(null);
+  const [manualIsbn, setManualIsbn] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-export type BookNote = {
-  id: string;
-  user_book_id: string;
-  content: string;
-  kind: "nota" | "citacao";
-  page: number | null;
-  created_at: string;
-};
-
-export type ReadingLog = {
-  id: string;
-  user_book_id: string;
-  mood: string | null;
-  pages_read: number | null;
-  created_at: string;
-};
-
-export type Loan = {
-  id: string;
-  user_id: string;
-  linked_user_id: string | null;
-  user_book_id: string | null;
-  book_id: string | null;
-  direction: "emprestei" | "peguei_emprestado";
-  person_name: string;
-  book_title: string;
-  due_date: string | null;
-  returned: boolean | null;
-  is_owner: boolean;
-  aceito: boolean;
-  copia_user_book_id: string | null;
-};
-
-export const FORMAT_LABEL: Record<BookFormat, string> = {
-  fisico: "Físico",
-  ebook: "Ebook",
-  audiobook: "Audiobook",
-};
-
-export const STATUS_LABEL: Record<ShelfStatus, string> = {
-  lendo: "Lendo",
-  quero_ler: "Quero Ler",
-  lido: "Lidos",
-  desejo_compra: "Quero comprar",
-  abandonado: "Abandonado",
-};
-
-export function progressOf(ub: Pick<UserBook, "format" | "current_page" | "total_pages" | "progress_percent" | "status">) {
-  if (ub.status === "lido") return 100;
-  if (ub.format === "fisico" && ub.total_pages && ub.current_page != null) {
-    return Math.min(100, Math.round((ub.current_page / ub.total_pages) * 100));
+async function searchByTerm(value: string) {
+    const query = value.trim();
+    if (query.length < 2) return;
+    const looksLikeIsbn = /^[\d-]{10,17}$/.test(query);
+    setSearching(true);
+    try {
+      if (looksLikeIsbn) {
+        const local = await searchLocalCatalog(query);
+        if (local.length > 0) {
+          setResults(local);
+          setSearched(true);
+          setSearching(false);
+          return;
+        }
+      }
+      const found = await searchGoogleBooks(query);
+      setResults(found);
+      setSearched(true);
+      if (found.length === 0) {
+        setManual(true);
+        setManualTitle(looksLikeIsbn ? "" : query);
+        setManualIsbn(looksLikeIsbn ? query.replace(/-/g, "") : null);
+        toast.info(
+          looksLikeIsbn
+            ? `ISBN ${query} não encontrado. Preencha o título manualmente abaixo.`
+            : "Nada encontrado. Cadastre manualmente abaixo.",
+        );
+      }
+    } catch (err) {
+      setManual(true);
+      setManualTitle(looksLikeIsbn ? "" : query);
+      setManualIsbn(looksLikeIsbn ? query.replace(/-/g, "") : null);
+      toast.error(err instanceof Error ? err.message : "Erro na busca");
+    } finally {
+      setSearching(false);
+    }
   }
-  return Math.min(100, Math.round(ub.progress_percent ?? 0));
+
+  async function runSearch(e: React.FormEvent) {
+    e.preventDefault();
+    await searchByTerm(term);
+  }
+
+  function handleScan(text: string) {
+    const code = text.replace(/[^0-9Xx]/g, "");
+    setScannerOpen(false);
+    setTerm(code);
+    void searchByTerm(code);
+  }
+
+
+  async function save() {
+    const payload = manual
+      ? {
+          id: "manual",
+          title: manualTitle.trim(),
+          author: manualAuthor.trim() || null,
+          cover_url: manualCover,
+          isbn: manualIsbn,
+          page_count: manualPages ? Number(manualPages) : null,
+        }
+      : selected;
+    if (!payload || !payload.title) {
+      toast.error("Informe ao menos o título do livro");
+      return;
+    }
+    if (!user) {
+      toast.error("Faça login para adicionar livros");
+      return;
+    }
+    if (preCadastro && startedDate && finishedDate && startedDate > finishedDate) {
+      toast.error("A data de início não pode ser depois da data de conclusão");
+      return;
+    }
+    setSaving(true);
+try {
+      const { id, alreadyExists } = await addBookToShelf(
+        {
+          ...payload,
+          status: preCadastro ? "lido" : status,
+          format,
+          genre,
+          pre_cadastro: preCadastro,
+          started_at: preCadastro && startedDate ? `${startedDate}T12:00:00` : null,
+          finished_at: preCadastro && finishedDate ? `${finishedDate}T12:00:00` : null,
+        },
+        user.id,
+      );
+      await queryClient.invalidateQueries({ queryKey: ["user_books"] });
+      if (alreadyExists) {
+        toast.info("Você já tem esse livro na sua estante");
+      } else {
+        toast.success("Livro adicionado à estante");
+      }
+      navigate({ to: "/livro/$id", params: { id } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section>
+      <h1 className="font-display text-4xl leading-tight">Adicionar livro</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Busque por título ou ISBN.</p>
+
+      <form onSubmit={runSearch} className="mt-6 flex gap-2">
+        <input
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          maxLength={120}
+          placeholder="Ex.: Cem anos de solidão ou 9788501012531"
+          className="flex-1 rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <button
+          type="submit"
+          className="rounded-xl bg-primary px-4 text-primary-foreground"
+          aria-label="Buscar"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setScannerOpen(true)}
+          className="rounded-xl border border-border px-4 text-foreground transition-colors hover:border-primary"
+          aria-label="Escanear código de barras"
+        >
+          <Camera className="h-4 w-4" />
+        </button>
+      </form>
+
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Escanear ISBN</DialogTitle>
+            <DialogDescription>
+              Posicione o código de barras da contracapa dentro do retângulo.
+            </DialogDescription>
+          </DialogHeader>
+          {scannerOpen && (
+            <Suspense
+              fallback={
+                <div className="h-[320px] rounded-xl bg-muted" aria-label="Carregando câmera" />
+              }
+            >
+              <IsbnScannerView onResult={handleScan} />
+            </Suspense>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {searching && <p className="mt-6 text-sm text-muted-foreground">Buscando…</p>}
+
+      {selected && !manual ? (
+        <div className="mt-6">
+          <div className="card-teal flex w-full gap-4 rounded-2xl p-3 text-left">
+            <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
+              <BookCover src={selected.cover_url} title={selected.title} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-display truncate text-lg">{selected.title}</h3>
+              <p className="truncate text-sm opacity-70">
+                {selected.author ?? "Autor desconhecido"}
+              </p>
+              {selected.page_count && (
+                <p className="mt-1 text-xs opacity-60">{selected.page_count} páginas</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setSelected(null)}
+            className="mt-3 text-sm text-primary underline underline-offset-4"
+          >
+            Trocar livro
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-6 space-y-3">
+            {results.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => {
+                  setSelected(v);
+                  setManual(false);
+                }}
+                className="flex w-full gap-4 rounded-2xl p-3 text-left transition-colors panel-cream"
+              >
+                <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
+                  <BookCover src={v.cover_url} title={v.title} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-display truncate text-lg">{v.title}</h3>
+                  <p className="truncate text-sm opacity-70">{v.author ?? "Autor desconhecido"}</p>
+                  {v.page_count && <p className="mt-1 text-xs opacity-60">{v.page_count} páginas</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {searched && !searching && (
+            <button
+              onClick={() => {
+                setManual(true);
+                setSelected(null);
+                if (!manualTitle) setManualTitle(term.trim());
+              }}
+              className="mt-6 text-sm text-primary underline underline-offset-4"
+            >
+              Não achou? Cadastrar manualmente
+            </button>
+          )}
+        </>
+      )}
+
+      {manual && (
+        <div className="panel-cream mt-6 space-y-3 rounded-2xl p-5">
+          <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Cadastro manual
+          </p>
+          <input
+            value={manualTitle}
+            onChange={(e) => setManualTitle(e.target.value)}
+            placeholder="Título"
+            maxLength={200}
+            className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <input
+            value={manualAuthor}
+            onChange={(e) => setManualAuthor(e.target.value)}
+            placeholder="Autor"
+            maxLength={200}
+            className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+          <input
+            value={manualPages}
+            onChange={(e) => setManualPages(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            placeholder="Total de páginas (opcional)"
+            className="w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+
+          <div className="pt-1">
+            <CoverPicker
+              cover={manualCover}
+              title={manualTitle || null}
+              uploading={uploadingCover}
+              onUpload={async (file) => {
+                if (!user) {
+                  toast.error("Faça login para enviar uma capa");
+                  return;
+                }
+                setUploadingCover(true);
+                try {
+                  setManualCover(await uploadCover(file, user.id));
+                  toast.success("Capa carregada");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
+                } finally {
+                  setUploadingCover(false);
+                }
+              }}
+              onUseUrl={(url) => {
+                if (!/^https?:\/\/\S+$/i.test(url)) {
+                  toast.error("Cole um link válido começando com http:// ou https://");
+                  return;
+                }
+                setManualCover(url);
+                toast.success("Capa definida pelo link");
+              }}
+              onRemove={() => setManualCover(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {(selected || manual) && (
+        <div className="panel-cream mt-8 rounded-2xl p-5">
+          <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Formato</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(Object.keys(FORMAT_LABEL) as BookFormat[]).map((f) => (
+              <Chip key={f} active={format === f} onClick={() => setFormat(f)}>
+                {FORMAT_LABEL[f]}
+              </Chip>
+            ))}
+          </div>
+
+          <label className="mt-5 flex items-start gap-3 rounded-xl border border-border px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={preCadastro}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setPreCadastro(checked);
+                if (checked) setStatus("lido");
+              }}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              Já li esse livro antes de usar o Grifo
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Ele entra nas suas estatísticas (livros lidos, páginas, histórico), mas não aparece
+                na sua Biblioteca.
+              </span>
+            </span>
+          </label>
+
+          {preCadastro ? (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                  Início (opcional)
+                </span>
+                <input
+                  type="date"
+                  value={startedDate}
+                  max={finishedDate || undefined}
+                  onChange={(e) => setStartedDate(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-border bg-card/0 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                  Conclusão (opcional)
+                </span>
+                <input
+                  type="date"
+                  value={finishedDate}
+                  min={startedDate || undefined}
+                  onChange={(e) => setFinishedDate(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-border bg-card/0 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </label>
+            </div>
+          ) : (
+            <>
+              <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Estante
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(Object.keys(STATUS_LABEL) as ShelfStatus[]).map((s) => (
+                  <Chip key={s} active={status === s} onClick={() => setStatus(s)}>
+                    {STATUS_LABEL[s]}
+                  </Chip>
+                ))}
+              </div>
+            </>
+          )}
+
+          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Gênero
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {GENRE_OPTIONS.map((g) => (
+              <Chip key={g} active={genre === g} onClick={() => setGenre(genre === g ? null : g)}>
+                {g}
+              </Chip>
+            ))}
+          </div>
+
+          <button
+            onClick={save}
+            disabled={saving}
+            className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {saving
+              ? "Salvando…"
+              : `Adicionar "${(manual ? manualTitle : selected?.title) || "livro"}"`}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "rounded-full border px-4 py-2 text-sm transition-colors " +
+        (active
+          ? "border-primary bg-primary/20 text-foreground"
+          : "border-border text-muted-foreground hover:border-primary/50")
+      }
+    >
+      {children}
+    </button>
+  );
 }
