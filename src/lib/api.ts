@@ -3,7 +3,7 @@ import { listContacts } from "./contatos";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, pre_cadastro, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
 type DbBook = {
   id: string;
@@ -34,6 +34,7 @@ type DbUserBook = {
   data_inicio: string | null;
   data_conclusao: string | null;
   origem_emprestimo_id: string | null;
+  pre_cadastro: boolean | null;
   book: DbBook | null;
 };
 
@@ -67,6 +68,7 @@ function mapUserBook(row: DbUserBook): UserBook {
     started_at: row.data_inicio,
     finished_at: row.data_conclusao,
     origem_emprestimo_id: row.origem_emprestimo_id,
+    pre_cadastro: row.pre_cadastro ?? false,
     book: effectiveBook
       ? {
           id: effectiveBook.id,
@@ -102,7 +104,7 @@ function unwrap<T>(data: T | null, error: { message: string } | null): T {
 }
 
 export async function listUserBooks(status?: ShelfStatus): Promise<UserBook[]> {
-  let query = supabase.from("user_books").select(USER_BOOK_SELECT);
+  let query = supabase.from("user_books").select(USER_BOOK_SELECT).eq("pre_cadastro", false);
   if (status) query = query.eq("status", status);
   const { data, error } = await query.order("criado_em", { ascending: false });
   const rows = (unwrap(data, error) ?? []) as unknown as DbUserBook[];
@@ -212,6 +214,9 @@ export type NewBookInput = {
   genre: string | null;
   status: ShelfStatus;
   format: BookFormat;
+  started_at?: string | null;
+  finished_at?: string | null;
+  pre_cadastro?: boolean;
 };
 
 export async function addBookToShelf(
@@ -253,7 +258,13 @@ export async function addBookToShelf(
       status: input.status,
       formato: input.format,
       pagina_atual: 0,
-      data_inicio: input.status === "lendo" ? new Date().toISOString() : null,
+      data_inicio: input.pre_cadastro
+        ? (input.started_at ?? null)
+        : input.status === "lendo"
+          ? new Date().toISOString()
+          : null,
+      data_conclusao: input.pre_cadastro ? (input.finished_at ?? null) : null,
+      pre_cadastro: input.pre_cadastro ?? false,
     })
     .select("id")
     .single();
