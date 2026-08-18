@@ -62,7 +62,7 @@ type LogRow = {
 async function fetchFinished(userId: string) {
   const { data, error } = await supabase
     .from("user_books")
-    .select("id, data_conclusao, nota, resenha, book:books(total_paginas, genero)")
+    .select("id, data_inicio, data_conclusao, nota, resenha, book:books(titulo, total_paginas, genero)")
     .eq("user_id", userId)
     .eq("status", "lido")
     .gte("data_conclusao", `${YEAR}-01-01`)
@@ -70,11 +70,23 @@ async function fetchFinished(userId: string) {
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as Array<{
     id: string;
+    data_inicio: string | null;
     data_conclusao: string | null;
     nota: number | null;
     resenha: string | null;
-    book: { total_paginas: number | null; genero: string | null } | null;
+    book: { titulo: string | null; total_paginas: number | null; genero: string | null } | null;
   }>;
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+function daysBetween(startIso: string, endIso: string) {
+  const start = new Date(`${startIso.slice(0, 10)}T00:00:00`);
+  const end = new Date(`${endIso.slice(0, 10)}T00:00:00`);
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+  return Math.max(1, diff + 1);
 }
 
 function currentStreak(logs: LogRow[]): number {
@@ -171,6 +183,13 @@ function StatsPage() {
   const streakDias = currentStreak(logs.data ?? []);
   const generoFavorito = topGenre(finished.data ?? []);
 
+  const duracoes = (finished.data ?? [])
+    .filter((f) => f.data_inicio && f.data_conclusao)
+    .map((f) => daysBetween(f.data_inicio as string, f.data_conclusao as string));
+  const tempoMedio = duracoes.length
+    ? Math.round(duracoes.reduce((sum, d) => sum + d, 0) / duracoes.length)
+    : null;
+
   const loadingTop = finished.isLoading || logs.isLoading;
 
   return (
@@ -193,11 +212,28 @@ function StatsPage() {
             <StatCard label="Avaliações" value={String(avaliados)} suffix={` de ${booksRead}`} />
             <StatCard label="Resenhas" value={String(resenhados)} suffix={` de ${booksRead}`} />
             <StatCard label="Dias seguidos" value={String(streakDias)} />
+            {tempoMedio != null && <StatCard label="Tempo médio" value={String(tempoMedio)} suffix=" dias" />}
             {generoFavorito && <StatCard label="Gênero favorito" value={generoFavorito} small />}
           </div>
         </div>
       )}
       <GoalCard userId={userId} booksRead={booksRead} />
+
+      <div className="mt-8">
+        <h2 className="font-display text-xl">Histórico de leitura</h2>
+        {finished.isLoading ? (
+          <p className="mt-3 text-sm text-muted-foreground">Carregando...</p>
+        ) : (
+          <ReadingHistoryList
+            books={(finished.data ?? []).map((f) => ({
+              id: f.id,
+              titulo: f.book?.titulo ?? "Livro",
+              data_inicio: f.data_inicio,
+              data_conclusao: f.data_conclusao,
+            }))}
+          />
+        )}
+      </div>
 
       <div className="mt-8">
         <h2 className="font-display text-xl">Seu humor de leitura</h2>
@@ -318,6 +354,40 @@ function GoalCard({ userId, booksRead }: { userId: string; booksRead: number }) 
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function ReadingHistoryList({
+  books,
+}: {
+  books: Array<{ id: string; titulo: string; data_inicio: string | null; data_conclusao: string | null }>;
+}) {
+  if (books.length === 0) {
+    return (
+      <p className="mt-3 text-sm text-muted-foreground">
+        Nenhum livro concluído em {YEAR} ainda.
+      </p>
+    );
+  }
+
+  const sorted = [...books].sort((a, b) => (b.data_conclusao ?? "").localeCompare(a.data_conclusao ?? ""));
+
+  return (
+    <div className="mt-3 space-y-2">
+      {sorted.map((b) => {
+        const dias = b.data_inicio && b.data_conclusao ? daysBetween(b.data_inicio, b.data_conclusao) : null;
+        return (
+          <div key={b.id} className="panel-cream rounded-xl p-3">
+            <p className="font-display text-sm">{b.titulo}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {b.data_inicio ? `Início: ${formatDate(b.data_inicio)}` : "Início não registrado"}
+              {b.data_conclusao && ` · Conclusão: ${formatDate(b.data_conclusao)}`}
+              {dias != null && ` · ${dias} ${dias === 1 ? "dia" : "dias"}`}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
