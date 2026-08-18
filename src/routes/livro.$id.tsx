@@ -24,6 +24,21 @@ import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote,
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { useAuth } from "@/lib/auth";
  
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+function daysBetween(startIso: string, endIso: string) {
+  const start = new Date(`${startIso.slice(0, 10)}T00:00:00`);
+  const end = new Date(`${endIso.slice(0, 10)}T00:00:00`);
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+  return Math.max(1, diff + 1);
+}
+
+function diasLabel(n: number) {
+  return `${n} ${n === 1 ? "dia" : "dias"}`;
+}
+
 export const Route = createFileRoute("/livro/$id")({
   head: () => ({
     meta: [
@@ -305,6 +320,16 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               </div>
               <p className="mt-2 text-xs opacity-80">{pct}% concluído</p>
             </>
+          )}
+          {(ub.status === "lendo" || ub.status === "lido") && ub.started_at && (
+            <p className="mt-1 text-xs opacity-70">
+              Início: {formatDate(ub.started_at)}
+              {ub.finished_at && ` · Conclusão: ${formatDate(ub.finished_at)}`}
+              {" · "}
+              {ub.finished_at
+                ? `Lido em ${diasLabel(daysBetween(ub.started_at, ub.finished_at))}`
+                : `Lendo há ${diasLabel(daysBetween(ub.started_at, new Date().toISOString()))}`}
+            </p>
           )}
           {ub.rating != null && (
             <div className="mt-3">
