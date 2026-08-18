@@ -78,6 +78,23 @@ async function fetchFinished(userId: string) {
   }>;
 }
 
+async function fetchAllFinished(userId: string) {
+  const { data, error } = await supabase
+    .from("user_books")
+    .select("id, data_inicio, data_conclusao, nota, resenha, book:books(titulo, total_paginas, genero)")
+    .eq("user_id", userId)
+    .eq("status", "lido");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as Array<{
+    id: string;
+    data_inicio: string | null;
+    data_conclusao: string | null;
+    nota: number | null;
+    resenha: string | null;
+    book: { titulo: string | null; total_paginas: number | null; genero: string | null } | null;
+  }>;
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
@@ -160,6 +177,12 @@ function StatsPage() {
     enabled: Boolean(userId),
   });
 
+  const allFinished = useQuery({
+    queryKey: ["stats-all-finished", userId],
+    queryFn: () => fetchAllFinished(userId),
+    enabled: Boolean(userId),
+  });
+
   const logs = useQuery({
     queryKey: ["stats-logs", userId],
     queryFn: () => fetchLogs(userId, since),
@@ -221,11 +244,15 @@ function StatsPage() {
 
       <div className="mt-8">
         <h2 className="font-display text-xl">Histórico de leitura</h2>
-        {finished.isLoading ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Todos os livros que você já marcou como lidos, inclusive os cadastrados antes de usar o
+          Grifo — independente do ano.
+        </p>
+        {allFinished.isLoading ? (
           <p className="mt-3 text-sm text-muted-foreground">Carregando...</p>
         ) : (
           <ReadingHistoryList
-            books={(finished.data ?? []).map((f) => ({
+            books={(allFinished.data ?? []).map((f) => ({
               id: f.id,
               titulo: f.book?.titulo ?? "Livro",
               data_inicio: f.data_inicio,
@@ -366,7 +393,7 @@ function ReadingHistoryList({
   if (books.length === 0) {
     return (
       <p className="mt-3 text-sm text-muted-foreground">
-        Nenhum livro concluído em {YEAR} ainda.
+        Nenhum livro concluído ainda.
       </p>
     );
   }
