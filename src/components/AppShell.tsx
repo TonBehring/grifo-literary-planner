@@ -1,8 +1,10 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { BookOpen, Library, HandHeart, Plus, LogOut, ShoppingCart, BarChart3, UserRound } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -16,6 +18,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const subscription = useQuery({
+    queryKey: ["subscription", user?.id],
+    queryFn: getMySubscription,
+    enabled: Boolean(user),
+  });
 
   useEffect(() => {
     if (!loading && !user && isSupabaseConfigured) {
@@ -81,7 +89,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5">{children}</main>
+      <main className="mx-auto max-w-3xl px-5">
+        {!subscription.isLoading && !hasActiveAccess(subscription.data) && pathname !== "/conta" && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs">
+            <span>Sua assinatura não está ativa — você só consegue ver o que já registrou.</span>
+            <Link to="/conta" className="font-medium text-primary underline underline-offset-4">
+              Assinar
+            </Link>
+          </div>
+        )}
+        {children}
+      </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl">
