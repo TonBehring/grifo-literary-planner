@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Camera, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -6,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { ContatosPanel } from "@/components/ContatosPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCover } from "@/lib/cover-upload";
+import { createSubscriptionCheckout, getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/conta")({
@@ -131,6 +133,8 @@ const [changingPassword, setChangingPassword] = useState(false);
   return (
     <section>
       <h1 className="font-display text-4xl leading-tight">Minha conta</h1>
+
+      <SubscriptionSection />
 
       <div className="panel-cream mt-6 space-y-4 rounded-2xl p-5">
         <div className="flex items-center gap-4">
@@ -315,6 +319,62 @@ const [changingPassword, setChangingPassword] = useState(false);
         Sair da conta
       </button>
     </section>
+  );
+}
+
+function SubscriptionSection() {
+  const [redirecting, setRedirecting] = useState(false);
+  const subscription = useQuery({ queryKey: ["subscription"], queryFn: getMySubscription });
+
+  async function subscribe() {
+    setRedirecting(true);
+    try {
+      const url = await createSubscriptionCheckout();
+      window.location.href = url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a assinatura");
+      setRedirecting(false);
+    }
+  }
+
+  const active = hasActiveAccess(subscription.data);
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Assinatura</h2>
+      {subscription.isLoading ? (
+        <p className="mt-2 text-sm text-muted-foreground">Carregando…</p>
+      ) : active ? (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {subscription.data?.provider === "cortesia" ? "Acesso de cortesia" : "Assinatura ativa"}{" "}
+            até {new Date(subscription.data!.current_period_end as string).toLocaleDateString("pt-BR")}.
+          </p>
+          {subscription.data?.provider === "mercado_pago" && (
+            <button
+              onClick={subscribe}
+              disabled={redirecting}
+              className="mt-4 text-sm text-primary underline underline-offset-4 disabled:opacity-60"
+            >
+              {redirecting ? "Abrindo checkout…" : "Gerenciar / renovar assinatura"}
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Você ainda não tem uma assinatura ativa.
+          </p>
+          <button
+            onClick={subscribe}
+            disabled={redirecting}
+            className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {redirecting ? "Abrindo checkout…" : "Assinar o Grifo"}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
