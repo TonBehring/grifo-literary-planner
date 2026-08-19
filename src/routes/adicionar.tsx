@@ -13,6 +13,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
+import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import { addBookToShelf, searchGoogleBooks, searchLocalCatalog, type GoogleVolume } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, GENRE_OPTIONS, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -66,6 +67,7 @@ const [format, setFormat] = useState<BookFormat>("fisico");
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { active: subscriptionActive, loading: subscriptionLoading } = useHasActiveSubscription();
 
 async function searchByTerm(value: string) {
     const query = value.trim();
@@ -167,6 +169,17 @@ try {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (!subscriptionLoading && !subscriptionActive) {
+    return (
+      <section>
+        <h1 className="font-display text-4xl leading-tight">Adicionar livro</h1>
+        <div className="mt-6">
+          <SubscriptionRequiredNotice action="adicionar um livro novo" />
+        </div>
+      </section>
+    );
   }
 
   return (
