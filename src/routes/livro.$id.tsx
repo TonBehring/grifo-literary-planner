@@ -9,6 +9,7 @@ import { BookEditPanel } from "@/components/BookEditPanel";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { MoodPicker } from "@/components/MoodPicker";
 import { StarRating } from "@/components/StarRating";
+import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import {
   addNote,
   addReadingLog,
@@ -66,6 +67,7 @@ function BookDetail() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { active: subscriptionActive } = useHasActiveSubscription();
  
   const [progressInput, setProgressInput] = useState("");
   const [mood, setMood] = useState<string | null>(null);
@@ -281,6 +283,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             <BookCover src={ub.book?.cover_url} title={ub.book?.title} />
           </div>
           {!activeLoan &&
+            subscriptionActive &&
             ub.status !== "desejo_compra" &&
             ub.status !== "lido" &&
             ub.status !== "abandonado" && (
@@ -337,17 +340,19 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             </div>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-            <button
-              onClick={() => {
-                setEditing((v) => !v);
-                setConfirmDelete(false);
-              }}
-              className="inline-flex items-center gap-1 text-primary underline underline-offset-4"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              {editing ? "Fechar edição" : "Editar"}
-            </button>
-            {(ub.status === "lendo" || ub.status === "quero_ler") && (
+            {subscriptionActive && (
+              <button
+                onClick={() => {
+                  setEditing((v) => !v);
+                  setConfirmDelete(false);
+                }}
+                className="inline-flex items-center gap-1 text-primary underline underline-offset-4"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {editing ? "Fechar edição" : "Editar"}
+              </button>
+            )}
+            {subscriptionActive && (ub.status === "lendo" || ub.status === "quero_ler") && (
               <button
                 onClick={() => setAbandoning((v) => !v)}
                 className="inline-flex items-center gap-1 text-muted-foreground underline underline-offset-4"
@@ -439,48 +444,58 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           <h2 className="font-display text-xl">
             {ub.status === "abandonado" ? "Retomar leitura" : "Adquiri este livro"}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {ub.status === "abandonado"
-              ? "Escolha para onde este livro volta na sua biblioteca."
-              : "Escolha o formato e onde ele vai entrar na sua biblioteca."}
-          </p>
- 
-          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Formato
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(Object.keys(FORMAT_LABEL) as BookFormat[]).map((f) => (
-              <Chip key={f} active={acquireFormat === f} onClick={() => setAcquireFormat(f)}>
-                {FORMAT_LABEL[f]}
-              </Chip>
-            ))}
-          </div>
- 
-          <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Estante
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(ub.status === "abandonado"
-              ? (["lendo", "quero_ler"] as ShelfStatus[])
-              : (["lendo", "quero_ler", "lido"] as ShelfStatus[])
-            ).map((s) => (
-              <Chip key={s} active={acquireStatus === s} onClick={() => setAcquireStatus(s)}>
-                {STATUS_LABEL[s]}
-              </Chip>
-            ))}
-          </div>
- 
-          <button
-            onClick={() => acquire.mutate()}
-            disabled={acquire.isPending}
-            className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {acquire.isPending
-              ? "Salvando…"
-              : ub.status === "abandonado"
-                ? "Retomar este livro"
-                : "Confirmar aquisição"}
-          </button>
+          {!subscriptionActive ? (
+            <div className="mt-3">
+              <SubscriptionRequiredNotice
+                action={ub.status === "abandonado" ? "retomar a leitura" : "adquirir este livro"}
+              />
+            </div>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {ub.status === "abandonado"
+                  ? "Escolha para onde este livro volta na sua biblioteca."
+                  : "Escolha o formato e onde ele vai entrar na sua biblioteca."}
+              </p>
+
+              <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Formato
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(Object.keys(FORMAT_LABEL) as BookFormat[]).map((f) => (
+                  <Chip key={f} active={acquireFormat === f} onClick={() => setAcquireFormat(f)}>
+                    {FORMAT_LABEL[f]}
+                  </Chip>
+                ))}
+              </div>
+
+              <p className="mt-5 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Estante
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(ub.status === "abandonado"
+                  ? (["lendo", "quero_ler"] as ShelfStatus[])
+                  : (["lendo", "quero_ler", "lido"] as ShelfStatus[])
+                ).map((s) => (
+                  <Chip key={s} active={acquireStatus === s} onClick={() => setAcquireStatus(s)}>
+                    {STATUS_LABEL[s]}
+                  </Chip>
+                ))}
+              </div>
+
+              <button
+                onClick={() => acquire.mutate()}
+                disabled={acquire.isPending}
+                className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {acquire.isPending
+                  ? "Salvando…"
+                  : ub.status === "abandonado"
+                    ? "Retomar este livro"
+                    : "Confirmar aquisição"}
+              </button>
+            </>
+          )}
         </div>
       )}
       {activeLoan && ub.status !== "desejo_compra" && (
@@ -498,28 +513,36 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">Atualizar progresso</h2>
 
-          <p className="mt-3 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Humor do dia
-          </p>
-          <div className="mt-2">
-            <MoodPicker value={mood} onChange={setMood} />
-          </div>
+          {!subscriptionActive ? (
+            <div className="mt-3">
+              <SubscriptionRequiredNotice action="registrar novo progresso" />
+            </div>
+          ) : (
+            <>
+              <p className="mt-3 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Humor do dia
+              </p>
+              <div className="mt-2">
+                <MoodPicker value={mood} onChange={setMood} />
+              </div>
 
-          <div className="mt-5 flex items-center gap-2">
-            <input
-              value={progressInput}
-              onChange={(e) => setProgressInput(e.target.value)}
-              inputMode="numeric"
-              placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
-              className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button
-              onClick={() => saveProgress.mutate()}
-              className="shrink-0 whitespace-nowrap rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Registrar
-            </button>
-          </div>
+              <div className="mt-5 flex items-center gap-2">
+                <input
+                  value={progressInput}
+                  onChange={(e) => setProgressInput(e.target.value)}
+                  inputMode="numeric"
+                  placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
+                  className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <button
+                  onClick={() => saveProgress.mutate()}
+                  className="shrink-0 whitespace-nowrap rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  Registrar
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
       
@@ -530,6 +553,10 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           <p className="mt-3 text-sm text-muted-foreground">
             Novas anotações ficam bloqueadas enquanto o livro está emprestado.
           </p>
+        ) : !subscriptionActive ? (
+          <div className="mt-3">
+            <SubscriptionRequiredNotice action="guardar uma nova nota ou citação" />
+          </div>
         ) : (
           <>
             <div className="mt-3 flex gap-2">
@@ -592,17 +619,19 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                  {n.kind === "citacao" ? "Citação" : "Nota"}
                </span>
                <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label="Editar"
-                  onClick={() => {
-                    setEditingNoteId(n.id);
-                    setEditText(n.content);
-                  }}
-                  className="not-italic text-primary"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
+                {subscriptionActive && (
+                  <button
+                    type="button"
+                    aria-label="Editar"
+                    onClick={() => {
+                      setEditingNoteId(n.id);
+                      setEditText(n.content);
+                    }}
+                    className="not-italic text-primary"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label="Excluir"
