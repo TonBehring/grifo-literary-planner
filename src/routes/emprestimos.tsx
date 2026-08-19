@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import { acceptLoan, addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
 import { listContacts, type Contato } from "@/lib/contatos";
 import type { Loan } from "@/lib/types";
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/emprestimos")({
 function LoansPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { active: subscriptionActive } = useHasActiveSubscription();
   const [direction, setDirection] = useState<Loan["direction"]>("emprestei");
   const [userBookId, setUserBookId] = useState("");
   const [mode, setMode] = useState<"contato" | "manual">("contato");
@@ -132,6 +134,12 @@ function LoansPage() {
       <h1 className="font-display text-4xl leading-tight">Empréstimos</h1>
 
       <div className="panel-cream mt-6 rounded-2xl p-5">
+        {!subscriptionActive && (
+          <div className="mb-4">
+            <SubscriptionRequiredNotice action="registrar um novo empréstimo" />
+          </div>
+        )}
+        <fieldset disabled={!subscriptionActive} className="disabled:pointer-events-none disabled:opacity-40">
         <div className="flex gap-2">
           {(["emprestei", "peguei_emprestado"] as const).map((d) => (
             <button
@@ -216,6 +224,7 @@ function LoansPage() {
         >
           Registrar
         </button>
+        </fieldset>
       </div>
 
       {pendingIncoming.length > 0 && (
@@ -233,7 +242,8 @@ function LoansPage() {
                 </div>
                 <button
                   onClick={() => accept.mutate(l)}
-                  disabled={accept.isPending}
+                  disabled={accept.isPending || !subscriptionActive}
+                  title={!subscriptionActive ? "Assine o Grifo para aceitar empréstimos" : undefined}
                   className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
                 >
                   {accept.isPending ? "Aceitando…" : "Aceitar"}
