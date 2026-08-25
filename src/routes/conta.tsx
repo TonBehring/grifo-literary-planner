@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import { Camera, Eye, EyeOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Camera, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ContatosPanel } from "@/components/ContatosPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCover } from "@/lib/cover-upload";
 import { createSubscriptionCheckout, getMySubscription, hasActiveAccess } from "@/lib/subscription";
+import { getPushPermission, isPushSupported, sendTestPush, subscribeToPush } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/conta")({
@@ -33,7 +34,7 @@ function AccountPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
 
-const [changingPassword, setChangingPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [passwordVerified, setPasswordVerified] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -135,6 +136,8 @@ const [changingPassword, setChangingPassword] = useState(false);
       <h1 className="font-display text-4xl leading-tight">Minha conta</h1>
 
       <SubscriptionSection />
+
+      <NotificationsSection />
 
       <div className="panel-cream mt-6 space-y-4 rounded-2xl p-5">
         <div className="flex items-center gap-4">
@@ -263,7 +266,7 @@ const [changingPassword, setChangingPassword] = useState(false);
 
           {changingPassword && passwordVerified && (
             <div className="space-y-3">
-<Field label="Nova senha">
+              <Field label="Nova senha">
                 <div className="relative">
                   <input
                     type={showNewPassword ? "text" : "password"}
@@ -371,6 +374,88 @@ function SubscriptionSection() {
             className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
             {redirecting ? "Abrindo checkout…" : "Assinar o Grifo"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Seção temporária de teste de notificações push (PWA). Depois de validar
+// que funciona ponta a ponta, isso pode virar algo mais discreto (um toggle
+// simples), sem o botão de "enviar teste".
+function NotificationsSection() {
+  const [supported, setSupported] = useState(true);
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [activating, setActivating] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  useEffect(() => {
+    setSupported(isPushSupported());
+    setPermission(getPushPermission());
+  }, []);
+
+  async function handleActivate() {
+    setActivating(true);
+    try {
+      await subscribeToPush();
+      setPermission(getPushPermission());
+      toast.success("Notificações ativadas neste dispositivo.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível ativar as notificações.");
+    } finally {
+      setActivating(false);
+    }
+  }
+
+  async function handleTestPush() {
+    setSendingTest(true);
+    try {
+      await sendTestPush();
+      toast.success("Notificação de teste enviada — deve chegar em alguns segundos.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a notificação de teste.");
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
+  if (!supported) return null;
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display flex items-center gap-2 text-xl">
+        <Bell className="h-5 w-5" />
+        Notificações
+      </h2>
+
+      {permission === "granted" ? (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">Notificações ativadas neste dispositivo.</p>
+          <button
+            onClick={handleTestPush}
+            disabled={sendingTest}
+            className="mt-4 w-full rounded-xl border border-primary py-3 text-sm font-medium text-primary disabled:opacity-60"
+          >
+            {sendingTest ? "Enviando…" : "Enviar notificação de teste"}
+          </button>
+        </>
+      ) : permission === "denied" ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          As notificações foram bloqueadas nas configurações do navegador. Pra ativar, permita
+          notificações pra este site nas configurações do seu celular/navegador.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Ative pra receber avisos do Grifo, como lembretes de leitura.
+          </p>
+          <button
+            onClick={handleActivate}
+            disabled={activating}
+            className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {activating ? "Ativando…" : "Ativar notificações"}
           </button>
         </>
       )}
