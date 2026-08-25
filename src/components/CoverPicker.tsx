@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ImageIcon, Link2, Upload } from "lucide-react";
+import { Camera, ImageIcon, Link2, Upload } from "lucide-react";
 import { BookCover } from "@/components/BookCover";
 
 export function CoverPicker({
@@ -21,6 +21,7 @@ export function CoverPicker({
   const [showUrl, setShowUrl] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const hasCover = Boolean(cover);
 
@@ -77,11 +78,19 @@ export function CoverPicker({
         )}
 
         {open && (
-          <div className="absolute top-full z-10 mt-2 w-56 rounded-xl border border-border bg-card p-2 shadow-lg">
+          <div className="absolute top-full z-10 mt-2 w-56 rounded-xl border border-border bg-card p-2 text-card-foreground shadow-lg">
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-card-foreground transition-colors hover:bg-white/10"
+            >
+              <Camera className="h-4 w-4 text-primary" />
+              Tirar foto
+            </button>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-card-foreground transition-colors hover:bg-white/10"
             >
               <Upload className="h-4 w-4 text-primary" />
               Enviar do dispositivo
@@ -92,7 +101,7 @@ export function CoverPicker({
                 setShowUrl(true);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-card-foreground transition-colors hover:bg-white/10"
             >
               <Link2 className="h-4 w-4 text-primary" />
               Usar link da web
@@ -107,7 +116,7 @@ export function CoverPicker({
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="Cole o link da imagem"
               maxLength={2000}
-              className="min-w-0 flex-1 rounded-xl border border-border bg-card/0 px-3 py-2 text-sm outline-none focus:border-primary"
+              className="min-w-0 flex-1 rounded-xl border border-border bg-card/0 px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
             <button
               type="button"
@@ -119,10 +128,24 @@ export function CoverPicker({
           </div>
         )}
 
+        {/* Envia arquivo já existente no dispositivo (galeria, arquivos, etc.) */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          className="hidden"
+          disabled={uploading}
+          onChange={handleFileChange}
+        />
+
+        {/* Abre a câmera diretamente no celular. "capture" é ignorado em
+            desktop, onde o navegador simplesmente abre o seletor de arquivo
+            normal — por isso é seguro deixar sempre presente. */}
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           className="hidden"
           disabled={uploading}
           onChange={handleFileChange}
