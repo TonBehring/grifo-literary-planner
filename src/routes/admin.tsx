@@ -63,6 +63,8 @@ function AdminPage() {
       </div>
 
       <GrantAccessForm />
+
+      <BroadcastPushForm />
     </section>
   );
 }
@@ -109,6 +111,79 @@ function GrantAccessForm() {
         >
           {granting ? "..." : "Conceder"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Envia uma notificação push pra todo mundo que já ativou notificações no
+// Grifo (tabela push_subscriptions). Só funciona pra quem está na tabela
+// "admins" — a própria Edge Function bloqueia quem não estiver.
+function BroadcastPushForm() {
+  const [title, setTitle] = useState("Grifo");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [lastResult, setLastResult] = useState<string | null>(null);
+
+  async function send() {
+    if (!message.trim()) {
+      toast.error("Escreva o texto da notificação.");
+      return;
+    }
+    setSending(true);
+    setLastResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("push-broadcast", {
+        body: { title: title.trim(), body: message.trim() },
+      });
+      if (error) throw new Error(error.message);
+      const payload = data as { error?: string; total?: number; sent?: number; failed?: number; removed?: number };
+      if (payload?.error) throw new Error(payload.error);
+
+      setLastResult(
+        `Enviado para ${payload.sent} de ${payload.total} inscrições` +
+          (payload.removed ? ` (${payload.removed} inscrição(ões) expirada(s) removida(s))` : ""),
+      );
+      toast.success("Notificação enviada.");
+      setMessage("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a notificação");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Enviar notificação para todos</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Vai por push pra todo usuário que já ativou notificações no Grifo.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título (ex: Grifo)"
+          maxLength={60}
+          className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Texto da notificação"
+          maxLength={200}
+          rows={3}
+          className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <button
+          onClick={send}
+          disabled={sending}
+          className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        >
+          {sending ? "Enviando…" : "Enviar para todos"}
+        </button>
+        {lastResult && <p className="text-xs text-muted-foreground">{lastResult}</p>}
       </div>
     </div>
   );
