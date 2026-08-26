@@ -18,7 +18,10 @@ self.addEventListener("fetch", (event) => {
 });
 
 // Recebe a notificação push enviada pela Edge Function do Grifo e mostra
-// pro usuário, mesmo com o app fechado.
+// pro usuário, mesmo com o app fechado. Também atualiza o número no ícone
+// do app (Badging API) — funciona no iPhone (iOS/iPadOS 16.4+, app instalado
+// e com permissão concedida); no Android o número já aparece sozinho,
+// baseado nas notificações não dispensadas na bandeja.
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -35,7 +38,22 @@ self.addEventListener("push", (event) => {
     data: { url: data.url || "/" },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      await self.registration.showNotification(title, options);
+      try {
+        if (typeof data.unreadCount === "number" && "setAppBadge" in navigator) {
+          if (data.unreadCount > 0) {
+            await navigator.setAppBadge(data.unreadCount);
+          } else if ("clearAppBadge" in navigator) {
+            await navigator.clearAppBadge();
+          }
+        }
+      } catch {
+        // Badging API não suportada nesse navegador/contexto — ignora.
+      }
+    })(),
+  );
 });
 
 // Ao clicar na notificação, abre (ou foca) o Grifo na URL indicada.
