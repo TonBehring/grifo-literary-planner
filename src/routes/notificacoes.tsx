@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import {
@@ -61,12 +61,12 @@ function NotificacoesPage() {
       ) : (
         <div className="mt-4 space-y-2">
           {data.map((n) => (
-            <Link
+            <button
               key={n.id}
-              to={n.url || "/"}
+              type="button"
               onClick={() => handleOpen(n.id, Boolean(n.read_at))}
               className={
-                "block rounded-xl border p-4 transition-colors " +
+                "block w-full rounded-xl border p-4 text-left transition-colors " +
                 (n.read_at ? "border-border bg-transparent" : "border-primary/40 bg-primary/5")
               }
             >
@@ -80,7 +80,7 @@ function NotificacoesPage() {
                   </p>
                 </div>
               </div>
-            </Link>
+            </button>
           ))}
         </div>
       )}
