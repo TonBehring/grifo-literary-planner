@@ -10,7 +10,7 @@ function friendlyAuthError(message: string): string {
   if (m.includes("invalid login credentials")) return "E-mail ou senha incorretos.";
   if (m.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
   if (m.includes("user already registered")) return "Este e-mail já está cadastrado. Tente entrar.";
-  if (m.includes("password should be at least")) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (m.includes("password should be at least")) return "A senha precisa ter pelo menos 8 caracteres.";
   if (m.includes("unable to validate email address")) return "Digite um e-mail válido.";
   return "Não foi possível continuar. Verifique os dados e tente de novo.";
 }
@@ -159,7 +159,7 @@ const [name, setName] = useState("");
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  minLength={mode === "signup" ? 6 : undefined}
+                  minLength={mode === "signup" ? 8 : undefined}
                   maxLength={72}
                   required
                   className={inputClass + " pr-10"}
