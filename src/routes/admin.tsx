@@ -62,12 +62,139 @@ function AdminPage() {
         ))}
       </div>
 
+      <SupabaseUsageSection />
       <GrantAccessForm />
-
-      <BroadcastPushForm />
     </section>
   );
 }
+
+// --- Uso do Supabase x limites do plano gratuito -----------------------
+
+type UsoSupabase = {
+  db_size_bytes: number;
+  storage_size_bytes: number;
+  total_usuarios: number;
+  usuarios_ativos_30d: number;
+};
+
+// Limites do plano gratuito do Supabase (ago/2026). Egress fica de fora
+// de propósito: só dá pra ver no painel do Supabase (Project Settings →
+// Usage), porque exige um token de acesso da conta inteira, não só deste
+// projeto — não vale o risco de guardar isso como secret aqui.
+const DB_LIMIT_BYTES = 500 * 1024 * 1024; // 500 MB
+const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GB
+const MAU_LIMIT = 50_000;
+
+// A partir de quantos % de um limite mostramos o aviso de upgrade.
+const SAFETY_THRESHOLD = 0.7;
+
+async function fetchUsoSupabase(): Promise<UsoSupabase> {
+  const { data, error } = await supabase.rpc("admin_uso_supabase");
+  if (error) throw new Error(error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as UsoSupabase;
+  return row;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
+function barColor(pct: number): string {
+  if (pct >= 0.9) return "bg-destructive";
+  if (pct >= SAFETY_THRESHOLD) return "bg-amber-500";
+  return "bg-primary";
+}
+
+function UsageBar({
+  label,
+  used,
+  limit,
+  formatUsed,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  formatUsed: (n: number) => string;
+}) {
+  const pct = Math.min(1, used / limit);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-sm">
+        <span>{label}</span>
+        <span className="text-muted-foreground">
+          {formatUsed(used)} de {formatUsed(limit)} ({Math.round(pct * 100)}%)
+        </span>
+      </div>
+      <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-border">
+        <div
+          className={"h-full rounded-full transition-all " + barColor(pct)}
+          style={{ width: `${pct * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SupabaseUsageSection() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-uso-supabase"],
+    queryFn: fetchUsoSupabase,
+    retry: false,
+  });
+
+  if (isLoading || isError || !data) return null;
+
+  const metrics = [
+    { pct: data.db_size_bytes / DB_LIMIT_BYTES },
+    { pct: data.storage_size_bytes / STORAGE_LIMIT_BYTES },
+    { pct: data.usuarios_ativos_30d / MAU_LIMIT },
+  ];
+  const maxPct = Math.max(...metrics.map((m) => m.pct));
+  const nearLimit = maxPct >= SAFETY_THRESHOLD;
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Uso do Supabase (plano gratuito)</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Egress não entra aqui — confira em Project Settings → Usage no painel do Supabase.
+      </p>
+
+      <div className="mt-4 space-y-4">
+        <UsageBar
+          label="Banco de dados"
+          used={data.db_size_bytes}
+          limit={DB_LIMIT_BYTES}
+          formatUsed={formatBytes}
+        />
+        <UsageBar
+          label="Storage (capas)"
+          used={data.storage_size_bytes}
+          limit={STORAGE_LIMIT_BYTES}
+          formatUsed={formatBytes}
+        />
+        <UsageBar
+          label="Usuários ativos (30 dias)"
+          used={data.usuarios_ativos_30d}
+          limit={MAU_LIMIT}
+          formatUsed={(n) => n.toLocaleString("pt-BR")}
+        />
+      </div>
+
+      {nearLimit && (
+        <div className="mt-4 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm">
+          <strong>Hora de considerar o plano Pro ($25/mês).</strong> Pelo menos um dos limites do
+          plano gratuito já passou de {Math.round(SAFETY_THRESHOLD * 100)}% de uso — vale migrar
+          antes de bater no teto e o projeto ser pausado ou travar novos cadastros/uploads.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Conceder acesso de cortesia ----------------------------------------
 
 function GrantAccessForm() {
   const [email, setEmail] = useState("");
@@ -111,79 +238,6 @@ function GrantAccessForm() {
         >
           {granting ? "..." : "Conceder"}
         </button>
-      </div>
-    </div>
-  );
-}
-
-// Envia uma notificação push pra todo mundo que já ativou notificações no
-// Grifo (tabela push_subscriptions). Só funciona pra quem está na tabela
-// "admins" — a própria Edge Function bloqueia quem não estiver.
-function BroadcastPushForm() {
-  const [title, setTitle] = useState("Grifo");
-  const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [lastResult, setLastResult] = useState<string | null>(null);
-
-  async function send() {
-    if (!message.trim()) {
-      toast.error("Escreva o texto da notificação.");
-      return;
-    }
-    setSending(true);
-    setLastResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("push-broadcast", {
-        body: { title: title.trim(), body: message.trim() },
-      });
-      if (error) throw new Error(error.message);
-      const payload = data as { error?: string; total?: number; sent?: number; failed?: number; removed?: number };
-      if (payload?.error) throw new Error(payload.error);
-
-      setLastResult(
-        `Enviado para ${payload.sent} de ${payload.total} inscrições` +
-          (payload.removed ? ` (${payload.removed} inscrição(ões) expirada(s) removida(s))` : ""),
-      );
-      toast.success("Notificação enviada.");
-      setMessage("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a notificação");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <div className="panel-cream mt-6 rounded-2xl p-5">
-      <h2 className="font-display text-xl">Enviar notificação para todos</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Vai por push pra todo usuário que já ativou notificações no Grifo.
-      </p>
-
-      <div className="mt-3 space-y-3">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Título (ex: Grifo)"
-          maxLength={60}
-          className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Texto da notificação"
-          maxLength={200}
-          rows={3}
-          className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
-        <button
-          onClick={send}
-          disabled={sending}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {sending ? "Enviando…" : "Enviar para todos"}
-        </button>
-        {lastResult && <p className="text-xs text-muted-foreground">{lastResult}</p>}
       </div>
     </div>
   );
