@@ -44,18 +44,58 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// Cabeçalhos de segurança aplicados em toda resposta. A CSP começa em modo
+// "Report-Only" (só avisa no console do navegador, não bloqueia nada) —
+// depois de alguns dias sem violação reportada, troca pro header definitivo
+// (ver comentário mais abaixo).
+//
+// frame-ancestors permite que o próprio Lovable (editor/preview) continue
+// exibindo o app dentro de um iframe; qualquer outro site fica bloqueado
+// (proteção contra clickjacking, achado #7 do review).
+const CSP =
+  "default-src 'self'; " +
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.lovable.dev https://*.lovableproject.com; " +
+  "style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob: https:; " +
+  "font-src 'self' data:; " +
+  "connect-src 'self' https://rzfmkpxiqzeozbimtcme.supabase.co wss://rzfmkpxiqzeozbimtcme.supabase.co " +
+  "https://www.googleapis.com https://openlibrary.org https://covers.openlibrary.org https://fcm.googleapis.com; " +
+  "frame-ancestors 'self' https://*.lovable.dev https://*.lovableproject.com; " +
+  "base-uri 'self'; " +
+  "form-action 'self';";
+
+function addSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Fallback pra navegadores antigos que não entendem frame-ancestors da CSP.
+  headers.set("X-Frame-Options", "SAMEORIGIN");
+  headers.set("Content-Security-Policy-Report-Only", CSP);
+  // Quando confirmar (depois de uns dias monitorando o console do navegador
+  // em produção) que nada quebrou, troca a linha acima por:
+  // headers.set("Content-Security-Policy", CSP);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return addSecurityHeaders(normalized);
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return addSecurityHeaders(
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };
