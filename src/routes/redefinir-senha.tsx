@@ -57,7 +57,7 @@ function ResetPasswordPage() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
+                minLength={8}
                 maxLength={72}
                 required
                 className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 pr-10 text-sm outline-none focus:border-primary"
