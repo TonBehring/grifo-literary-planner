@@ -16,6 +16,12 @@ dist-ssr
 .nitro
 *.local
 
+# Variáveis de ambiente — nunca versionar (mesmo que hoje só tenha chaves
+# públicas, é questão de tempo até alguém colar uma chave sensível aqui).
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
