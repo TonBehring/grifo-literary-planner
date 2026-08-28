@@ -24,7 +24,7 @@ import {
 import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { useAuth } from "@/lib/auth";
- 
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
@@ -61,14 +61,14 @@ export const Route = createFileRoute("/livro/$id")({
     </AppShell>
   ),
 });
- 
+
 function BookDetail() {
   const { id } = Route.useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { active: subscriptionActive } = useHasActiveSubscription();
- 
+
   const [progressInput, setProgressInput] = useState("");
   const [mood, setMood] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -86,7 +86,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
- 
+
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
     queryFn: () => getUserBook(id),
@@ -102,7 +102,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     queryFn: () => getActiveLoanForUserBook(id),
     enabled: Boolean(user),
   });
- 
+
    async function shareQuote(note: BookNote) {
     setSharingId(note.id);
     try {
@@ -119,12 +119,12 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       setSharingId(null);
     }
   }
- 
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["user_book", id] });
     void queryClient.invalidateQueries({ queryKey: ["user_books"] });
   };
- 
+
   const saveProgress = useMutation({
     mutationFn: async () => {
       if (!ub) return;
@@ -160,11 +160,18 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       }
       await updateUserBook(id, patch);
       if (user) {
+        // Registra quantas páginas foram lidas *nesta* atualização (a
+        // diferença entre a página atual e a última registrada), não a
+        // página atual em si — senão o calendário de constância e o
+        // "Ritmo" em Estatísticas contam a página absoluta como se fosse
+        // tudo lido no mesmo dia.
+        const paginasLidasNestaAtualizacao =
+          ub.format === "fisico" ? Math.max(0, rounded - (ub.current_page ?? 0)) : null;
         await addReadingLog({
           user_book_id: id,
           user_id: user.id,
           mood: mood ?? null,
-          pages_read: ub.format === "fisico" ? Math.round(value) : null,
+          pages_read: paginasLidasNestaAtualizacao,
         });
       }
     },
@@ -176,7 +183,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
- 
+
   const saveNote = useMutation({
     mutationFn: async () => {
       if (!user || noteText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
@@ -196,7 +203,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
    onError: (e: Error) => toast.error(e.message),
   });
- 
+
   const editNote = useMutation({
     mutationFn: async (noteId: string) => {
       if (editText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
@@ -210,7 +217,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
- 
+
   const removeNote = useMutation({
     mutationFn: async (noteId: string) => {
       await deleteNote(noteId);
@@ -222,7 +229,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  
+
   const acquire = useMutation({
     mutationFn: async () => {
       await updateUserBook(id, {
@@ -239,7 +246,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
- 
+
  const abandon = useMutation({
     mutationFn: async () => {
       await updateUserBook(id, {
@@ -254,7 +261,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
- 
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -268,13 +275,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       setDeleting(false);
     }
   }
- 
+
   if (isLoading || !ub) {
     return <p className="text-sm text-muted-foreground">Carregando livro…</p>;
   }
- 
+
   const pct = progressOf(ub);
- 
+
   return (
     <section className="space-y-7">
       <div className="card-teal flex gap-5 rounded-3xl p-5">
@@ -374,7 +381,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       </div>
- 
+
       {editing && (
         <BookEditPanel
           ub={ub}
@@ -384,7 +391,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           }}
         />
       )}
- 
+
       {abandoning && (
         <div className="panel-cream rounded-2xl p-5">
           <p className="text-sm">
@@ -414,7 +421,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       )}
- 
+
       {confirmDelete && (
         <div className="panel-cream rounded-2xl border-destructive/40 p-5">
           <p className="text-sm">
@@ -438,7 +445,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         </div>
       )}
- 
+
    {(ub.status === "desejo_compra" || ub.status === "abandonado") && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">
@@ -545,7 +552,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           )}
         </div>
       )}
-      
+
      {ub.status !== "desejo_compra" && (
       <div className="panel-cream rounded-2xl p-5">
         <h2 className="font-display text-xl">Anotações e citações</h2>
@@ -599,7 +606,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             </button>
           </>
         )}
- 
+
        <div className="mt-6 space-y-3">
         {notes?.map((n) => (
            <blockquote
@@ -640,7 +647,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
-                 
+
                  {n.kind === "citacao" && (
                   <button
                     type="button"
