@@ -64,6 +64,7 @@ function AdminPage() {
 
       <SupabaseUsageSection />
       <GrantAccessForm />
+      <BroadcastPushForm />
     </section>
   );
 }
@@ -239,6 +240,72 @@ function GrantAccessForm() {
           {granting ? "..." : "Conceder"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// --- Enviar push para todos os usuários ---------------------------------
+
+function BroadcastPushForm() {
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function send() {
+    if (!title.trim() || !message.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("push-broadcast", {
+        body: { title: title.trim(), body: message.trim() },
+      });
+      if (error) throw new Error(error.message);
+      const { total, sent, removed } = data as { total: number; sent: number; removed: number };
+      setResult(
+        `Enviado para ${sent} de ${total} inscrições` +
+          (removed > 0 ? ` (${removed} inscrição(ões) expirada(s) removida(s))` : ""),
+      );
+      setTitle("");
+      setMessage("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Enviar notificação para todos</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Manda um push (e registra no histórico) para todos os usuários com notificações ativadas.
+      </p>
+      <div className="mt-3 space-y-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título"
+          maxLength={80}
+          className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Mensagem"
+          rows={3}
+          maxLength={200}
+          className="w-full resize-none rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+      </div>
+      <button
+        onClick={send}
+        disabled={sending || !title.trim() || !message.trim()}
+        className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+      >
+        {sending ? "Enviando…" : "Enviar para todos"}
+      </button>
+      {result && <p className="mt-3 text-sm text-muted-foreground">{result}</p>}
     </div>
   );
 }
