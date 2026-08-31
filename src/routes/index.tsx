@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
 import { listUserBooks } from "@/lib/api";
+import { getMyUsername } from "@/lib/contatos";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
@@ -33,17 +34,40 @@ function Index() {
   );
 }
 
+function saudacaoPorHorario(): string {
+  const hora = new Date().getHours();
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
 function Dashboard() {
   const { user } = useAuth();
+
+  const { data: username } = useQuery({
+    queryKey: ["my-username", user?.id],
+    queryFn: () => getMyUsername(user!.id),
+    enabled: Boolean(user),
+  });
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["user_books", "lendo"],
     queryFn: () => listUserBooks("lendo"),
     enabled: Boolean(user),
   });
 
+  const fullName = (user?.user_metadata?.full_name as string | undefined)?.trim();
+  const displayName = username ? `@${username}` : fullName;
+
   return (
     <section>
-      <p className="text-[11px] tracking-[0.22em] text-muted-foreground uppercase">
+      {displayName && (
+        <p className="font-display text-2xl leading-snug">
+          {saudacaoPorHorario()}, {displayName} — o que vamos ler hoje?
+        </p>
+      )}
+
+      <p className="mt-4 text-[11px] tracking-[0.22em] text-muted-foreground uppercase">
         Sua estante viva
       </p>
       <h1 className="font-display mt-2 text-4xl leading-tight">Lendo Agora</h1>
