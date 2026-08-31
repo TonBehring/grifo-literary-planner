@@ -62,12 +62,13 @@ function Dashboard() {
   return (
     <section>
       {displayName && (
-        <p className="font-display text-2xl leading-snug">
-          {saudacaoPorHorario()}, {displayName} — o que vamos ler hoje?
+        <p className="text-sm text-muted-foreground">
+          {saudacaoPorHorario()}, <span className="text-foreground">{displayName}</span> — o que
+          vamos ler hoje?
         </p>
       )}
 
-      <p className="mt-4 text-[11px] tracking-[0.22em] text-muted-foreground uppercase">
+      <p className={displayName ? "mt-3 text-[11px] tracking-[0.22em] text-muted-foreground uppercase" : "text-[11px] tracking-[0.22em] text-muted-foreground uppercase"}>
         Sua estante viva
       </p>
       <h1 className="font-display mt-2 text-4xl leading-tight">Lendo Agora</h1>
