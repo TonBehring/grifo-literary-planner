@@ -38,7 +38,15 @@ export function BookEditPanel({
         cover_url: cover,
         genre,
       });
-      await updateUserBook(ub.id, { format, status });
+      // Se o livro estava "Lido" e a estante está sendo trocada pra outra
+      // coisa, limpa a data de conclusão — senão ela fica órfã e a tela do
+      // livro continua mostrando "Conclusão"/"Lido em X dias" mesmo com o
+      // livro de volta em "Lendo".
+      const patch: Partial<UserBook> = { format, status };
+      if (ub.status === "lido" && status !== "lido") {
+        patch.finished_at = null;
+      }
+      await updateUserBook(ub.id, patch);
       onSaved();
       toast.success("Informações atualizadas");
     } catch (err) {      toast.error(err instanceof Error ? err.message : "Não foi possível salvar");
