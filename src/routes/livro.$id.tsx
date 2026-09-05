@@ -8,8 +8,10 @@ import { BookCover } from "@/components/BookCover";
 import { BookEditPanel } from "@/components/BookEditPanel";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { MoodPicker } from "@/components/MoodPicker";
+import { NoteEditorModal } from "@/components/NoteEditorModal";
 import { StarRating } from "@/components/StarRating";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
+import { renderFormattedText } from "@/lib/note-format";
 import {
   addNote,
   addReadingLog,
@@ -71,9 +73,8 @@ function BookDetail() {
 
   const [progressInput, setProgressInput] = useState("");
   const [mood, setMood] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState("");
-  const [noteKind, setNoteKind] = useState<"nota" | "citacao">("citacao");
-  const [notePage, setNotePage] = useState("");
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<BookNote | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [editing, setEditing] = useState(false);
 const [confirmDelete, setConfirmDelete] = useState(false);
@@ -83,8 +84,6 @@ const [confirmDelete, setConfirmDelete] = useState(false);
  const [abandoning, setAbandoning] = useState(false);
   const [abandonReason, setAbandonReason] = useState("");
  const [sharingId, setSharingId] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const { data: ub, isLoading } = useQuery({
@@ -185,19 +184,18 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   });
 
   const saveNote = useMutation({
-    mutationFn: async () => {
-      if (!user || noteText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
-     await addNote({
+    mutationFn: async (data: { content: string; kind: "nota" | "citacao"; page: string }) => {
+      if (!user) throw new Error("Não autenticado");
+      await addNote({
         user_book_id: id,
         user_id: user.id,
-        content: noteText.trim().slice(0, 2000),
-        kind: noteKind,
-        page: notePage ? Number(notePage) : null,
+        content: data.content.slice(0, 2000),
+        kind: data.kind,
+        page: data.page ? Number(data.page) : null,
       });
     },
     onSuccess: () => {
-      setNoteText("");
-      setNotePage("");
+      setNoteModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
       toast.success("Anotação guardada");
     },
@@ -205,13 +203,12 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   });
 
   const editNote = useMutation({
-    mutationFn: async (noteId: string) => {
-      if (editText.trim().length === 0) throw new Error("Escreva algo antes de salvar");
-      await updateNote(noteId, { content: editText.trim().slice(0, 2000) });
+    mutationFn: async (data: { noteId: string; content: string }) => {
+      await updateNote(data.noteId, { content: data.content.slice(0, 2000) });
     },
     onSuccess: () => {
-      setEditingNoteId(null);
-      setEditText("");
+      setNoteModalOpen(false);
+      setEditingNote(null);
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
       toast.success("Anotação atualizada");
     },
@@ -565,46 +562,16 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             <SubscriptionRequiredNotice action="guardar uma nova nota ou citação" />
           </div>
         ) : (
-          <>
-            <div className="mt-3 flex gap-2">
-              {(["citacao", "nota"] as const).map((k) => (
-                <button
-                  key={k}
-                  onClick={() => setNoteKind(k)}
-                  className={
-                    "flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors " +
-                    (noteKind === k
-                      ? "border-primary bg-primary/20"
-                      : "border-border text-muted-foreground")
-                  }
-                >
-                  {k === "citacao" ? <Quote className="h-4 w-4" /> : <StickyNote className="h-4 w-4" />}
-                  {k === "citacao" ? "Citação" : "Nota"}
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={4}
-              maxLength={2000}
-              placeholder="Grife o trecho que te marcou…"
-              className="mt-3 w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
-            />
-            <input
-              value={notePage}
-              onChange={(e) => setNotePage(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              placeholder="Página (opcional)"
-              className="mt-2 w-32 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button
-              onClick={() => saveNote.mutate()}
-              className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
-            >
-              Guardar
-            </button>
-          </>
+          <button
+            onClick={() => {
+              setEditingNote(null);
+              setNoteModalOpen(true);
+            }}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/50 py-4 text-sm text-primary transition-colors hover:bg-primary/10"
+          >
+            <StickyNote className="h-4 w-4" />
+            Escrever nova anotação ou citação
+          </button>
         )}
 
        <div className="mt-6 space-y-3">
@@ -631,8 +598,8 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                     type="button"
                     aria-label="Editar"
                     onClick={() => {
-                      setEditingNoteId(n.id);
-                      setEditText(n.content);
+                      setEditingNote(n);
+                      setNoteModalOpen(true);
                     }}
                     className="not-italic text-primary"
                   >
@@ -681,38 +648,9 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                    </button>
                  </div>
                </div>
-             ) : editingNoteId === n.id ? (
-               <div className="not-italic font-sans">
-                 <textarea
-                   value={editText}
-                   onChange={(e) => setEditText(e.target.value)}
-                   rows={4}
-                   maxLength={2000}
-                   className="w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
-                 />
-                 <div className="mt-2 flex gap-2">
-                   <button
-                     type="button"
-                     onClick={() => editNote.mutate(n.id)}
-                     className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground"
-                   >
-                     Salvar
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => {
-                       setEditingNoteId(null);
-                       setEditText("");
-                     }}
-                     className="rounded-xl border border-border px-4 py-2 text-xs"
-                   >
-                     Cancelar
-                   </button>
-                 </div>
-               </div>
              ) : (
                <>
-                 {n.content}
+                 {renderFormattedText(n.content)}
                  {n.page != null && (
                    <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
                      p. {n.page}
@@ -723,6 +661,27 @@ const [confirmDelete, setConfirmDelete] = useState(false);
            </blockquote>
          ))}        </div>      </div>
       )}
+      <NoteEditorModal
+        open={noteModalOpen}
+        onOpenChange={(v) => {
+          setNoteModalOpen(v);
+          if (!v) setEditingNote(null);
+        }}
+        userBookId={id}
+        noteId={editingNote?.id ?? null}
+        initialContent={editingNote?.content ?? ""}
+        initialKind={editingNote?.kind ?? "citacao"}
+        initialPage={editingNote?.page != null ? String(editingNote.page) : ""}
+        saving={editingNote ? editNote.isPending : saveNote.isPending}
+        onSave={(data) => {
+          if (editingNote) {
+            editNote.mutate({ noteId: editingNote.id, content: data.content });
+          } else {
+            saveNote.mutate(data);
+          }
+        }}
+      />
+
       <CelebrationModal        open={celebrate}
         bookTitle={ub.book?.title ?? "Livro"}
         onOpenChange={setCelebrate}
