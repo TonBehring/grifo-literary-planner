@@ -39,6 +39,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 const [name, setName] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { user } = useAuth();
@@ -52,6 +53,10 @@ const [name, setName] = useState("");
     e.preventDefault();
     if (!isSupabaseConfigured) {
       toast.error("Conecte o banco de dados para entrar.");
+      return;
+    }
+    if (mode === "signup" && !acceptedTerms) {
+      toast.error("Você precisa aceitar os Termos de Uso e a Política de Privacidade para criar conta.");
       return;
     }
     setBusy(true);
@@ -72,7 +77,12 @@ const [name, setName] = useState("");
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: name },
+            data: {
+              full_name: name,
+              // Registro de consentimento (LGPD) — guarda quando a pessoa
+              // aceitou os Termos/Política vigentes no momento do cadastro.
+              terms_accepted_at: new Date().toISOString(),
+            },
           },
         });
         if (error) throw error;
@@ -176,6 +186,39 @@ const [name, setName] = useState("");
             </Field>
           )}
 
+          {mode === "signup" && (
+            <label className="mb-5 flex items-start gap-2.5 text-xs leading-relaxed text-white/80">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                required
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-white/5 accent-primary"
+              />
+              <span>
+                Li e concordo com os{" "}
+                <a
+                  href="/termos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-4"
+                >
+                  Termos de Uso
+                </a>{" "}
+                e a{" "}
+                <a
+                  href="/privacidade"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-4"
+                >
+                  Política de Privacidade
+                </a>{" "}
+                do Grifo.
+              </span>
+            </label>
+          )}
+
           {mode === "login" && (
             <button
               type="button"
@@ -188,7 +231,7 @@ const [name, setName] = useState("");
 
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || (mode === "signup" && !acceptedTerms)}
             className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {busy
