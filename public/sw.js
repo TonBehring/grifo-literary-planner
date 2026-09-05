@@ -34,7 +34,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || "",
     icon: "/icons/icon-192.png",
-    badge: "/icons/badge-96.png",
+    badge: "/icons/badge-96-comdot.png",
     data: { url: data.url || "/" },
   };
 
