@@ -212,12 +212,20 @@ function LoansPage() {
             className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
           />
         )}
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-        />
+
+        <label className="mt-3 block">
+          <span className="mb-1.5 block text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+            Data prevista de devolução (opcional)
+          </span>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            aria-label="Data prevista de devolução"
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+          />
+        </label>
+
         <button
           onClick={() => create.mutate()}
           className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
