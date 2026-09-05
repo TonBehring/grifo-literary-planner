@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bold, Italic, Highlighter, Quote, StickyNote, X } from "lucide-react";
+import { Bold, Italic, Highlighter, Quote, StickyNote } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const DRAFT_PREFIX = "grifo-draft-nota:";
@@ -126,15 +126,8 @@ export function NoteEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="panel-cream !bg-cream flex max-h-[85vh] w-[min(640px,92vw)] flex-col gap-0 rounded-3xl border-none p-0">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="border-b border-border px-5 py-4">
           <h2 className="font-display text-xl">{isEditing ? "Editar anotação" : "Nova anotação"}</h2>
-          <button
-            onClick={() => onOpenChange(false)}
-            aria-label="Fechar"
-            className="text-muted-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         {!isEditing && (
