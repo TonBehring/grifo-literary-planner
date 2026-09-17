@@ -63,8 +63,11 @@ function Dashboard() {
     <section>
       {displayName && (
         <p className="text-sm text-muted-foreground">
-          {saudacaoPorHorario()}, <span className="text-foreground">{displayName}</span> — o que
-          vamos ler hoje?
+          {saudacaoPorHorario()},{" "}
+          <Link to="/conta" className="text-foreground underline-offset-4 hover:underline">
+            {displayName}
+          </Link>{" "}
+          — o que vamos ler hoje?
         </p>
       )}
 
