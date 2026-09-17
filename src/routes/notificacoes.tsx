@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import {
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/notificacoes")({
 
 function NotificacoesPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: getMyNotifications,
@@ -27,11 +28,18 @@ function NotificacoesPage() {
 
   const hasUnread = (data ?? []).some((n) => !n.read_at);
 
-  async function handleOpen(id: string, read: boolean) {
-    if (read) return;
-    await markNotificationRead(id);
-    queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+  async function handleOpen(id: string, read: boolean, url: string | null) {
+    if (!read) {
+      await markNotificationRead(id);
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    }
+    // Leva pra tela relacionada ao assunto da notificação (livro, desafio ou
+    // empréstimo) — o backend já grava esse destino quando cria a
+    // notificação, só faltava a tela usar essa informação.
+    if (url) {
+      navigate({ to: url as never });
+    }
   }
 
   async function handleMarkAll() {
@@ -64,10 +72,11 @@ function NotificacoesPage() {
             <button
               key={n.id}
               type="button"
-              onClick={() => handleOpen(n.id, Boolean(n.read_at))}
+              onClick={() => handleOpen(n.id, Boolean(n.read_at), n.url)}
               className={
                 "block w-full rounded-xl border p-4 text-left transition-colors " +
-                (n.read_at ? "border-border bg-transparent" : "border-primary/40 bg-primary/5")
+                (n.read_at ? "border-border bg-transparent" : "border-primary/40 bg-primary/5") +
+                (n.url ? " hover:border-primary/50" : "")
               }
             >
               <div className="flex items-start gap-2">
