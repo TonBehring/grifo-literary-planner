@@ -8,7 +8,14 @@ import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [{ title: "Painel administrativo — Grifo" }],
+    meta: [
+      { title: "Painel administrativo — Grifo" },
+      { name: "description", content: "Indicadores e gestão administrativa do Grifo." },
+      { property: "og:title", content: "Painel administrativo — Grifo" },
+      { property: "og:description", content: "Indicadores e gestão administrativa do Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: () => (
     <AppShell>

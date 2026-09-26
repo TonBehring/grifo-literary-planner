@@ -21,6 +21,8 @@ export const Route = createFileRoute("/biblioteca")({
         property: "og:description",
         content: "Todas as suas leituras organizadas em quatro estantes.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (

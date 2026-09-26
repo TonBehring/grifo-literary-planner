@@ -36,6 +36,8 @@ export const Route = createFileRoute("/desafio-literario")({
         property: "og:description",
         content: "Um cartela de desafios de leitura personalizada para o seu período.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (

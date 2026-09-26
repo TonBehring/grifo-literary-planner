@@ -23,6 +23,8 @@ export const Route = createFileRoute("/emprestimos")({
         property: "og:description",
         content: "Quem está com seus livros e quais livros estão com você.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (

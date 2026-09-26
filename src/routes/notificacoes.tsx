@@ -9,7 +9,14 @@ import {
 
 export const Route = createFileRoute("/notificacoes")({
   head: () => ({
-    meta: [{ title: "Notificações — Grifo" }],
+    meta: [
+      { title: "Notificações — Grifo" },
+      { name: "description", content: "Acompanhe seus avisos e atualizações no Grifo." },
+      { property: "og:title", content: "Notificações — Grifo" },
+      { property: "og:description", content: "Acompanhe seus avisos e atualizações no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: () => (
     <AppShell>

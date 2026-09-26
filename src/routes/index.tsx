@@ -21,6 +21,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Seu painel de leituras em andamento, com progresso e humor do dia.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Index,
@@ -56,7 +58,7 @@ function Dashboard() {
     enabled: Boolean(user),
   });
 
-  const fullName = (user?.user_metadata?.full_name as string | undefined)?.trim();
+  const fullName = (user?.user_metadata?.['full_name'] as string | undefined)?.trim();
   const displayName = username ? `@${username}` : fullName;
 
   return (

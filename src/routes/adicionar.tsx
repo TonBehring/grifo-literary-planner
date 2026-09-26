@@ -34,6 +34,8 @@ export const Route = createFileRoute("/adicionar")({
         property: "og:description",
         content: "Busca por título ou ISBN para incluir livros na sua biblioteca.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (

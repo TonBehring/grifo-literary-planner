@@ -1,12 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+const VAPID_PUBLIC_KEY = import.meta.env['VITE_VAPID_PUBLIC_KEY'] as string | undefined;
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
+  const outputArray = new Uint8Array(new ArrayBuffer(rawData.length));
   for (let i = 0; i < rawData.length; i++) {
     outputArray[i] = rawData.charCodeAt(i);
   }
@@ -49,7 +49,7 @@ export async function subscribeToPush(): Promise<void> {
     }));
 
   const subJson = subscription.toJSON();
-  if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+  if (!subJson.endpoint || !subJson.keys?.['p256dh'] || !subJson.keys?.['auth']) {
     throw new Error("Inscrição de push incompleta.");
   }
 
@@ -60,8 +60,8 @@ export async function subscribeToPush(): Promise<void> {
     {
       user_id: userData.user.id,
       endpoint: subJson.endpoint,
-      p256dh: subJson.keys.p256dh,
-      auth: subJson.keys.auth,
+      p256dh: subJson.keys['p256dh'],
+      auth: subJson.keys['auth'],
     },
     { onConflict: "endpoint" },
   );

@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep founder status fetching in `src/lib/founders.ts`, not `src/routes/`, because route files are registered as pages and the account imports this query as shared logic.

@@ -4,7 +4,14 @@ import { AppShell } from "@/components/AppShell";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 
 export const Route = createFileRoute("/assinatura/retorno")({
-  head: () => ({ meta: [{ title: "Confirmando assinatura — Grifo" }] }),
+  head: () => ({ meta: [
+    { title: "Confirmando assinatura — Grifo" },
+    { name: "description", content: "Confira a confirmação da sua assinatura do Grifo." },
+    { property: "og:title", content: "Confirmando assinatura — Grifo" },
+    { property: "og:description", content: "Confira a confirmação da sua assinatura do Grifo." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: () => (
     <AppShell>
       <ReturnPage />

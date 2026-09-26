@@ -55,6 +55,8 @@ export const Route = createFileRoute("/livro/$id")({
         property: "og:description",
         content: "Progresso, humor da leitura e anotações em um só lugar.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (
@@ -109,7 +111,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         quote: note.content,
         page: note.page,
         bookTitle: ub?.book?.title ?? "Livro",
-        bookAuthor: ub?.book?.author,
+        bookAuthor: ub?.book?.author ?? null,
       });
       await shareOrDownloadImage(blob, `grifo-citacao-${note.id}.png`);
     } catch (e) {
