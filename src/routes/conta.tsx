@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Camera, Eye, EyeOff, Award } from "lucide-react";
+import { Bell, Camera, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ContatosPanel } from "@/components/ContatosPanel";
@@ -14,14 +14,7 @@ import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/conta")({
   head: () => ({
-    meta: [
-      { title: "Minha conta — Grifo" },
-      { name: "description", content: "Gerencie seu perfil, assinatura, contatos e notificações no Grifo." },
-      { property: "og:title", content: "Minha conta — Grifo" },
-      { property: "og:description", content: "Gerencie seu perfil e suas preferências de leitura no Grifo." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
+    meta: [{ title: "Minha conta — Grifo" }],
   }),
   component: () => (
     <AppShell>
@@ -345,7 +338,7 @@ function FounderBadge() {
 
   return (
     <div className="card-teal !bg-teal mt-4 flex items-center gap-3 rounded-2xl p-4">
-      <Award className="h-6 w-6 shrink-0 text-primary" />
+      <FounderBookmarkIcon className="h-6 w-6 shrink-0 text-amber-500" />
       <div>
         <p className="font-display text-base leading-snug">Fundador nº {data.founder_number}</p>
         <p className="text-xs opacity-70">
@@ -355,6 +348,17 @@ function FounderBadge() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Selo em formato de marcador de página (bookmark), preenchido — mais a cara
+// de "fundador" do que um ícone de troféu genérico. Usa currentColor, então
+// a cor vem só da className (text-amber-500 dá o tom dourado).
+function FounderBookmarkIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+    </svg>
   );
 }
 
