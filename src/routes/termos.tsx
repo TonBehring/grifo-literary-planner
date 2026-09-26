@@ -10,7 +10,14 @@ const CONTATO_EMAIL = "contato@PLACEHOLDER-TROCAR.com";
 // de cadastro, antes de existir uma conta.
 export const Route = createFileRoute("/termos")({
   head: () => ({
-    meta: [{ title: "Termos de Uso — Grifo" }],
+    meta: [
+      { title: "Termos de Uso — Grifo" },
+      { name: "description", content: "Leia as condições para usar o Grifo." },
+      { property: "og:title", content: "Termos de Uso — Grifo" },
+      { property: "og:description", content: "Leia as condições para usar o Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: TermsPage,
 });

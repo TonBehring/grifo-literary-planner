@@ -6,7 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/redefinir-senha")({
   head: () => ({
-    meta: [{ title: "Redefinir senha — Grifo" }],
+    meta: [
+      { title: "Redefinir senha — Grifo" },
+      { name: "description", content: "Crie uma nova senha para sua conta no Grifo." },
+      { property: "og:title", content: "Redefinir senha — Grifo" },
+      { property: "og:description", content: "Crie uma nova senha para sua conta no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: ResetPasswordPage,
 });

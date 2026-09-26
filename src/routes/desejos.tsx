@@ -13,6 +13,10 @@ export const Route = createFileRoute("/desejos")({
         name: "description",
         content: "Sua lista de desejos de livros para comprar.",
       },
+      { property: "og:title", content: "Quero comprar — Grifo" },
+      { property: "og:description", content: "Sua lista de desejos de livros para comprar no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (

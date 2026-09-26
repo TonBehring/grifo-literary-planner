@@ -29,6 +29,8 @@ export const Route = createFileRoute("/auth")({
         property: "og:description",
         content: "Seu planner de literatura: progresso, citações e empréstimos em um só lugar.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
