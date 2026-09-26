@@ -109,7 +109,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         quote: note.content,
         page: note.page,
         bookTitle: ub?.book?.title ?? "Livro",
-        bookAuthor: ub?.book?.author,
+        bookAuthor: ub?.book?.author ?? null,
       });
       await shareOrDownloadImage(blob, `grifo-citacao-${note.id}.png`);
     } catch (e) {

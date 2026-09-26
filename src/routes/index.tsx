@@ -56,7 +56,7 @@ function Dashboard() {
     enabled: Boolean(user),
   });
 
-  const fullName = (user?.user_metadata?.full_name as string | undefined)?.trim();
+  const fullName = (user?.user_metadata?.['full_name'] as string | undefined)?.trim();
   const displayName = username ? `@${username}` : fullName;
 
   return (
