@@ -1,0 +1,504 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Camera, Eye, EyeOff, Award } from "lucide-react";
+import { toast } from "sonner";
+import { AppShell } from "@/components/AppShell";
+import { ContatosPanel } from "@/components/ContatosPanel";
+import { supabase } from "@/integrations/supabase/client";
+import { uploadCover } from "@/lib/cover-upload";
+import { getMyFounderStatus } from "@/lib/founders";
+import { createSubscriptionCheckout, getMySubscription, hasActiveAccess } from "@/lib/subscription";
+import { getPushPermission, isPushSupported, sendTestPush, subscribeToPush } from "@/lib/push";
+import { useAuth } from "@/lib/auth";
+
+export const Route = createFileRoute("/conta")({
+  head: () => ({
+    meta: [{ title: "Minha conta — Grifo" }],
+  }),
+  component: () => (
+    <AppShell>
+      <AccountPage />
+    </AppShell>
+  ),
+});
+
+function AccountPage() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [fullName, setFullName] = useState((user?.user_metadata?.['full_name'] as string) ?? "");
+  const [nickname, setNickname] = useState((user?.user_metadata?.['nickname'] as string) ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [avatarUrl, setAvatarUrl] = useState((user?.user_metadata?.['avatar_url'] as string) ?? "");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadCover(file, user.id);
+      const { error } = await supabase.auth.updateUser({ data: { avatar_url: url } });
+      if (error) throw error;
+      setAvatarUrl(url);
+      toast.success("Foto atualizada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a foto");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const payload: { data: { full_name: string; nickname: string }; email?: string } = {
+        data: { full_name: fullName.trim(), nickname: nickname.trim() },
+      };
+      if (email.trim() && email.trim() !== user?.email) payload.email = email.trim();
+
+      const { error } = await supabase.auth.updateUser(payload);
+      if (error) throw error;
+
+      toast.success(
+        payload.email
+          ? "Dados salvos! Confirme o novo e-mail na sua caixa de entrada para efetivar a troca."
+          : "Dados atualizados com sucesso.",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function verifyCurrentPassword() {
+    if (!user?.email || !currentPassword) return;
+    setVerifying(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (error) {
+        toast.error("Senha atual incorreta.");
+        return;
+      }
+      setPasswordVerified(true);
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function saveNewPassword() {
+    if (newPassword.length < 8) {
+      toast.error("A nova senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Senha alterada com sucesso.");
+      setChangingPassword(false);
+      setPasswordVerified(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar a senha.");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  const initial = (nickname || fullName || user?.email || "?").trim().charAt(0).toUpperCase();
+
+  return (
+    <section>
+      <h1 className="font-display text-4xl leading-tight">Minha conta</h1>
+
+      <FounderBadge />
+
+      <SubscriptionSection />
+
+      <NotificationsSection />
+
+      <div className="panel-cream mt-6 space-y-4 rounded-2xl p-5">
+        <div className="flex items-center gap-4">
+          <div className="relative h-20 w-20 shrink-0">
+            <div className="h-20 w-20 overflow-hidden rounded-full bg-teal-deep">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Sua foto" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-2xl text-white/80">
+                  {initial}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadingAvatar}
+              aria-label="Trocar foto"
+              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow disabled:opacity-60"
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {uploadingAvatar ? "Enviando foto…" : "Toque no ícone da câmera para trocar sua foto."}
+          </p>
+        </div>
+
+        <Field label="Nome completo">
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            maxLength={120}
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="Apelido">
+          <input
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            maxLength={60}
+            placeholder="Como quer ser chamado"
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="E-mail">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={255}
+            className={inputClass}
+          />
+        </Field>
+        <p className="text-xs text-muted-foreground">
+          Se trocar o e-mail, você vai receber uma confirmação no novo endereço antes da troca valer.
+        </p>
+
+        <button
+          onClick={save}
+          disabled={saving}
+          className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        >
+          {saving ? "Salvando…" : "Salvar alterações"}
+        </button>
+
+        <div className="border-t border-border pt-4">
+          {!changingPassword && (
+            <button
+              onClick={() => setChangingPassword(true)}
+              className="text-sm text-primary underline underline-offset-4"
+            >
+              Trocar senha
+            </button>
+          )}
+
+          {changingPassword && !passwordVerified && (
+            <div className="space-y-3">
+              <Field label="Confirme sua senha atual">
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className={inputClass + " pr-10"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                    aria-label={showCurrentPassword ? "Ocultar senha" : "Mostrar senha"}
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground"
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+              <div className="flex gap-2">
+                <button
+                  onClick={verifyCurrentPassword}
+                  disabled={verifying || !currentPassword}
+                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                >
+                  {verifying ? "Verificando…" : "Confirmar"}
+                </button>
+                <button
+                  onClick={() => {
+                    setChangingPassword(false);
+                    setCurrentPassword("");
+                  }}
+                  className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {changingPassword && passwordVerified && (
+            <div className="space-y-3">
+              <Field label="Nova senha">
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={72}
+                    className={inputClass + " pr-10"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    aria-label={showNewPassword ? "Ocultar senha" : "Mostrar senha"}
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+              <Field label="Confirmar nova senha">
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={72}
+                    className={inputClass + " pr-10"}
+                  />
+                </div>
+              </Field>
+              <button
+                onClick={saveNewPassword}
+                disabled={savingPassword}
+                className="w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {savingPassword ? "Salvando…" : "Salvar nova senha"}
+              </button>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      <ContatosPanel />
+
+      <button
+        onClick={() => {
+          void signOut().then(() => navigate({ to: "/auth" }));
+        }}
+        className="mt-6 w-full rounded-xl border border-destructive/40 py-3 text-sm text-destructive"
+      >
+        Sair da conta
+      </button>
+    </section>
+  );
+}
+
+// Selo da campanha de lançamento: os 250 primeiros a assinar viram
+// "fundadores" e ganham 20% de desconto vitalício na renovação. Não mostra
+// nada pra quem não é fundador (a maioria dos usuários).
+function FounderBadge() {
+  const { data } = useQuery({ queryKey: ["founder-status"], queryFn: getMyFounderStatus });
+
+  if (!data) return null;
+
+  return (
+    <div className="card-teal !bg-teal mt-4 flex items-center gap-3 rounded-2xl p-4">
+      <Award className="h-6 w-6 shrink-0 text-primary" />
+      <div>
+        <p className="font-display text-base leading-snug">Fundador nº {data.founder_number}</p>
+        <p className="text-xs opacity-70">
+          {data.discount_applied
+            ? "20% de desconto vitalício aplicado nas próximas renovações."
+            : "Selo garantido — seu desconto vitalício está sendo aplicado na assinatura."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionSection() {
+  const [redirecting, setRedirecting] = useState(false);
+  const subscription = useQuery({ queryKey: ["subscription"], queryFn: getMySubscription });
+
+  async function subscribe() {
+    setRedirecting(true);
+    try {
+      const url = await createSubscriptionCheckout();
+      window.location.href = url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a assinatura");
+      setRedirecting(false);
+    }
+  }
+
+  const active = hasActiveAccess(subscription.data);
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Assinatura</h2>
+      {subscription.isLoading ? (
+        <p className="mt-2 text-sm text-muted-foreground">Carregando…</p>
+      ) : active ? (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {subscription.data?.provider === "cortesia" ? "Acesso de cortesia" : "Assinatura ativa"}{" "}
+            até {new Date(subscription.data!.current_period_end as string).toLocaleDateString("pt-BR")}.
+          </p>
+          {subscription.data?.provider === "mercado_pago" && (
+            <button
+              onClick={subscribe}
+              disabled={redirecting}
+              className="mt-4 text-sm text-primary underline underline-offset-4 disabled:opacity-60"
+            >
+              {redirecting ? "Abrindo checkout…" : "Gerenciar / renovar assinatura"}
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Você ainda não tem uma assinatura ativa.
+          </p>
+          <button
+            onClick={subscribe}
+            disabled={redirecting}
+            className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {redirecting ? "Abrindo checkout…" : "Assinar o Grifo"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Seção temporária de teste de notificações push (PWA). Depois de validar
+// que funciona ponta a ponta, isso pode virar algo mais discreto (um toggle
+// simples), sem o botão de "enviar teste".
+function NotificationsSection() {
+  const [supported, setSupported] = useState(true);
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [activating, setActivating] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  useEffect(() => {
+    setSupported(isPushSupported());
+    setPermission(getPushPermission());
+  }, []);
+
+  async function handleActivate() {
+    setActivating(true);
+    try {
+      await subscribeToPush();
+      setPermission(getPushPermission());
+      toast.success("Notificações ativadas neste dispositivo.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível ativar as notificações.");
+    } finally {
+      setActivating(false);
+    }
+  }
+
+  async function handleTestPush() {
+    setSendingTest(true);
+    try {
+      await sendTestPush();
+      toast.success("Notificação de teste enviada — deve chegar em alguns segundos.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a notificação de teste.");
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
+  if (!supported) return null;
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display flex items-center gap-2 text-xl">
+        <Bell className="h-5 w-5" />
+        Notificações
+      </h2>
+
+      {permission === "granted" ? (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">Notificações ativadas neste dispositivo.</p>
+          <button
+            onClick={handleTestPush}
+            disabled={sendingTest}
+            className="mt-4 w-full rounded-xl border border-primary py-3 text-sm font-medium text-primary disabled:opacity-60"
+          >
+            {sendingTest ? "Enviando…" : "Enviar notificação de teste"}
+          </button>
+        </>
+      ) : permission === "denied" ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          As notificações foram bloqueadas nas configurações do navegador. Pra ativar, permita
+          notificações pra este site nas configurações do seu celular/navegador.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Ative pra receber avisos do Grifo, como lembretes de leitura.
+          </p>
+          <button
+            onClick={handleActivate}
+            disabled={activating}
+            className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {activating ? "Ativando…" : "Ativar notificações"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+const inputClass =
+  "w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
