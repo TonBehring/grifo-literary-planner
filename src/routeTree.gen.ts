@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdicionarRouteImport } from './routes/adicionar'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
 import { Route as ContaRouteImport } from './routes/conta'
@@ -18,6 +19,11 @@ import { Route as DesafioLiterarioRouteImport } from './routes/desafio-literario
 import { Route as DesejosRouteImport } from './routes/desejos'
 import { Route as EmprestimosRouteImport } from './routes/emprestimos'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
+import { Route as NotificacoesRouteImport } from './routes/notificacoes'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as TermosRouteImport } from './routes/termos'
+import { Route as AssinaturaRetornoRouteImport } from './routes/assinatura.retorno'
 import { Route as LivroIdRouteImport } from './routes/livro.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -28,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdicionarRoute = AdicionarRouteImport.update({
   id: '/adicionar',
   path: '/adicionar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -65,6 +76,31 @@ const EstatisticasRoute = EstatisticasRouteImport.update({
   path: '/estatisticas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificacoesRoute = NotificacoesRouteImport.update({
+  id: '/notificacoes',
+  path: '/notificacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinaturaRetornoRoute = AssinaturaRetornoRouteImport.update({
+  id: '/assinatura/retorno',
+  path: '/assinatura/retorno',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LivroIdRoute = LivroIdRouteImport.update({
   id: '/livro/$id',
   path: '/livro/$id',
@@ -74,6 +110,7 @@ const LivroIdRoute = LivroIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/adicionar': typeof AdicionarRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/conta': typeof ContaRoute
@@ -81,11 +118,17 @@ export interface FileRoutesByFullPath {
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/notificacoes': typeof NotificacoesRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
+  '/assinatura/retorno': typeof AssinaturaRetornoRoute
   '/livro/$id': typeof LivroIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/adicionar': typeof AdicionarRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/conta': typeof ContaRoute
@@ -93,12 +136,18 @@ export interface FileRoutesByTo {
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/notificacoes': typeof NotificacoesRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
+  '/assinatura/retorno': typeof AssinaturaRetornoRoute
   '/livro/$id': typeof LivroIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/adicionar': typeof AdicionarRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/conta': typeof ContaRoute
@@ -106,6 +155,11 @@ export interface FileRoutesById {
   '/desejos': typeof DesejosRoute
   '/emprestimos': typeof EmprestimosRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/notificacoes': typeof NotificacoesRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
+  '/assinatura/retorno': typeof AssinaturaRetornoRoute
   '/livro/$id': typeof LivroIdRoute
 }
 export interface FileRouteTypes {
@@ -113,6 +167,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/adicionar'
+    | '/admin'
     | '/auth'
     | '/biblioteca'
     | '/conta'
@@ -120,11 +175,17 @@ export interface FileRouteTypes {
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
+    | '/notificacoes'
+    | '/privacidade'
+    | '/redefinir-senha'
+    | '/termos'
+    | '/assinatura/retorno'
     | '/livro/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/adicionar'
+    | '/admin'
     | '/auth'
     | '/biblioteca'
     | '/conta'
@@ -132,11 +193,17 @@ export interface FileRouteTypes {
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
+    | '/notificacoes'
+    | '/privacidade'
+    | '/redefinir-senha'
+    | '/termos'
+    | '/assinatura/retorno'
     | '/livro/$id'
   id:
     | '__root__'
     | '/'
     | '/adicionar'
+    | '/admin'
     | '/auth'
     | '/biblioteca'
     | '/conta'
@@ -144,12 +211,18 @@ export interface FileRouteTypes {
     | '/desejos'
     | '/emprestimos'
     | '/estatisticas'
+    | '/notificacoes'
+    | '/privacidade'
+    | '/redefinir-senha'
+    | '/termos'
+    | '/assinatura/retorno'
     | '/livro/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdicionarRoute: typeof AdicionarRoute
+  AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
   ContaRoute: typeof ContaRoute
@@ -157,6 +230,11 @@ export interface RootRouteChildren {
   DesejosRoute: typeof DesejosRoute
   EmprestimosRoute: typeof EmprestimosRoute
   EstatisticasRoute: typeof EstatisticasRoute
+  NotificacoesRoute: typeof NotificacoesRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  TermosRoute: typeof TermosRoute
+  AssinaturaRetornoRoute: typeof AssinaturaRetornoRoute
   LivroIdRoute: typeof LivroIdRoute
 }
 
@@ -174,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/adicionar'
       fullPath: '/adicionar'
       preLoaderRoute: typeof AdicionarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -225,6 +310,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstatisticasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notificacoes': {
+      id: '/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/notificacoes'
+      preLoaderRoute: typeof NotificacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinatura/retorno': {
+      id: '/assinatura/retorno'
+      path: '/assinatura/retorno'
+      fullPath: '/assinatura/retorno'
+      preLoaderRoute: typeof AssinaturaRetornoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/livro/$id': {
       id: '/livro/$id'
       path: '/livro/$id'
@@ -238,6 +358,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdicionarRoute: AdicionarRoute,
+  AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
   ContaRoute: ContaRoute,
@@ -245,8 +366,23 @@ const rootRouteChildren: RootRouteChildren = {
   DesejosRoute: DesejosRoute,
   EmprestimosRoute: EmprestimosRoute,
   EstatisticasRoute: EstatisticasRoute,
+  NotificacoesRoute: NotificacoesRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
+  TermosRoute: TermosRoute,
+  AssinaturaRetornoRoute: AssinaturaRetornoRoute,
   LivroIdRoute: LivroIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

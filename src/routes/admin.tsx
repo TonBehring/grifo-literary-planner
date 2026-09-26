@@ -54,9 +54,7 @@ function AdminPage() {
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {(data ?? []).map((item) => (
           <div key={item.indicador} className="panel-cream rounded-2xl p-4">
-            <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-              {item.indicador}
-            </p>
+            <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{item.indicador}</p>
             <p className="font-display mt-2 text-2xl leading-snug">{item.valor}</p>
           </div>
         ))}
@@ -119,8 +117,8 @@ function FoundersSection() {
       {comErro.length > 0 && (
         <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
           <p className="text-sm font-medium text-destructive">
-            {comErro.length} fundador(es) com o desconto ainda não aplicado na Asaas — corrija
-            manualmente no painel da Asaas (Assinaturas → aplicar 20% de desconto vitalício):
+            {comErro.length} fundador(es) com o desconto ainda não aplicado na Asaas — corrija manualmente no painel da
+            Asaas (Assinaturas → aplicar 20% de desconto vitalício):
           </p>
           <ul className="mt-2 space-y-2 text-xs">
             {comErro.map((f) => (
@@ -198,10 +196,7 @@ function UsageBar({
         </span>
       </div>
       <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-border">
-        <div
-          className={"h-full rounded-full transition-all " + barColor(pct)}
-          style={{ width: `${pct * 100}%` }}
-        />
+        <div className={"h-full rounded-full transition-all " + barColor(pct)} style={{ width: `${pct * 100}%` }} />
       </div>
     </div>
   );
@@ -232,12 +227,7 @@ function SupabaseUsageSection() {
       </p>
 
       <div className="mt-4 space-y-4">
-        <UsageBar
-          label="Banco de dados"
-          used={data.db_size_bytes}
-          limit={DB_LIMIT_BYTES}
-          formatUsed={formatBytes}
-        />
+        <UsageBar label="Banco de dados" used={data.db_size_bytes} limit={DB_LIMIT_BYTES} formatUsed={formatBytes} />
         <UsageBar
           label="Storage (capas)"
           used={data.storage_size_bytes}
@@ -254,9 +244,9 @@ function SupabaseUsageSection() {
 
       {nearLimit && (
         <div className="mt-4 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm">
-          <strong>Hora de considerar o plano Pro ($25/mês).</strong> Pelo menos um dos limites do
-          plano gratuito já passou de {Math.round(SAFETY_THRESHOLD * 100)}% de uso — vale migrar
-          antes de bater no teto e o projeto ser pausado ou travar novos cadastros/uploads.
+          <strong>Hora de considerar o plano Pro ($25/mês).</strong> Pelo menos um dos limites do plano gratuito já
+          passou de {Math.round(SAFETY_THRESHOLD * 100)}% de uso — vale migrar antes de bater no teto e o projeto ser
+          pausado ou travar novos cadastros/uploads.
         </div>
       )}
     </div>
