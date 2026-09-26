@@ -62,10 +62,78 @@ function AdminPage() {
         ))}
       </div>
 
+      <FoundersSection />
       <SupabaseUsageSection />
       <GrantAccessForm />
       <BroadcastPushForm />
     </section>
+  );
+}
+
+// --- Campanha de Fundadores (250 primeiros a assinar) -------------------
+
+const FOUNDER_SLOTS = 250;
+
+type Fundador = {
+  founder_number: number;
+  apelido: string | null;
+  email: string;
+  discount_applied: boolean;
+  discount_error: string | null;
+  created_at: string;
+};
+
+async function fetchFundadores(): Promise<Fundador[]> {
+  const { data, error } = await supabase.rpc("admin_fundadores");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Fundador[];
+}
+
+function FoundersSection() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-fundadores"],
+    queryFn: fetchFundadores,
+    retry: false,
+  });
+
+  if (isLoading || isError) return null;
+
+  const fundadores = data ?? [];
+  const comErro = fundadores.filter((f) => f.discount_error);
+  const restantes = Math.max(0, FOUNDER_SLOTS - fundadores.length);
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Campanha de Fundadores</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {fundadores.length} de {FOUNDER_SLOTS} vagas preenchidas — {restantes} restantes.
+      </p>
+
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-border">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${Math.min(100, (fundadores.length / FOUNDER_SLOTS) * 100)}%` }}
+        />
+      </div>
+
+      {comErro.length > 0 && (
+        <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <p className="text-sm font-medium text-destructive">
+            {comErro.length} fundador(es) com o desconto ainda não aplicado na Asaas — corrija
+            manualmente no painel da Asaas (Assinaturas → aplicar 20% de desconto vitalício):
+          </p>
+          <ul className="mt-2 space-y-2 text-xs">
+            {comErro.map((f) => (
+              <li key={f.founder_number} className="rounded-lg bg-white/40 p-2">
+                <strong>#{f.founder_number}</strong> — {f.apelido ?? f.email} ({f.email})
+                <br />
+                <span className="text-muted-foreground">{f.discount_error}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
