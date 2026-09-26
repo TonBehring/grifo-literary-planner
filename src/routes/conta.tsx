@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Camera, Eye, EyeOff } from "lucide-react";
+import { Bell, Camera, Eye, EyeOff, Award } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ContatosPanel } from "@/components/ContatosPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCover } from "@/lib/cover-upload";
+import { getMyFounderStatus } from "@/lib/founders";
 import { createSubscriptionCheckout, getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { getPushPermission, isPushSupported, sendTestPush, subscribeToPush } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
@@ -104,8 +105,8 @@ function AccountPage() {
   }
 
   async function saveNewPassword() {
-    if (newPassword.length < 6) {
-      toast.error("A nova senha precisa ter pelo menos 6 caracteres.");
+    if (newPassword.length < 8) {
+      toast.error("A nova senha precisa ter pelo menos 8 caracteres.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -134,6 +135,8 @@ function AccountPage() {
   return (
     <section>
       <h1 className="font-display text-4xl leading-tight">Minha conta</h1>
+
+      <FounderBadge />
 
       <SubscriptionSection />
 
@@ -272,7 +275,7 @@ function AccountPage() {
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    minLength={6}
+                    minLength={8}
                     maxLength={72}
                     className={inputClass + " pr-10"}
                   />
@@ -292,7 +295,7 @@ function AccountPage() {
                     type={showNewPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    minLength={6}
+                    minLength={8}
                     maxLength={72}
                     className={inputClass + " pr-10"}
                   />
@@ -322,6 +325,29 @@ function AccountPage() {
         Sair da conta
       </button>
     </section>
+  );
+}
+
+// Selo da campanha de lançamento: os 250 primeiros a assinar viram
+// "fundadores" e ganham 20% de desconto vitalício na renovação. Não mostra
+// nada pra quem não é fundador (a maioria dos usuários).
+function FounderBadge() {
+  const { data } = useQuery({ queryKey: ["founder-status"], queryFn: getMyFounderStatus });
+
+  if (!data) return null;
+
+  return (
+    <div className="card-teal !bg-teal mt-4 flex items-center gap-3 rounded-2xl p-4">
+      <Award className="h-6 w-6 shrink-0 text-primary" />
+      <div>
+        <p className="font-display text-base leading-snug">Fundador nº {data.founder_number}</p>
+        <p className="text-xs opacity-70">
+          {data.discount_applied
+            ? "20% de desconto vitalício aplicado nas próximas renovações."
+            : "Selo garantido — seu desconto vitalício está sendo aplicado na assinatura."}
+        </p>
+      </div>
+    </div>
   );
 }
 
