@@ -21,6 +21,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Seu painel de leituras em andamento, com progresso e humor do dia.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Index,
