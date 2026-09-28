@@ -1,23 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-// ATENÇÃO — antes de publicar de verdade:
-// 1. Trocar CONTATO_EMAIL abaixo pelo e-mail dedicado do Grifo (ainda não
-//    existe — é o bloqueio combinado antes do "GO LIVE" desta página).
-// 2. Preencher razão social/nome do responsável e o nome do encarregado.
-const CONTATO_EMAIL = "contato@PLACEHOLDER-TROCAR.com";
+const CONTATO_EMAIL = "contato@useogrifo.app";
 
 // Página pública (sem exigir login) — precisa ser acessível a partir da tela
 // de cadastro, antes de existir uma conta.
 export const Route = createFileRoute("/privacidade")({
   head: () => ({
-    meta: [
-      { title: "Política de Privacidade — Grifo" },
-      { name: "description", content: "Saiba como o Grifo trata e protege seus dados pessoais." },
-      { property: "og:title", content: "Política de Privacidade — Grifo" },
-      { property: "og:description", content: "Saiba como o Grifo trata e protege seus dados pessoais." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
+    meta: [{ title: "Política de Privacidade — Grifo" }],
   }),
   component: PrivacyPage,
 });
@@ -31,7 +20,7 @@ function PrivacyPage() {
         </Link>
         <h1 className="font-display mt-3 text-3xl leading-tight">Política de Privacidade</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Última atualização: [DATA DA PUBLICAÇÃO]
+          Última atualização: 28 de setembro de 2026
         </p>
       </div>
 
@@ -48,11 +37,11 @@ function PrivacyPage() {
 
         <Section title="1. Quem é o responsável pelo tratamento dos dados">
           <p>
-            O Grifo é operado por [NOME/RAZÃO SOCIAL A PREENCHER], que atua como controlador dos
+            O Grifo é operado por Washington dos Santos Behring, que atua como controlador dos
             dados pessoais tratados no aplicativo.
           </p>
           <p className="mt-2">
-            <strong>Encarregado de Dados (DPO):</strong> [NOME], contato:{" "}
+            <strong>Encarregado de Dados (DPO):</strong> Washington dos Santos Behring, contato:{" "}
             <a href={`mailto:${CONTATO_EMAIL}`} className="text-primary underline underline-offset-4">
               {CONTATO_EMAIL}
             </a>
@@ -216,4 +205,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="mt-1.5">{children}</div>
     </div>
   );
-}  
+}
