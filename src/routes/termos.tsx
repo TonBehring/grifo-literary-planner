@@ -1,23 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-// ATENÇÃO — antes de publicar de verdade:
-// 1. Trocar CONTATO_EMAIL abaixo pelo e-mail dedicado do Grifo (ainda não
-//    existe — é o bloqueio combinado antes do "GO LIVE" desta página).
-// 2. Preencher a comarca do foro na seção 10.
-const CONTATO_EMAIL = "contato@PLACEHOLDER-TROCAR.com";
+const CONTATO_EMAIL = "contato@useogrifo.app";
 
 // Página pública (sem exigir login) — precisa ser acessível a partir da tela
 // de cadastro, antes de existir uma conta.
 export const Route = createFileRoute("/termos")({
   head: () => ({
-    meta: [
-      { title: "Termos de Uso — Grifo" },
-      { name: "description", content: "Leia as condições para usar o Grifo." },
-      { property: "og:title", content: "Termos de Uso — Grifo" },
-      { property: "og:description", content: "Leia as condições para usar o Grifo." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
+    meta: [{ title: "Termos de Uso — Grifo" }],
   }),
   component: TermsPage,
 });
@@ -31,7 +20,7 @@ function TermsPage() {
         </Link>
         <h1 className="font-display mt-3 text-3xl leading-tight">Termos de Uso</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Última atualização: [DATA DA PUBLICAÇÃO]
+          Última atualização: 28 de setembro de 2026
         </p>
       </div>
 
@@ -163,7 +152,7 @@ function TermsPage() {
         <Section title="10. Lei aplicável">
           <p>
             Estes Termos são regidos pelas leis do Brasil. Qualquer disputa relacionada ao uso do
-            Grifo será resolvida no foro da comarca de [CIDADE/UF A DEFINIR], salvo disposição
+            Grifo será resolvida no foro da comarca de Osasco/SP, salvo disposição
             legal em contrário.
           </p>
         </Section>
