@@ -3,7 +3,7 @@ import { listContacts } from "./contatos";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
 const USER_BOOK_SELECT =
-  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, pre_cadastro, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
+  "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
 type DbBook = {
   id: string;
@@ -34,7 +34,6 @@ type DbUserBook = {
   data_inicio: string | null;
   data_conclusao: string | null;
   origem_emprestimo_id: string | null;
-  pre_cadastro: boolean | null;
   book: DbBook | null;
 };
 
@@ -68,7 +67,6 @@ function mapUserBook(row: DbUserBook): UserBook {
     started_at: row.data_inicio,
     finished_at: row.data_conclusao,
     origem_emprestimo_id: row.origem_emprestimo_id,
-    pre_cadastro: row.pre_cadastro ?? false,
     book: effectiveBook
       ? {
           id: effectiveBook.id,
@@ -104,7 +102,7 @@ function unwrap<T>(data: T | null, error: { message: string } | null): T {
 }
 
 export async function listUserBooks(status?: ShelfStatus): Promise<UserBook[]> {
-  let query = supabase.from("user_books").select(USER_BOOK_SELECT).eq("pre_cadastro", false);
+  let query = supabase.from("user_books").select(USER_BOOK_SELECT);
   if (status) query = query.eq("status", status);
   const { data, error } = await query.order("criado_em", { ascending: false });
   const rows = (unwrap(data, error) ?? []) as unknown as DbUserBook[];
@@ -214,9 +212,6 @@ export type NewBookInput = {
   genre: string | null;
   status: ShelfStatus;
   format: BookFormat;
-  started_at?: string | null;
-  finished_at?: string | null;
-  pre_cadastro?: boolean;
 };
 
 export async function addBookToShelf(
@@ -258,13 +253,7 @@ export async function addBookToShelf(
       status: input.status,
       formato: input.format,
       pagina_atual: 0,
-      data_inicio: input.pre_cadastro
-        ? (input.started_at ?? null)
-        : input.status === "lendo"
-          ? new Date().toISOString()
-          : null,
-      data_conclusao: input.pre_cadastro ? (input.finished_at ?? null) : null,
-      pre_cadastro: input.pre_cadastro ?? false,
+      data_inicio: input.status === "lendo" ? new Date().toISOString() : null,
     })
     .select("id")
     .single();
@@ -329,8 +318,8 @@ export async function addNote(note: {
 
 export async function updateNote(id: string, patch: { content?: string; page?: number | null }) {
   const payload: Record<string, unknown> = {};
-  if (patch.content !== undefined) payload['conteudo'] = patch.content;
-  if (patch.page !== undefined) payload['pagina_referencia'] = patch.page;
+  if (patch.content !== undefined) payload.conteudo = patch.content;
+  if (patch.page !== undefined) payload.pagina_referencia = patch.page;
   const { error } = await supabase.from("book_notes").update(payload).eq("id", id);
   if (error) throw new Error(error.message);
 }
@@ -479,6 +468,10 @@ export type NewLoanInput = {
   person_name: string;
   due_date: string | null;
   returned: boolean;
+  // E-mail de quem ainda não tem conta no Grifo — guardado só nesse caso,
+  // pra vincular o empréstimo sozinho quando essa pessoa se cadastrar com
+  // esse mesmo e-mail (ver claim_invited_loans no banco).
+  invited_email?: string | null;
 };
 export async function addLoan(loan: NewLoanInput) {
   const { error } = await supabase.from("loans").insert({
@@ -490,8 +483,31 @@ export async function addLoan(loan: NewLoanInput) {
     pessoa_nome: loan.person_name,
     data_prevista_devolucao: loan.due_date,
     status: loan.returned ? "devolvido" : "ativo",
+    invited_email: loan.invited_email ?? null,
   });
   if (error) throw new Error(error.message);
+}
+
+// Manda o e-mail convidando quem ainda não tem conta a se cadastrar, pra
+// acompanhar o empréstimo que acabou de ser registrado pra ela.
+export async function sendLoanInviteEmail(input: {
+  email: string;
+  book_title: string;
+  lender_name?: string;
+}) {
+  const { error } = await supabase.functions.invoke("convidar-emprestimo", {
+    body: { email: input.email, book_title: input.book_title, lender_name: input.lender_name },
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Roda no login: vincula automaticamente à conta que acabou de logar
+// qualquer empréstimo cujo convite tenha sido mandado pra esse mesmo
+// e-mail. Retorna quantos empréstimos foram vinculados agora.
+export async function claimInvitedLoans(): Promise<number> {
+  const { data, error } = await supabase.rpc("claim_invited_loans");
+  if (error) throw new Error(error.message);
+  return (data as number | null) ?? 0;
 }
 
 export async function setLoanReturned(id: string, returned: boolean) {
