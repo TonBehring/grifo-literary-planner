@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bold, Italic, Highlighter, Quote, StickyNote } from "lucide-react";
+import { Bold, Italic, Highlighter, Quote, StickyNote, Camera } from "lucide-react";
+import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const DRAFT_PREFIX = "grifo-draft-nota:";
@@ -23,6 +24,55 @@ function wrapSelection(
     selStart: before.length + token.length,
     selEnd: before.length + token.length + selected.length,
   };
+}
+
+// Antes de mandar a foto pro OCR, converte pra escala de cinza e realça o
+// contraste — ajuda bastante o Tesseract a ler fotos de celular (que quase
+// sempre têm sombra, reflexo ou luz irregular) melhor do que a imagem crua.
+function preprocessForOcr(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler a imagem"));
+    reader.onload = () => {
+      img.onerror = () => reject(new Error("Não foi possível abrir a imagem"));
+      img.onload = () => {
+        // Limita o maior lado a 1800px — o Tesseract não precisa de mais
+        // resolução que isso, e imagens menores processam bem mais rápido
+        // no celular da pessoa.
+        const maxSide = 1800;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas indisponível"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        const contrast = 1.35; // realce leve de contraste
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+          const adjusted = (gray - 128) * contrast + 128;
+          const clamped = Math.max(0, Math.min(255, adjusted));
+          data[i] = clamped;
+          data[i + 1] = clamped;
+          data[i + 2] = clamped;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL("image/jpeg", 0.92));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function NoteEditorModal({
@@ -51,7 +101,9 @@ export function NoteEditorModal({
   const [kind, setKind] = useState<"nota" | "citacao">(initialKind);
   const [page, setPage] = useState(initialPage);
   const [restoredDraft, setRestoredDraft] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   // Ao abrir o modal, se existir um rascunho salvo (de uma sessão anterior
   // em que o usuário escreveu algo e não chegou a salvar), recupera ele em
@@ -111,6 +163,61 @@ export function NoteEditorModal({
     });
   }
 
+  // Insere o texto lido da foto na posição do cursor (ou no final, se não
+  // houver foco no textarea ainda) — sempre como texto editável, porque
+  // OCR erra nome próprio, pontuação e acento com frequência.
+  function insertAtCursor(text: string) {
+    const el = textareaRef.current;
+    const clean = text.trim();
+    if (!clean) return;
+    if (!el) {
+      setContent((prev) => (prev.trim() ? `${prev}\n\n${clean}` : clean));
+      return;
+    }
+    const start = el.selectionStart ?? content.length;
+    const end = el.selectionEnd ?? content.length;
+    const before = content.slice(0, start);
+    const after = content.slice(end);
+    const needsBreakBefore = before && !before.endsWith("\n") ? "\n\n" : "";
+    const merged = `${before}${needsBreakBefore}${clean}${after}`;
+    setContent(merged.slice(0, 2000));
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = (before + needsBreakBefore + clean).length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  async function handleOcrFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setOcrLoading(true);
+    try {
+      const preprocessed = await preprocessForOcr(file);
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("por");
+      try {
+        const { data } = await worker.recognize(preprocessed);
+        const text = (data.text || "").trim();
+        if (!text) {
+          toast.error("Não conseguimos ler texto nessa foto. Tente com mais luz ou mais perto da página.");
+        } else {
+          insertAtCursor(text);
+          toast.success("Texto da foto adicionado — revise antes de guardar.");
+        }
+      } finally {
+        await worker.terminate();
+      }
+    } catch (err) {
+      console.error("Erro no OCR da nota:", err);
+      toast.error("Não foi possível ler a foto agora. Você pode digitar a nota normalmente.");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
   function handleSave() {
     if (!content.trim()) return;
     try {
@@ -167,6 +274,30 @@ export function NoteEditorModal({
           <ToolbarButton label="Grifado" onClick={() => applyToken("==")}>
             <Highlighter className="h-4 w-4" />
           </ToolbarButton>
+
+          <div className="mx-1 h-5 w-px bg-border" />
+
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            disabled={ocrLoading}
+            aria-label="Tirar foto da página"
+            title="Tirar foto da página"
+            className="flex items-center gap-1.5 rounded-lg border border-primary/60 px-2.5 py-2 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+          >
+            <Camera className="h-4 w-4" />
+            {ocrLoading ? "Lendo a página…" : "Tirar foto"}
+          </button>
+
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            disabled={ocrLoading}
+            onChange={handleOcrFile}
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-2 pt-3">
@@ -177,7 +308,7 @@ export function NoteEditorModal({
             rows={12}
             maxLength={2000}
             autoFocus
-            placeholder="Grife o trecho que te marcou, ou escreva seu resumo e aprendizados…"
+            placeholder="Grife o trecho que te marcou, ou escreva seu resumo e aprendizados… ou tire uma foto da página."
             className="min-h-[220px] w-full resize-none rounded-xl border border-border p-3 text-sm outline-none focus:border-primary"
           />
           <p className="mt-1 text-right text-[11px] text-muted-foreground">{content.length}/2000</p>
