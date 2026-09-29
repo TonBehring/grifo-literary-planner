@@ -212,6 +212,9 @@ export type NewBookInput = {
   genre: string | null;
   status: ShelfStatus;
   format: BookFormat;
+  pre_cadastro?: boolean;
+  started_at?: string | null;
+  finished_at?: string | null;
 };
 
 export async function addBookToShelf(
@@ -253,7 +256,8 @@ export async function addBookToShelf(
       status: input.status,
       formato: input.format,
       pagina_atual: 0,
-      data_inicio: input.status === "lendo" ? new Date().toISOString() : null,
+      data_inicio: input.started_at ?? (input.status === "lendo" ? new Date().toISOString() : null),
+      data_conclusao: input.finished_at ?? null,
     })
     .select("id")
     .single();
@@ -318,8 +322,8 @@ export async function addNote(note: {
 
 export async function updateNote(id: string, patch: { content?: string; page?: number | null }) {
   const payload: Record<string, unknown> = {};
-  if (patch.content !== undefined) payload.conteudo = patch.content;
-  if (patch.page !== undefined) payload.pagina_referencia = patch.page;
+  if (patch.content !== undefined) payload["conteudo"] = patch.content;
+  if (patch.page !== undefined) payload["pagina_referencia"] = patch.page;
   const { error } = await supabase.from("book_notes").update(payload).eq("id", id);
   if (error) throw new Error(error.message);
 }

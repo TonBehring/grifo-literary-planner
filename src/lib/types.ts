@@ -40,7 +40,6 @@ export type UserBook = {
   started_at: string | null;
   finished_at: string | null;
   origem_emprestimo_id: string | null;
-  pre_cadastro: boolean;
   book: Book | null;
 };
 
