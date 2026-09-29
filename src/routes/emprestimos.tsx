@@ -5,7 +5,14 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
-import { acceptLoan, addLoan, listLoans, listUserBooks, setLoanReturned } from "@/lib/api";
+import {
+  acceptLoan,
+  addLoan,
+  listLoans,
+  listUserBooks,
+  sendLoanInviteEmail,
+  setLoanReturned,
+} from "@/lib/api";
 import { listContacts, type Contato } from "@/lib/contatos";
 import type { Loan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -23,8 +30,6 @@ export const Route = createFileRoute("/emprestimos")({
         property: "og:description",
         content: "Quem está com seus livros e quais livros estão com você.",
       },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (
@@ -43,6 +48,7 @@ function LoansPage() {
   const [mode, setMode] = useState<"contato" | "manual">("contato");
   const [contactId, setContactId] = useState("");
   const [personName, setPersonName] = useState("");
+  const [personEmail, setPersonEmail] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   const { data } = useQuery({
@@ -66,6 +72,12 @@ function LoansPage() {
     enabled: Boolean(user),
   });
 
+  // Convite por e-mail só faz sentido quando VOCÊ está emprestando o livro
+  // pra alguém sem conta ainda — é essa pessoa que vai querer acompanhar o
+  // empréstimo entrando no Grifo. No sentido inverso (peguei emprestado),
+  // não há nada pra essa pessoa aceitar dentro do app hoje.
+  const showEmailInvite = mode === "manual" && direction === "emprestei";
+
   const create = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Sessão expirada");
@@ -76,6 +88,7 @@ function LoansPage() {
         mode === "contato" ? (contacts ?? []).find((c) => c.id === contactId) : undefined;
       if (mode === "contato" && !selectedContact) throw new Error("Escolha um contato");
       if (mode === "manual" && !personName.trim()) throw new Error("Informe o nome da pessoa");
+      const invitedEmail = showEmailInvite ? personEmail.trim() : "";
       await addLoan({
         user_id: user.id,
         linked_user_id: selectedContact?.id ?? null,
@@ -85,18 +98,43 @@ function LoansPage() {
         person_name: selectedContact?.nome ?? personName.trim().slice(0, 100),
         due_date: dueDate || null,
         returned: false,
+        invited_email: invitedEmail || null,
       });
-      return { selectedContact };
+      if (invitedEmail) {
+        try {
+          await sendLoanInviteEmail({
+            email: invitedEmail,
+            book_title: selectedBook.book?.title ?? "um livro",
+            lender_name: (user.user_metadata?.["nickname"] as string) || undefined,
+          });
+        } catch {
+          // O empréstimo já foi registrado — o convite é um "extra"; se o
+          // envio falhar (ex: serviço de e-mail fora do ar), não desfaz o
+          // registro, só avisa separadamente logo abaixo.
+          return { selectedContact, invitedEmail, inviteFailed: true };
+        }
+      }
+      return { selectedContact, invitedEmail, inviteFailed: false };
     },
-    onSuccess: ({ selectedContact }) => {
+    onSuccess: ({ selectedContact, invitedEmail, inviteFailed }) => {
       setUserBookId("");
       setContactId("");
       setPersonName("");
+      setPersonEmail("");
       setDueDate("");
       void queryClient.invalidateQueries({ queryKey: ["loans"] });
-      toast.success(
-        selectedContact ? `Empréstimo vinculado a ${selectedContact.nome}` : "Empréstimo registrado",
-      );
+      if (inviteFailed) {
+        toast.success("Empréstimo registrado");
+        toast.error("Não foi possível enviar o e-mail de convite — tente reenviar depois.");
+      } else {
+        toast.success(
+          selectedContact
+            ? `Empréstimo vinculado a ${selectedContact.nome}`
+            : invitedEmail
+              ? "Empréstimo registrado — convite enviado por e-mail"
+              : "Empréstimo registrado",
+        );
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -206,13 +244,31 @@ function LoansPage() {
             ))}
           </select>
         ) : (
-          <input
-            value={personName}
-            onChange={(e) => setPersonName(e.target.value)}
-            maxLength={100}
-            placeholder={direction === "emprestei" ? "Para quem?" : "De quem?"}
-            className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
-          />
+          <>
+            <input
+              value={personName}
+              onChange={(e) => setPersonName(e.target.value)}
+              maxLength={100}
+              placeholder={direction === "emprestei" ? "Para quem?" : "De quem?"}
+              className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+            />
+            {showEmailInvite && (
+              <div className="mt-3">
+                <input
+                  type="email"
+                  value={personEmail}
+                  onChange={(e) => setPersonEmail(e.target.value)}
+                  maxLength={255}
+                  placeholder="E-mail da pessoa (opcional)"
+                  className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Se informar o e-mail, mandamos um convite pra essa pessoa criar conta no Grifo e
+                  acompanhar esse empréstimo.
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         <label className="mt-3 block">
