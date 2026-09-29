@@ -6,7 +6,14 @@ const CONTATO_EMAIL = "contato@useogrifo.app";
 // de cadastro, antes de existir uma conta.
 export const Route = createFileRoute("/termos")({
   head: () => ({
-    meta: [{ title: "Termos de Uso — Grifo" }],
+    meta: [
+      { title: "Termos de Uso — Grifo" },
+      { name: "description", content: "Consulte as condições de uso do aplicativo Grifo." },
+      { property: "og:title", content: "Termos de Uso — Grifo" },
+      { property: "og:description", content: "Consulte as condições de uso do aplicativo Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: TermsPage,
 });

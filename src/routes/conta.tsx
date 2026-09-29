@@ -14,7 +14,14 @@ import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/conta")({
   head: () => ({
-    meta: [{ title: "Minha conta — Grifo" }],
+    meta: [
+      { title: "Minha conta — Grifo" },
+      { name: "description", content: "Gerencie seu perfil, contatos e assinatura no Grifo." },
+      { property: "og:title", content: "Minha conta — Grifo" },
+      { property: "og:description", content: "Gerencie seu perfil, contatos e assinatura no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: () => (
     <AppShell>

@@ -6,7 +6,14 @@ const CONTATO_EMAIL = "contato@useogrifo.app";
 // de cadastro, antes de existir uma conta.
 export const Route = createFileRoute("/privacidade")({
   head: () => ({
-    meta: [{ title: "Política de Privacidade — Grifo" }],
+    meta: [
+      { title: "Política de Privacidade — Grifo" },
+      { name: "description", content: "Saiba como o Grifo trata e protege seus dados pessoais." },
+      { property: "og:title", content: "Política de Privacidade — Grifo" },
+      { property: "og:description", content: "Saiba como o Grifo trata e protege seus dados pessoais." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: PrivacyPage,
 });

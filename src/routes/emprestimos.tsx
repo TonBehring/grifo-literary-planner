@@ -30,6 +30,8 @@ export const Route = createFileRoute("/emprestimos")({
         property: "og:description",
         content: "Quem está com seus livros e quais livros estão com você.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => (
@@ -105,7 +107,9 @@ function LoansPage() {
           await sendLoanInviteEmail({
             email: invitedEmail,
             book_title: selectedBook.book?.title ?? "um livro",
-            lender_name: (user.user_metadata?.["nickname"] as string) || undefined,
+            ...((user.user_metadata?.["nickname"] as string | undefined)
+              ? { lender_name: user.user_metadata["nickname"] as string }
+              : {}),
           });
         } catch {
           // O empréstimo já foi registrado — o convite é um "extra"; se o
