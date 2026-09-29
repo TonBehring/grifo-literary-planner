@@ -105,7 +105,9 @@ function LoansPage() {
           await sendLoanInviteEmail({
             email: invitedEmail,
             book_title: selectedBook.book?.title ?? "um livro",
-            lender_name: (user.user_metadata?.["nickname"] as string) || undefined,
+            ...((user.user_metadata?.["nickname"] as string | undefined)
+              ? { lender_name: user.user_metadata["nickname"] as string }
+              : {}),
           });
         } catch {
           // O empréstimo já foi registrado — o convite é um "extra"; se o
