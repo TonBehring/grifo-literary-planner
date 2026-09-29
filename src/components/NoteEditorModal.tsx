@@ -59,7 +59,7 @@ function preprocessForOcr(file: File): Promise<string> {
         const data = imageData.data;
         const contrast = 1.35; // realce leve de contraste
         for (let i = 0; i < data.length; i += 4) {
-          const gray = (data[i] ?? 0) * 0.299 + (data[i + 1] ?? 0) * 0.587 + (data[i + 2] ?? 0) * 0.114;
+          const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
           const adjusted = (gray - 128) * contrast + 128;
           const clamped = Math.max(0, Math.min(255, adjusted));
           data[i] = clamped;
@@ -205,7 +205,7 @@ export function NoteEditorModal({
           toast.error("Não conseguimos ler texto nessa foto. Tente com mais luz ou mais perto da página.");
         } else {
           insertAtCursor(text);
-          toast.success("Texto da foto adicionado — revise antes de guardar.");
+          toast.success("Texto da foto adicionado (leitura experimental) — revise com atenção antes de guardar.");
         }
       } finally {
         await worker.terminate();
@@ -299,6 +299,10 @@ export function NoteEditorModal({
             onChange={handleOcrFile}
           />
         </div>
+
+        <p className="px-5 pt-1 text-[11px] text-muted-foreground">
+          Leitura de foto ainda é experimental — confira o texto com calma antes de guardar.
+        </p>
 
         <div className="flex-1 overflow-y-auto px-5 pb-2 pt-3">
           <textarea
