@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -118,6 +118,7 @@ function AdminPage() {
       <WaitlistSection />
       <GrantAccessForm />
       <BroadcastPushForm />
+      <PnlSection />
     </section>
   );
 }
@@ -508,6 +509,298 @@ function BroadcastPushForm() {
         {sending ? "Enviando…" : "Enviar para todos"}
       </button>
       {result && <p className="mt-3 text-sm text-muted-foreground">{result}</p>}
+    </div>
+  );
+}
+
+// --- P&L (lançamentos manuais de receita e custo) ------------------------
+
+type PnlResumo = { total_receita: number; total_custo: number; lucro: number };
+type PnlPorCategoria = { tipo: "receita" | "custo"; categoria: string; total: number };
+type PnlPorMes = { mes: string; receita: number; custo: number };
+type PnlLancamento = {
+  id: string;
+  tipo: "receita" | "custo";
+  categoria: string;
+  descricao: string | null;
+  valor: number;
+  mes_referencia: string;
+  criado_em: string;
+};
+
+const CATEGORIAS_SUGERIDAS = [
+  "Assinaturas",
+  "Supabase",
+  "Brevo",
+  "Asaas (taxas)",
+  "Resend",
+  "Domínio",
+  "Anthropic / IA",
+  "Marketing",
+  "Outros",
+];
+
+function formatBRL(n: number): string {
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatMes(mesISO: string): string {
+  const [ano, mes] = mesISO.split("-");
+  const nomes = [
+    "jan", "fev", "mar", "abr", "mai", "jun",
+    "jul", "ago", "set", "out", "nov", "dez",
+  ];
+  return `${nomes[Number(mes) - 1]}/${ano.slice(2)}`;
+}
+
+async function fetchPnlResumo(): Promise<PnlResumo> {
+  const { data, error } = await supabase.rpc("admin_pnl_resumo");
+  if (error) throw new Error(error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as PnlResumo;
+  return row ?? { total_receita: 0, total_custo: 0, lucro: 0 };
+}
+
+async function fetchPnlPorCategoria(): Promise<PnlPorCategoria[]> {
+  const { data, error } = await supabase.rpc("admin_pnl_por_categoria");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PnlPorCategoria[];
+}
+
+async function fetchPnlPorMes(): Promise<PnlPorMes[]> {
+  const { data, error } = await supabase.rpc("admin_pnl_por_mes");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PnlPorMes[];
+}
+
+async function fetchPnlLista(): Promise<PnlLancamento[]> {
+  const { data, error } = await supabase.rpc("admin_pnl_lista");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PnlLancamento[];
+}
+
+function PnlSection() {
+  const queryClient = useQueryClient();
+
+  const resumo = useQuery({ queryKey: ["admin-pnl-resumo"], queryFn: fetchPnlResumo, retry: false });
+  const porCategoria = useQuery({
+    queryKey: ["admin-pnl-categoria"],
+    queryFn: fetchPnlPorCategoria,
+    retry: false,
+  });
+  const porMes = useQuery({ queryKey: ["admin-pnl-mes"], queryFn: fetchPnlPorMes, retry: false });
+  const lista = useQuery({ queryKey: ["admin-pnl-lista"], queryFn: fetchPnlLista, retry: false });
+
+  const [tipo, setTipo] = useState<"receita" | "custo">("receita");
+  const [categoria, setCategoria] = useState("");
+  const [valor, setValor] = useState("");
+  const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7)); // "YYYY-MM"
+  const [descricao, setDescricao] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  function invalidateAll() {
+    queryClient.invalidateQueries({ queryKey: ["admin-pnl-resumo"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-pnl-categoria"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-pnl-mes"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-pnl-lista"] });
+  }
+
+  async function lancar() {
+    const valorNum = Number(valor.replace(",", "."));
+    if (!categoria.trim() || !valorNum || valorNum <= 0 || !mes) return;
+    setSalvando(true);
+    try {
+      const { error } = await supabase.rpc("admin_pnl_lancar", {
+        p_tipo: tipo,
+        p_categoria: categoria.trim(),
+        p_valor: valorNum,
+        p_mes_referencia: `${mes}-01`,
+        p_descricao: descricao.trim() || null,
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Lançamento registrado.");
+      setCategoria("");
+      setValor("");
+      setDescricao("");
+      invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível lançar");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function excluir(id: string) {
+    try {
+      const { error } = await supabase.rpc("admin_pnl_excluir", { p_id: id });
+      if (error) throw new Error(error.message);
+      toast.success("Lançamento removido.");
+      invalidateAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível remover");
+    }
+  }
+
+  const meses = porMes.data ?? [];
+  const maxValor = Math.max(1, ...meses.flatMap((m) => [m.receita, m.custo]));
+  const receitas = (porCategoria.data ?? []).filter((c) => c.tipo === "receita");
+  const custos = (porCategoria.data ?? []).filter((c) => c.tipo === "custo");
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">P&L do Grifo</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Lançamentos manuais de receita e custo, por mês.</p>
+
+      {!resumo.isLoading && !resumo.isError && resumo.data && (
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="rounded-xl bg-primary/10 p-3">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Receita</p>
+            <p className="font-display mt-1 text-xl">{formatBRL(resumo.data.total_receita)}</p>
+          </div>
+          <div className="rounded-xl bg-destructive/10 p-3">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Custo</p>
+            <p className="font-display mt-1 text-xl">{formatBRL(resumo.data.total_custo)}</p>
+          </div>
+          <div className="rounded-xl bg-border p-3">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Lucro</p>
+            <p className="font-display mt-1 text-xl">{formatBRL(resumo.data.lucro)}</p>
+          </div>
+        </div>
+      )}
+
+      {meses.length > 0 && (
+        <div className="mt-5">
+          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Receita x custo por mês</p>
+          <div className="mt-2 flex h-24 items-end gap-3 overflow-x-auto pb-1">
+            {meses.map((m) => (
+              <div key={m.mes} className="flex flex-col items-center gap-1">
+                <div className="flex h-20 items-end gap-[2px]">
+                  <div
+                    title={`Receita: ${formatBRL(m.receita)}`}
+                    className="w-3 rounded-t bg-primary/70"
+                    style={{ height: `${Math.max(2, (m.receita / maxValor) * 100)}%` }}
+                  />
+                  <div
+                    title={`Custo: ${formatBRL(m.custo)}`}
+                    className="w-3 rounded-t bg-destructive/60"
+                    style={{ height: `${Math.max(2, (m.custo / maxValor) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground">{formatMes(m.mes.slice(0, 7))}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(receitas.length > 0 || custos.length > 0) && (
+        <div className="mt-5 grid grid-cols-2 gap-4">
+          {receitas.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Receita por categoria</p>
+              {receitas.map((c) => (
+                <div key={c.categoria} className="flex items-center justify-between text-sm">
+                  <span className="truncate pr-2">{c.categoria}</span>
+                  <span className="font-medium">{formatBRL(c.total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {custos.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Custo por categoria</p>
+              {custos.map((c) => (
+                <div key={c.categoria} className="flex items-center justify-between text-sm">
+                  <span className="truncate pr-2">{c.categoria}</span>
+                  <span className="font-medium">{formatBRL(c.total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-6 border-t border-border pt-4">
+        <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Novo lançamento</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value as "receita" | "custo")}
+            className="rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="receita">Receita</option>
+            <option value="custo">Custo</option>
+          </select>
+          <input
+            list="categorias-pnl"
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            placeholder="Categoria"
+            className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <datalist id="categorias-pnl">
+            {CATEGORIAS_SUGERIDAS.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          <input
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            placeholder="Valor (R$)"
+            inputMode="decimal"
+            className="w-28 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <input
+            type="month"
+            value={mes}
+            onChange={(e) => setMes(e.target.value)}
+            className="rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Descrição (opcional)"
+          className="mt-2 w-full rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+        />
+        <button
+          onClick={lancar}
+          disabled={salvando || !categoria.trim() || !valor.trim()}
+          className="mt-2 w-full rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        >
+          {salvando ? "Lançando…" : "Lançar"}
+        </button>
+      </div>
+
+      {lista.data && lista.data.length > 0 && (
+        <div className="mt-6 border-t border-border pt-4">
+          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Lançamentos recentes</p>
+          <div className="mt-2 max-h-80 space-y-2 overflow-y-auto">
+            {lista.data.map((l) => (
+              <div
+                key={l.id}
+                className="flex items-center justify-between gap-2 rounded-lg bg-white/40 px-3 py-2 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="truncate">
+                    <span className={l.tipo === "receita" ? "text-primary" : "text-destructive"}>
+                      {l.tipo === "receita" ? "+" : "-"}
+                      {formatBRL(l.valor)}
+                    </span>{" "}
+                    — {l.categoria} ({formatMes(l.mes_referencia.slice(0, 7))})
+                  </p>
+                  {l.descricao && <p className="truncate text-xs text-muted-foreground">{l.descricao}</p>}
+                </div>
+                <button
+                  onClick={() => excluir(l.id)}
+                  className="shrink-0 text-xs text-muted-foreground underline underline-offset-4"
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
