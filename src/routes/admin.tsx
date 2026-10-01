@@ -1,10 +1,267 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { AppShell } from "@/components/AppShell";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+
+export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "Painel administrativo — Grifo" },
+      { name: "description", content: "Indicadores e gestão administrativa do Grifo." },
+      { property: "og:title", content: "Painel administrativo — Grifo" },
+      { property: "og:description", content: "Indicadores e gestão administrativa do Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: () => (
+    <AppShell>
+      <AdminPage />
+    </AppShell>
+  ),
+});
+
+type Indicador = { indicador: string; valor: string };
+
+async function fetchIndicadores(): Promise<Indicador[]> {
+  const { data, error } = await supabase.rpc("admin_indicadores");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Indicador[];
+}
+
+function AdminPage() {
+  const { user } = useAuth();
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-indicadores"],
+    queryFn: fetchIndicadores,
+    enabled: Boolean(user),
+    retry: false,
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Carregando…</p>;
+  }
+
+  if (isError) {
+    return (
+      <section>
+        <h1 className="font-display text-4xl leading-tight">Página não encontrada</h1>
+      </section>
+    );
+  }
+
+  return (
+    <section className="pb-6">
+      <h1 className="font-display text-4xl leading-tight">Painel administrativo</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Indicadores gerais do Grifo.</p>
+
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {(data ?? []).map((item) => (
+          <div key={item.indicador} className="panel-cream rounded-2xl p-4">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{item.indicador}</p>
+            <p className="font-display mt-2 text-2xl leading-snug">{item.valor}</p>
+          </div>
+        ))}
+      </div>
+
+      <FoundersSection />
+      <SupabaseUsageSection />
+      <WaitlistSection />
+      <GrantAccessForm />
+      <BroadcastPushForm />
+    </section>
+  );
+}
+
+// --- Campanha de Fundadores (250 primeiros a assinar) -------------------
+
+const FOUNDER_SLOTS = 250;
+
+type Fundador = {
+  founder_number: number;
+  apelido: string | null;
+  email: string;
+  discount_applied: boolean;
+  discount_error: string | null;
+  created_at: string;
+};
+
+async function fetchFundadores(): Promise<Fundador[]> {
+  const { data, error } = await supabase.rpc("admin_fundadores");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Fundador[];
+}
+
+function FoundersSection() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-fundadores"],
+    queryFn: fetchFundadores,
+    retry: false,
+  });
+
+  if (isLoading || isError) return null;
+
+  const fundadores = data ?? [];
+  const comErro = fundadores.filter((f) => f.discount_error);
+  const restantes = Math.max(0, FOUNDER_SLOTS - fundadores.length);
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Campanha de Fundadores</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {fundadores.length} de {FOUNDER_SLOTS} vagas preenchidas — {restantes} restantes.
+      </p>
+
+      <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-border">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${Math.min(100, (fundadores.length / FOUNDER_SLOTS) * 100)}%` }}
+        />
+      </div>
+
+      {comErro.length > 0 && (
+        <div className="mt-4 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <p className="text-sm font-medium text-destructive">
+            {comErro.length} fundador(es) com o desconto ainda não aplicado na Asaas — corrija manualmente no painel da
+            Asaas (Assinaturas → aplicar 20% de desconto vitalício):
+          </p>
+          <ul className="mt-2 space-y-2 text-xs">
+            {comErro.map((f) => (
+              <li key={f.founder_number} className="rounded-lg bg-white/40 p-2">
+                <strong>#{f.founder_number}</strong> — {f.apelido ?? f.email} ({f.email})
+                <br />
+                <span className="text-muted-foreground">{f.discount_error}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Uso do Supabase x limites do plano gratuito -----------------------
+
+type UsoSupabase = {
+  db_size_bytes: number;
+  storage_size_bytes: number;
+  total_usuarios: number;
+  usuarios_ativos_30d: number;
+};
+
+// Limites do plano gratuito do Supabase (ago/2026). Egress fica de fora
+// de propósito: só dá pra ver no painel do Supabase (Project Settings →
+// Usage), porque exige um token de acesso da conta inteira, não só deste
+// projeto — não vale o risco de guardar isso como secret aqui.
+const DB_LIMIT_BYTES = 500 * 1024 * 1024; // 500 MB
+const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024; // 1 GB
+const MAU_LIMIT = 50_000;
+
+// A partir de quantos % de um limite mostramos o aviso de upgrade.
+const SAFETY_THRESHOLD = 0.7;
+
+async function fetchUsoSupabase(): Promise<UsoSupabase> {
+  const { data, error } = await supabase.rpc("admin_uso_supabase");
+  if (error) throw new Error(error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as UsoSupabase;
+  return row;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
+function barColor(pct: number): string {
+  if (pct >= 0.9) return "bg-destructive";
+  if (pct >= SAFETY_THRESHOLD) return "bg-amber-500";
+  return "bg-primary";
+}
+
+function UsageBar({
+  label,
+  used,
+  limit,
+  formatUsed,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  formatUsed: (n: number) => string;
+}) {
+  const pct = Math.min(1, used / limit);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-sm">
+        <span>{label}</span>
+        <span className="text-muted-foreground">
+          {formatUsed(used)} de {formatUsed(limit)} ({Math.round(pct * 100)}%)
+        </span>
+      </div>
+      <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-border">
+        <div className={"h-full rounded-full transition-all " + barColor(pct)} style={{ width: `${pct * 100}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SupabaseUsageSection() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-uso-supabase"],
+    queryFn: fetchUsoSupabase,
+    retry: false,
+  });
+
+  if (isLoading || isError || !data) return null;
+
+  const metrics = [
+    { pct: data.db_size_bytes / DB_LIMIT_BYTES },
+    { pct: data.storage_size_bytes / STORAGE_LIMIT_BYTES },
+    { pct: data.usuarios_ativos_30d / MAU_LIMIT },
+  ];
+  const maxPct = Math.max(...metrics.map((m) => m.pct));
+  const nearLimit = maxPct >= SAFETY_THRESHOLD;
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Uso do Supabase (plano gratuito)</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Egress não entra aqui — confira em Project Settings → Usage no painel do Supabase.
+      </p>
+
+      <div className="mt-4 space-y-4">
+        <UsageBar label="Banco de dados" used={data.db_size_bytes} limit={DB_LIMIT_BYTES} formatUsed={formatBytes} />
+        <UsageBar
+          label="Storage (capas)"
+          used={data.storage_size_bytes}
+          limit={STORAGE_LIMIT_BYTES}
+          formatUsed={formatBytes}
+        />
+        <UsageBar
+          label="Usuários ativos (30 dias)"
+          used={data.usuarios_ativos_30d}
+          limit={MAU_LIMIT}
+          formatUsed={(n) => n.toLocaleString("pt-BR")}
+        />
+      </div>
+
+      {nearLimit && (
+        <div className="mt-4 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm">
+          <strong>Hora de considerar o plano Pro ($25/mês).</strong> Pelo menos um dos limites do plano gratuito já
+          passou de {Math.round(SAFETY_THRESHOLD * 100)}% de uso — vale migrar antes de bater no teto e o projeto ser
+          pausado ou travar novos cadastros/uploads.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Lista de espera (cadastros da landing page via Brevo) --------------
-//
-// Onde colar no admin.tsx:
-// 1) Este bloco inteiro vai no final do arquivo (mesmo nível das outras
-//    seções como FoundersSection, SupabaseUsageSection etc.).
-// 2) Dentro do componente AdminPage, logo abaixo de <SupabaseUsageSection />,
-//    adiciona a linha: <WaitlistSection />
 
 type ListaEsperaPorOrigem = { origem: string; total: number };
 type ListaEsperaPorDia = { dia: string; total: number };
@@ -90,6 +347,121 @@ function WaitlistSection() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Conceder acesso de cortesia ----------------------------------------
+
+function GrantAccessForm() {
+  const [email, setEmail] = useState("");
+  const [granting, setGranting] = useState(false);
+
+  async function grant() {
+    if (!email.trim()) return;
+    setGranting(true);
+    try {
+      const { error } = await supabase.rpc("grant_cortesia_subscription", {
+        target_email: email.trim(),
+      });
+      if (error) throw new Error(error.message);
+      toast.success(`Acesso de cortesia concedido para ${email.trim()}`);
+      setEmail("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível conceder acesso");
+    } finally {
+      setGranting(false);
+    }
+  }
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Conceder acesso gratuito</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Dá 12 meses de acesso de cortesia para um e-mail já cadastrado no Grifo.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="email@exemplo.com"
+          className="flex-1 rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <button
+          onClick={grant}
+          disabled={granting}
+          className="rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        >
+          {granting ? "..." : "Conceder"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- Enviar push para todos os usuários ---------------------------------
+
+function BroadcastPushForm() {
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function send() {
+    if (!title.trim() || !message.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("push-broadcast", {
+        body: { title: title.trim(), body: message.trim() },
+      });
+      if (error) throw new Error(error.message);
+      const { total, sent, removed } = data as { total: number; sent: number; removed: number };
+      setResult(
+        `Enviado para ${sent} de ${total} inscrições` +
+          (removed > 0 ? ` (${removed} inscrição(ões) expirada(s) removida(s))` : ""),
+      );
+      setTitle("");
+      setMessage("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Enviar notificação para todos</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Manda um push (e registra no histórico) para todos os usuários com notificações ativadas.
+      </p>
+      <div className="mt-3 space-y-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título"
+          maxLength={80}
+          className="w-full rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Mensagem"
+          rows={3}
+          maxLength={200}
+          className="w-full resize-none rounded-xl border border-border px-4 py-3 text-sm outline-none focus:border-primary"
+        />
+      </div>
+      <button
+        onClick={send}
+        disabled={sending || !title.trim() || !message.trim()}
+        className="mt-3 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+      >
+        {sending ? "Enviando…" : "Enviar para todos"}
+      </button>
+      {result && <p className="mt-3 text-sm text-muted-foreground">{result}</p>}
     </div>
   );
 }
