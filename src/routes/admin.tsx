@@ -26,20 +26,28 @@ export const Route = createFileRoute("/admin")({
 
 type Indicador = { indicador: string; valor: string };
 
-async function fetchIndicadores(): Promise<Indicador[]> {
-  const { data, error } = await supabase.rpc("admin_indicadores");
+async function fetchIndicadores(inicio: string, fim: string): Promise<Indicador[]> {
+  const { data, error } = await supabase.rpc("admin_indicadores", {
+    p_inicio: inicio || null,
+    p_fim: fim || null,
+  });
   if (error) throw new Error(error.message);
   return (data ?? []) as Indicador[];
 }
 
 function AdminPage() {
   const { user } = useAuth();
+  const [inicio, setInicio] = useState("");
+  const [fim, setFim] = useState("");
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["admin-indicadores"],
-    queryFn: fetchIndicadores,
+    queryKey: ["admin-indicadores", inicio, fim],
+    queryFn: () => fetchIndicadores(inicio, fim),
     enabled: Boolean(user),
     retry: false,
   });
+
+  const temFiltro = Boolean(inicio || fim);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando…</p>;
@@ -57,6 +65,44 @@ function AdminPage() {
     <section className="pb-6">
       <h1 className="font-display text-4xl leading-tight">Painel administrativo</h1>
       <p className="mt-2 text-sm text-muted-foreground">Indicadores gerais do Grifo.</p>
+
+      <div className="panel-cream mt-4 flex flex-wrap items-end gap-3 rounded-2xl p-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">De</label>
+          <input
+            type="date"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            className="rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Até</label>
+          <input
+            type="date"
+            value={fim}
+            onChange={(e) => setFim(e.target.value)}
+            className="rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        {temFiltro && (
+          <button
+            onClick={() => {
+              setInicio("");
+              setFim("");
+            }}
+            className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
+          >
+            Limpar período
+          </button>
+        )}
+        {temFiltro && (
+          <p className="w-full text-xs text-muted-foreground">
+            "Usuários ativos (30 dias)" e "Usuários com username definido" sempre mostram o estado atual,
+            independente do período escolhido.
+          </p>
+        )}
+      </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {(data ?? []).map((item) => (
