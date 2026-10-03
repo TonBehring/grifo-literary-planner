@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Quote, Share2, StickyNote, Trash2, Pencil } from "lucide-react";
+import { Quote, Share2, StickyNote, Trash2, Pencil, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -288,6 +288,17 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           <div className="h-40 w-28 overflow-hidden rounded-lg bg-teal-deep">
             <BookCover src={ub.book?.cover_url} title={ub.book?.title} />
           </div>
+          {!activeLoan &&
+            subscriptionActive &&
+            ub.status === "lendo" && (
+              <button
+                onClick={() => navigate({ to: "/livro/$id/sessao", params: { id } })}
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-center text-[11px] font-medium leading-tight text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                <Timer className="h-3.5 w-3.5" />
+                Iniciar leitura
+              </button>
+            )}
           {!activeLoan &&
             subscriptionActive &&
             ub.status !== "desejo_compra" &&
