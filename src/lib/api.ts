@@ -198,6 +198,7 @@ export async function updateBookInfo(
 export async function deleteUserBook(id: string) {
   await supabase.from("book_notes").delete().eq("user_book_id", id);
   await supabase.from("reading_logs").delete().eq("user_book_id", id);
+  await supabase.from("reading_sessions").delete().eq("user_book_id", id);
   await supabase.from("loans").delete().eq("user_book_id", id);
   const { error } = await supabase.from("user_books").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -617,4 +618,72 @@ export async function searchOpenLibrary(term: string): Promise<GoogleVolume[]> {
     isbn: isIsbn ? clean.replace(/-/g, "") : (d.isbn?.[0] ?? null),
     page_count: d.number_of_pages_median ?? null,
   }));
+}
+
+// --- Sessões de leitura (cronometrada ou livre) --------------------------
+
+export type ReadingSession = {
+  id: string;
+  user_id: string;
+  user_book_id: string;
+  modo: "cronometrado" | "livre";
+  duracao_planejada_min: number | null;
+  pagina_inicio: number | null;
+  pagina_fim: number | null;
+  duracao_real_segundos: number | null;
+  som_ambiente: string | null;
+  iniciado_em: string;
+  finalizado_em: string | null;
+};
+
+// Cria a sessão no momento em que a pessoa toca em "Iniciar leitura".
+export async function startReadingSession(input: {
+  user_id: string;
+  user_book_id: string;
+  modo: "cronometrado" | "livre";
+  duracao_planejada_min: number | null;
+  pagina_inicio: number | null;
+}): Promise<ReadingSession> {
+  const { data, error } = await supabase
+    .from("reading_sessions")
+    .insert({
+      user_id: input.user_id,
+      user_book_id: input.user_book_id,
+      modo: input.modo,
+      duracao_planejada_min: input.duracao_planejada_min,
+      pagina_inicio: input.pagina_inicio,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ReadingSession;
+}
+
+// Atualiza o som ambiente escolhido durante a sessão (pode ser chamado
+// várias vezes, se a pessoa trocar de som no meio da leitura).
+export async function updateReadingSessionSom(
+  sessionId: string,
+  somAmbiente: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("reading_sessions")
+    .update({ som_ambiente: somAmbiente })
+    .eq("id", sessionId);
+  if (error) throw new Error(error.message);
+}
+
+// Encerra a sessão: grava página final e duração real (em segundos).
+export async function finishReadingSession(
+  sessionId: string,
+  input: { pagina_fim: number | null; duracao_real_segundos: number },
+): Promise<void> {
+  const { error } = await supabase
+    .from("reading_sessions")
+    .update({
+      pagina_fim: input.pagina_fim,
+      duracao_real_segundos: input.duracao_real_segundos,
+      finalizado_em: new Date().toISOString(),
+    })
+    .eq("id", sessionId);
+  if (error) throw new Error(error.message);
 }
