@@ -1040,6 +1040,105 @@ export async function setClubCurrentBook(
   if (insertError) throw new Error(insertError.message);
 }
 
+export type ClubRankingEntry = {
+  user_id: string;
+  nome: string;
+  avatar_url: string | null;
+  papel: "admin" | "membro";
+  paginas_lidas: number;
+  segundos_lidos: number;
+  tem_livro_na_estante: boolean;
+};
+
+// Ranking de leitura do clube: quem mais avançou no livro atual, contando
+// só as sessões de leitura (cronômetro/livre) registradas depois que esse
+// livro virou o "atual" do clube. Só conta quem tem o mesmo livro (mesmo
+// book_id — por isso o match por ISBN em setClubCurrentBook importa) na
+// própria estante, já que é de lá que vem o progresso real da pessoa.
+export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]> {
+  const members = await listClubMembers(clubId);
+  if (members.length === 0) return [];
+
+  const { data: clubBookRow, error: clubBookError } = await supabase
+    .from("club_books")
+    .select("book_id, data_inicio")
+    .eq("club_id", clubId)
+    .eq("status", "atual")
+    .maybeSingle();
+  if (clubBookError) throw new Error(clubBookError.message);
+  const clubBook = clubBookRow as { book_id: string; data_inicio: string | null } | null;
+
+  const base: ClubRankingEntry[] = members.map((m) => ({
+    user_id: m.user_id,
+    nome: clubMemberDisplayName(m),
+    avatar_url: m.avatar_url,
+    papel: m.papel,
+    paginas_lidas: 0,
+    segundos_lidos: 0,
+    tem_livro_na_estante: false,
+  }));
+
+  if (!clubBook) return base;
+
+  const memberIds = members.map((m) => m.user_id);
+  const { data: userBookRows, error: userBooksError } = await supabase
+    .from("user_books")
+    .select("id, user_id")
+    .eq("book_id", clubBook.book_id)
+    .in("user_id", memberIds);
+  if (userBooksError) throw new Error(userBooksError.message);
+  const rows = (userBookRows ?? []) as Array<{ id: string; user_id: string }>;
+  if (rows.length === 0) return base;
+
+  const userIdByUserBookId = new Map(rows.map((r) => [r.id, r.user_id]));
+  const userBookIds = rows.map((r) => r.id);
+
+  let sessionsQuery = supabase
+    .from("reading_sessions")
+    .select("user_book_id, pagina_inicio, pagina_fim, duracao_real_segundos")
+    .in("user_book_id", userBookIds)
+    .not("finalizado_em", "is", null);
+  if (clubBook.data_inicio) {
+    sessionsQuery = sessionsQuery.gte("iniciado_em", clubBook.data_inicio);
+  }
+  const { data: sessionRows, error: sessionsError } = await sessionsQuery;
+  if (sessionsError) throw new Error(sessionsError.message);
+
+  const porUsuario = new Map<string, { paginas: number; segundos: number }>();
+  for (const s of (sessionRows ?? []) as Array<{
+    user_book_id: string;
+    pagina_inicio: number | null;
+    pagina_fim: number | null;
+    duracao_real_segundos: number | null;
+  }>) {
+    const userId = userIdByUserBookId.get(s.user_book_id);
+    if (!userId) continue;
+    const paginas =
+      s.pagina_inicio != null && s.pagina_fim != null
+        ? Math.max(0, s.pagina_fim - s.pagina_inicio)
+        : 0;
+    const atual = porUsuario.get(userId) ?? { paginas: 0, segundos: 0 };
+    porUsuario.set(userId, {
+      paginas: atual.paginas + paginas,
+      segundos: atual.segundos + (s.duracao_real_segundos ?? 0),
+    });
+  }
+
+  const temLivroSet = new Set(rows.map((r) => r.user_id));
+
+  return base
+    .map((entry) => {
+      const agregado = porUsuario.get(entry.user_id);
+      return {
+        ...entry,
+        paginas_lidas: agregado?.paginas ?? 0,
+        segundos_lidos: agregado?.segundos ?? 0,
+        tem_livro_na_estante: temLivroSet.has(entry.user_id),
+      };
+    })
+    .sort((a, b) => b.paginas_lidas - a.paginas_lidas || b.segundos_lidos - a.segundos_lidos);
+}
+
 export type ClubPost = {
   id: string;
   user_id: string;
