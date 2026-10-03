@@ -116,6 +116,9 @@ function ClubPage() {
   const [paginaPost, setPaginaPost] = useState("");
   const [publicando, setPublicando] = useState(false);
 
+  const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
+  const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
+
   function invalidarClube() {
     void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
     void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
@@ -244,6 +247,9 @@ function ClubPage() {
               ...p,
               curtido_por_mim: !jaCurtido,
               likes_count: p.likes_count + (jaCurtido ? -1 : 1),
+              curtido_por: jaCurtido
+                ? p.curtido_por.filter((id) => id !== user.id)
+                : [...p.curtido_por, user.id],
             }
           : p,
       ),
@@ -422,17 +428,51 @@ function ClubPage() {
 
         <div className="mt-3 flex flex-wrap gap-2">
           {(members.data ?? []).map((m) => (
-            <span
+            <button
               key={m.user_id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-muted-foreground"
+              onClick={() => setMembroSelecionado(m)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
             >
               <MemberAvatar member={m} sizeClass="h-5 w-5" />
               {clubMemberDisplayName(m)}
               {m.papel === "admin" ? " · admin" : ""}
-            </span>
+            </button>
           ))}
         </div>
       </div>
+
+      {membroSelecionado && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center"
+          onClick={() => setMembroSelecionado(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-t-3xl bg-background p-6 sm:rounded-3xl"
+          >
+            <div className="flex flex-col items-center text-center">
+              <MemberAvatar member={membroSelecionado} sizeClass="h-16 w-16" />
+              <p className="font-display mt-3 text-lg">
+                {clubMemberDisplayName(membroSelecionado)}
+              </p>
+              {membroSelecionado.username && (
+                <p className="text-sm text-muted-foreground">@{membroSelecionado.username}</p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                {membroSelecionado.papel === "admin" ? "Administrador do clube" : "Membro"} ·
+                entrou em{" "}
+                {new Date(membroSelecionado.entrou_em).toLocaleDateString("pt-BR")}
+              </p>
+            </div>
+            <button
+              onClick={() => setMembroSelecionado(null)}
+              className="mt-5 w-full rounded-full border border-border py-2.5 text-sm font-medium"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mural */}
       <div className="mt-4">
@@ -505,18 +545,40 @@ function ClubPage() {
                     <Heart
                       className={"h-3.5 w-3.5 " + (post.curtido_por_mim ? "fill-current" : "")}
                     />
-                    {post.likes_count > 0 ? post.likes_count : "Curtir"}
+                    Curtir
                   </button>
+                  {post.likes_count > 0 && (
+                    <button
+                      onClick={() =>
+                        setCurtidoresAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
+                      }
+                      className="text-xs text-muted-foreground underline underline-offset-4"
+                    >
+                      {post.likes_count} {post.likes_count === 1 ? "curtida" : "curtidas"}
+                    </button>
+                  )}
                   {(post.user_id === user?.id || souAdmin) && (
                     <button
                       onClick={() => apagarPost(post.id)}
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                      className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Apagar
                     </button>
                   )}
                 </div>
+                {curtidoresAbertos[post.id] && post.likes_count > 0 && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Curtido por{" "}
+                    {post.curtido_por
+                      .map((uid) => {
+                        if (uid === user?.id) return "você";
+                        const membro = memberByUserId.get(uid);
+                        return membro ? clubMemberDisplayName(membro) : "alguém";
+                      })
+                      .join(", ")}
+                  </p>
+                )}
               </div>
             );
           })}
