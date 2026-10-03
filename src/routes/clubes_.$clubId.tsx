@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Trash2,
   Copy,
+  Trophy,
   Users as UsersIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ import {
   updateClubImage,
   searchGoogleBooks,
   clubMemberDisplayName,
+  getClubRanking,
   type GoogleVolume,
   type ClubMember,
 } from "@/lib/api";
@@ -275,6 +277,12 @@ function ClubPage() {
     queryKey: ["club-posts", clubId],
     queryFn: () => listClubPosts(clubId, user!.id),
     enabled: Boolean(user),
+  });
+
+  const ranking = useQuery({
+    queryKey: ["club-ranking", clubId],
+    queryFn: () => getClubRanking(clubId),
+    enabled: Boolean(user) && Boolean(detail.data?.livroAtualTitulo),
   });
 
   const [buscaLivroAberta, setBuscaLivroAberta] = useState(false);
@@ -566,6 +574,64 @@ function ClubPage() {
           </div>
         )}
       </div>
+
+      {/* Ranking de leitura (só existe enquanto houver um livro atual) */}
+      {livroAtualTitulo && (
+        <div className="panel-cream mt-4 rounded-2xl p-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Trophy className="h-4 w-4" />
+            Ranking de leitura
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube — só conta
+            quem tem esse mesmo livro na própria estante.
+          </p>
+
+          <div className="mt-3 flex flex-col gap-1.5">
+            {ranking.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+            {ranking.data?.map((entry, i) => (
+              <div
+                key={entry.user_id}
+                className={
+                  "flex items-center gap-3 rounded-xl px-2 py-1.5 " +
+                  (i === 0 && entry.paginas_lidas > 0 ? "bg-primary/10" : "")
+                }
+              >
+                <span
+                  className={
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
+                    (i === 0 && entry.paginas_lidas > 0
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground")
+                  }
+                >
+                  {i + 1}
+                </span>
+                {entry.avatar_url ? (
+                  <img
+                    src={entry.avatar_url}
+                    alt=""
+                    className="h-7 w-7 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                    {entry.nome.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate text-sm">{entry.nome}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {entry.paginas_lidas > 0
+                    ? `${entry.paginas_lidas} pág.`
+                    : entry.tem_livro_na_estante
+                      ? "0 pág."
+                      : "sem progresso"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Membros */}
       <div className="panel-cream mt-4 rounded-2xl p-4">
