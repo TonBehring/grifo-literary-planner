@@ -874,6 +874,33 @@ export async function createClubInvite(clubId: string, criadoPor: string): Promi
   throw new Error("Não foi possível gerar um código de convite. Tente novamente.");
 }
 
+// Busca o código de convite mais recente e ainda válido de um clube; se
+// não existir nenhum (ou o último já expirou/esgotou), gera um novo. Usado
+// pelo botão "Ver código de convite" — o código do toast de criação some
+// depois de alguns segundos, então precisamos de um jeito de recuperá-lo.
+export async function getOrCreateClubInviteCode(clubId: string, userId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from("club_invites")
+    .select("codigo, expira_em, usos_max, usos_atual")
+    .eq("club_id", clubId)
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const row = data as {
+    codigo: string;
+    expira_em: string | null;
+    usos_max: number | null;
+    usos_atual: number;
+  } | null;
+  const aindaValido =
+    row &&
+    (row.expira_em == null || new Date(row.expira_em) > new Date()) &&
+    (row.usos_max == null || row.usos_atual < row.usos_max);
+  if (row && aindaValido) return row.codigo;
+  return createClubInvite(clubId, userId);
+}
+
 // Entra num clube usando um código de convite (chama a função do banco que
 // valida expiração/limite de usos e insere o membro numa só transação).
 export async function joinClubByCode(codigo: string): Promise<string> {
