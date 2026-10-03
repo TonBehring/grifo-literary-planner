@@ -550,7 +550,7 @@ function formatMes(mesISO: string): string {
     "jan", "fev", "mar", "abr", "mai", "jun",
     "jul", "ago", "set", "out", "nov", "dez",
   ];
-  return `${nomes[Number(mes) - 1]}/${ano.slice(2)}`;
+  return `${nomes[Number(mes) - 1]}/${ano?.slice(2) ?? ""}`;
 }
 
 async function fetchPnlResumo(): Promise<PnlResumo> {
