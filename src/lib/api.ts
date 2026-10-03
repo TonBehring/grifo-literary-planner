@@ -1048,6 +1048,8 @@ export type ClubPost = {
   criado_em: string;
   likes_count: number;
   curtido_por_mim: boolean;
+  // ids de quem curtiu — usado pra mostrar "fulano e mais 2 curtiram".
+  curtido_por: string[];
 };
 
 export async function listClubPosts(clubId: string, userId: string): Promise<ClubPost[]> {
@@ -1065,15 +1067,19 @@ export async function listClubPosts(clubId: string, userId: string): Promise<Clu
     criado_em: string;
     club_post_likes: Array<{ user_id: string }> | null;
   }>;
-  return rows.map((r) => ({
-    id: r.id,
-    user_id: r.user_id,
-    conteudo: r.conteudo,
-    pagina_referencia: r.pagina_referencia,
-    criado_em: r.criado_em,
-    likes_count: r.club_post_likes?.length ?? 0,
-    curtido_por_mim: (r.club_post_likes ?? []).some((l) => l.user_id === userId),
-  }));
+  return rows.map((r) => {
+    const curtidores = (r.club_post_likes ?? []).map((l) => l.user_id);
+    return {
+      id: r.id,
+      user_id: r.user_id,
+      conteudo: r.conteudo,
+      pagina_referencia: r.pagina_referencia,
+      criado_em: r.criado_em,
+      likes_count: curtidores.length,
+      curtido_por_mim: curtidores.includes(userId),
+      curtido_por: curtidores,
+    };
+  });
 }
 
 export async function addClubPost(input: {
