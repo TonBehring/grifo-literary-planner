@@ -824,6 +824,13 @@ export async function listMyClubs(userId: string): Promise<ClubSummary[]> {
   }));
 }
 
+// Atualiza a foto do clube (só funciona se quem chama for admin, por
+// causa da política de RLS de clubs). Passe null pra remover a foto.
+export async function updateClubImage(clubId: string, imagemUrl: string | null): Promise<void> {
+  const { error } = await supabase.from("clubs").update({ imagem_url: imagemUrl }).eq("id", clubId);
+  if (error) throw new Error(error.message);
+}
+
 export async function createClub(input: {
   nome: string;
   descricao: string | null;
@@ -919,6 +926,7 @@ export type ClubMember = {
   entrou_em: string;
   username: string | null;
   nome: string | null;
+  avatar_url: string | null;
 };
 
 // Nome de exibição de um membro: nome/apelido salvo em "Minha conta", senão
