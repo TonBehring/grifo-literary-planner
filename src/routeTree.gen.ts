@@ -25,6 +25,7 @@ import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AssinaturaRetornoRouteImport } from './routes/assinatura.retorno'
 import { Route as LivroIdRouteImport } from './routes/livro.$id'
+import { Route as LivroIdSessaoRouteImport } from './routes/livro.$id.sessao'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -106,6 +107,11 @@ const LivroIdRoute = LivroIdRouteImport.update({
   path: '/livro/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LivroIdSessaoRoute = LivroIdSessaoRouteImport.update({
+  id: '/livro/$id/sessao',
+  path: '/livro/$id/sessao',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/assinatura/retorno': typeof AssinaturaRetornoRoute
   '/livro/$id': typeof LivroIdRoute
+  '/livro/$id/sessao': typeof LivroIdSessaoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/assinatura/retorno': typeof AssinaturaRetornoRoute
   '/livro/$id': typeof LivroIdRoute
+  '/livro/$id/sessao': typeof LivroIdSessaoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/assinatura/retorno': typeof AssinaturaRetornoRoute
   '/livro/$id': typeof LivroIdRoute
+  '/livro/$id/sessao': typeof LivroIdSessaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/assinatura/retorno'
     | '/livro/$id'
+    | '/livro/$id/sessao'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/assinatura/retorno'
     | '/livro/$id'
+    | '/livro/$id/sessao'
   id:
     | '__root__'
     | '/'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/assinatura/retorno'
     | '/livro/$id'
+    | '/livro/$id/sessao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   TermosRoute: typeof TermosRoute
   AssinaturaRetornoRoute: typeof AssinaturaRetornoRoute
   LivroIdRoute: typeof LivroIdRoute
+  LivroIdSessaoRoute: typeof LivroIdSessaoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -352,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LivroIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/livro/$id/sessao': {
+      id: '/livro/$id/sessao'
+      path: '/livro/$id/sessao'
+      fullPath: '/livro/$id/sessao'
+      preLoaderRoute: typeof LivroIdSessaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -372,6 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermosRoute: TermosRoute,
   AssinaturaRetornoRoute: AssinaturaRetornoRoute,
   LivroIdRoute: LivroIdRoute,
+  LivroIdSessaoRoute: LivroIdSessaoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
