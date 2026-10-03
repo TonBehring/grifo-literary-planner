@@ -5,9 +5,9 @@
 // livro.$id_.sessao.tsx e clubes_.novo.tsx, pra essa tela não ficar
 // aninhada (e invisível) dentro de clubes.tsx, que não tem <Outlet />.
 //
-// Página de um clube: livro atual (com busca pra definir/trocar, só pra
-// admin), lista de membros e o mural de posts (v1: sem threads, só posts
-// + curtidas).
+// Página de um clube: foto do clube, livro atual (com busca pra
+// definir/trocar, só pra admin), lista de membros (com avatar) e o mural
+// de posts com avatar do autor (v1: sem threads, só posts + curtidas).
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,8 @@ import { ArrowLeft, Search, Heart, Trash2, Copy, Users as UsersIcon } from "luci
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
+import { CoverPicker } from "@/components/CoverPicker";
+import { uploadCover } from "@/lib/cover-upload";
 import {
   getClubDetail,
   listClubMembers,
@@ -25,9 +27,11 @@ import {
   toggleClubPostLike,
   setClubCurrentBook,
   getOrCreateClubInviteCode,
+  updateClubImage,
   searchGoogleBooks,
   clubMemberDisplayName,
   type GoogleVolume,
+  type ClubMember,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -48,6 +52,28 @@ function timeAgo(iso: string): string {
   if (h < 24) return `${h}h`;
   const d = Math.floor(h / 24);
   return `${d}d`;
+}
+
+// Avatar pequeno e reutilizável: mostra a foto do membro, ou a inicial do
+// nome dele como fallback, quando ele nunca trocou a foto em "Minha conta".
+function MemberAvatar({ member, sizeClass = "h-6 w-6" }: { member: ClubMember; sizeClass?: string }) {
+  const nome = clubMemberDisplayName(member);
+  if (member.avatar_url) {
+    return (
+      <img
+        src={member.avatar_url}
+        alt=""
+        className={`${sizeClass} shrink-0 rounded-full object-cover`}
+      />
+    );
+  }
+  return (
+    <span
+      className={`${sizeClass} inline-flex shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground`}
+    >
+      {nome.slice(0, 1).toUpperCase()}
+    </span>
+  );
 }
 
 function ClubPage() {
@@ -80,12 +106,20 @@ function ClubPage() {
   const [buscando, setBuscando] = useState(false);
   const [definindoLivro, setDefinindoLivro] = useState(false);
 
+  const [fotoAberta, setFotoAberta] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+
   const [codigoVisivel, setCodigoVisivel] = useState<string | null>(null);
   const [carregandoCodigo, setCarregandoCodigo] = useState(false);
 
   const [novoPost, setNovoPost] = useState("");
   const [paginaPost, setPaginaPost] = useState("");
   const [publicando, setPublicando] = useState(false);
+
+  function invalidarClube() {
+    void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
+    void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+  }
 
   async function buscarLivro() {
     if (!termoBusca.trim()) return;
@@ -109,12 +143,43 @@ function ClubPage() {
       setBuscaLivroAberta(false);
       setTermoBusca("");
       setResultadosBusca([]);
-      void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
-      void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+      invalidarClube();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível definir o livro");
     } finally {
       setDefinindoLivro(false);
+    }
+  }
+
+  async function handleUploadFotoClube(file: File) {
+    if (!user) return;
+    setEnviandoFoto(true);
+    try {
+      const url = await uploadCover(file, user.id);
+      await updateClubImage(clubId, url);
+      invalidarClube();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a foto");
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
+
+  async function handleUsarUrlFotoClube(url: string) {
+    try {
+      await updateClubImage(clubId, url);
+      invalidarClube();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível atualizar a foto");
+    }
+  }
+
+  async function handleRemoverFotoClube() {
+    try {
+      await updateClubImage(clubId, null);
+      invalidarClube();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível remover a foto");
     }
   }
 
@@ -205,9 +270,7 @@ function ClubPage() {
 
   const { club, meuPapel, livroAtualTitulo, livroAtualAutor, livroAtualCapa } = detail.data;
   const souAdmin = meuPapel === "admin";
-  const memberNameByUserId = new Map(
-    (members.data ?? []).map((m) => [m.user_id, clubMemberDisplayName(m)]),
-  );
+  const memberByUserId = new Map((members.data ?? []).map((m) => [m.user_id, m]));
 
   return (
     <section className="pb-6">
@@ -215,13 +278,43 @@ function ClubPage() {
         <button
           onClick={() => navigate({ to: "/clubes" })}
           aria-label="Voltar"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+          {club.imagem_url ? (
+            <img src={club.imagem_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <UsersIcon className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
         <h1 className="font-display truncate text-xl">{club.nome}</h1>
       </div>
       {club.descricao && <p className="mt-2 text-sm text-muted-foreground">{club.descricao}</p>}
+
+      {souAdmin && (
+        <div className="mt-2">
+          <button
+            onClick={() => setFotoAberta((v) => !v)}
+            className="text-xs font-medium text-primary underline underline-offset-4"
+          >
+            {fotoAberta ? "Fechar" : "Alterar foto do clube"}
+          </button>
+          {fotoAberta && (
+            <div className="mt-2">
+              <CoverPicker
+                cover={club.imagem_url}
+                title={club.nome}
+                onUpload={handleUploadFotoClube}
+                onUseUrl={handleUsarUrlFotoClube}
+                onRemove={handleRemoverFotoClube}
+                uploading={enviandoFoto}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Livro atual */}
       <div className="card-teal mt-4 rounded-2xl p-4">
@@ -331,8 +424,9 @@ function ClubPage() {
           {(members.data ?? []).map((m) => (
             <span
               key={m.user_id}
-              className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-muted-foreground"
             >
+              <MemberAvatar member={m} sizeClass="h-5 w-5" />
               {clubMemberDisplayName(m)}
               {m.papel === "admin" ? " · admin" : ""}
             </span>
@@ -379,41 +473,53 @@ function ClubPage() {
             </p>
           )}
 
-          {posts.data?.map((post) => (
-            <div key={post.id} className="panel-cream rounded-2xl p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">
-                  {memberNameByUserId.get(post.user_id) ?? "Leitor do Grifo"}
-                </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {post.pagina_referencia != null && <span>pág. {post.pagina_referencia}</span>}
-                  <span>{timeAgo(post.criado_em)}</span>
+          {posts.data?.map((post) => {
+            const autor = memberByUserId.get(post.user_id);
+            return (
+              <div key={post.id} className="panel-cream rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {autor ? (
+                      <MemberAvatar member={autor} sizeClass="h-7 w-7" />
+                    ) : (
+                      <span className="h-7 w-7 shrink-0 rounded-full bg-muted" />
+                    )}
+                    <p className="text-sm font-medium">
+                      {autor ? clubMemberDisplayName(autor) : "Leitor do Grifo"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {post.pagina_referencia != null && <span>pág. {post.pagina_referencia}</span>}
+                    <span>{timeAgo(post.criado_em)}</span>
+                  </div>
+                </div>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    onClick={() => curtir(post.id, post.curtido_por_mim)}
+                    className={
+                      "inline-flex items-center gap-1 text-xs transition-colors " +
+                      (post.curtido_por_mim ? "text-primary" : "text-muted-foreground")
+                    }
+                  >
+                    <Heart
+                      className={"h-3.5 w-3.5 " + (post.curtido_por_mim ? "fill-current" : "")}
+                    />
+                    {post.likes_count > 0 ? post.likes_count : "Curtir"}
+                  </button>
+                  {(post.user_id === user?.id || souAdmin) && (
+                    <button
+                      onClick={() => apagarPost(post.id)}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Apagar
+                    </button>
+                  )}
                 </div>
               </div>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
-              <div className="mt-2 flex items-center gap-3">
-                <button
-                  onClick={() => curtir(post.id, post.curtido_por_mim)}
-                  className={
-                    "inline-flex items-center gap-1 text-xs transition-colors " +
-                    (post.curtido_por_mim ? "text-primary" : "text-muted-foreground")
-                  }
-                >
-                  <Heart className={"h-3.5 w-3.5 " + (post.curtido_por_mim ? "fill-current" : "")} />
-                  {post.likes_count > 0 ? post.likes_count : "Curtir"}
-                </button>
-                {(post.user_id === user?.id || souAdmin) && (
-                  <button
-                    onClick={() => apagarPost(post.id)}
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Apagar
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
