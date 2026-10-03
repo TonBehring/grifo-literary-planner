@@ -747,3 +747,139 @@ export async function finishReadingSession(
     .eq("id", sessionId);
   if (error) throw new Error(error.message);
 }
+
+// --- Clubes de leitura (v1: criar, listar, entrar por código) --------------
+
+export type ClubType = "publico" | "privado";
+
+export type Club = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  imagem_url: string | null;
+  tipo: ClubType;
+  criado_por: string;
+  criado_em: string;
+};
+
+export type ClubSummary = Club & {
+  membros_count: number;
+  livro_atual_titulo: string | null;
+  livro_atual_capa: string | null;
+  meu_papel: "admin" | "membro";
+};
+
+// Lista os clubes dos quais o usuário logado participa, já com contagem de
+// membros e o livro atual (se houver) — usado na tela de listagem.
+export async function listMyClubs(userId: string): Promise<ClubSummary[]> {
+  const { data: memberRows, error: memberError } = await supabase
+    .from("club_members")
+    .select("club_id, papel")
+    .eq("user_id", userId);
+  if (memberError) throw new Error(memberError.message);
+  const myRows = (memberRows ?? []) as Array<{ club_id: string; papel: "admin" | "membro" }>;
+  if (myRows.length === 0) return [];
+
+  const clubIds = myRows.map((r) => r.club_id);
+  const papelByClub = new Map(myRows.map((r) => [r.club_id, r.papel]));
+
+  const { data: clubRows, error: clubError } = await supabase
+    .from("clubs")
+    .select("id, nome, descricao, imagem_url, tipo, criado_por, criado_em")
+    .in("id", clubIds)
+    .order("criado_em", { ascending: false });
+  if (clubError) throw new Error(clubError.message);
+  const clubs = (clubRows ?? []) as Club[];
+
+  const { data: allMemberRows, error: allMembersError } = await supabase
+    .from("club_members")
+    .select("club_id")
+    .in("club_id", clubIds);
+  if (allMembersError) throw new Error(allMembersError.message);
+  const countByClub = new Map<string, number>();
+  for (const m of (allMemberRows ?? []) as Array<{ club_id: string }>) {
+    countByClub.set(m.club_id, (countByClub.get(m.club_id) ?? 0) + 1);
+  }
+
+  const { data: bookRows, error: bookError } = await supabase
+    .from("club_books")
+    .select("club_id, book:books(titulo, capa_url)")
+    .in("club_id", clubIds)
+    .eq("status", "atual");
+  if (bookError) throw new Error(bookError.message);
+  const bookByClub = new Map<string, { titulo: string; capa_url: string | null }>();
+  for (const b of (bookRows ?? []) as Array<{
+    club_id: string;
+    book: { titulo: string; capa_url: string | null } | null;
+  }>) {
+    if (b.book) bookByClub.set(b.club_id, b.book);
+  }
+
+  return clubs.map((c) => ({
+    ...c,
+    membros_count: countByClub.get(c.id) ?? 0,
+    livro_atual_titulo: bookByClub.get(c.id)?.titulo ?? null,
+    livro_atual_capa: bookByClub.get(c.id)?.capa_url ?? null,
+    meu_papel: papelByClub.get(c.id) ?? "membro",
+  }));
+}
+
+export async function createClub(input: {
+  nome: string;
+  descricao: string | null;
+  tipo: ClubType;
+  criado_por: string;
+}): Promise<Club> {
+  const { data, error } = await supabase
+    .from("clubs")
+    .insert({
+      nome: input.nome,
+      descricao: input.descricao,
+      tipo: input.tipo,
+      criado_por: input.criado_por,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  // O criador vira admin automaticamente via trigger no banco
+  // (add_creator_as_admin) — não precisamos inserir em club_members aqui.
+  return data as Club;
+}
+
+// Alfabeto sem 0/O/1/I, pra evitar confusão ao digitar o código à mão.
+const INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function randomInviteCode(length = 6): string {
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    code += INVITE_CODE_ALPHABET[Math.floor(Math.random() * INVITE_CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
+// Gera um código de convite pro clube (só funciona se quem chama for admin
+// do clube, por causa da política de RLS de club_invites).
+export async function createClubInvite(clubId: string, criadoPor: string): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const codigo = randomInviteCode();
+    const { error } = await supabase.from("club_invites").insert({
+      club_id: clubId,
+      codigo,
+      criado_por: criadoPor,
+    });
+    if (!error) return codigo;
+    if (error.code !== "23505") throw new Error(error.message);
+    // Colidiu com um código já existente — tenta de novo com outro.
+  }
+  throw new Error("Não foi possível gerar um código de convite. Tente novamente.");
+}
+
+// Entra num clube usando um código de convite (chama a função do banco que
+// valida expiração/limite de usos e insere o membro numa só transação).
+export async function joinClubByCode(codigo: string): Promise<string> {
+  const { data, error } = await supabase.rpc("join_club_via_invite", {
+    p_codigo: codigo.trim().toUpperCase(),
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
