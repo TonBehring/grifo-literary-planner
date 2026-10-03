@@ -146,6 +146,7 @@ function ReadingSessionTimer() {
   const wakeLockRef = useRef<any>(null);
 
   const [encerrando, setEncerrando] = useState(false);
+  const pausadoAntesDeEncerrarRef = useRef(false);
   const [paginaFim, setPaginaFim] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -225,6 +226,31 @@ function ReadingSessionTimer() {
       setPaused(true);
       audioRef.current?.pause();
     } else {
+      if (pauseStartedAtRef.current != null) {
+        pausedAccumMsRef.current += Date.now() - pauseStartedAtRef.current;
+      }
+      pauseStartedAtRef.current = null;
+      setPaused(false);
+      if (somAtual) void audioRef.current?.play().catch(() => {});
+    }
+  }
+
+  // Abrir a confirmação de encerramento pausa o cronômetro e o som — se a
+  // pessoa cancelar, volta tudo de onde parou (a não ser que já estivesse
+  // pausado manualmente antes de clicar em "Encerrar sessão").
+  function abrirEncerrar() {
+    pausadoAntesDeEncerrarRef.current = paused;
+    if (!paused) {
+      pauseStartedAtRef.current = Date.now();
+      setPaused(true);
+      audioRef.current?.pause();
+    }
+    setEncerrando(true);
+  }
+
+  function cancelarEncerrar() {
+    setEncerrando(false);
+    if (!pausadoAntesDeEncerrarRef.current) {
       if (pauseStartedAtRef.current != null) {
         pausedAccumMsRef.current += Date.now() - pauseStartedAtRef.current;
       }
@@ -376,7 +402,7 @@ function ReadingSessionTimer() {
             {paused ? "Retomar" : "Pausar"}
           </button>
           <button
-            onClick={() => setEncerrando(true)}
+            onClick={abrirEncerrar}
             className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary py-4 text-sm font-medium text-primary-foreground"
           >
             <Square className="h-4 w-4" />
@@ -405,7 +431,7 @@ function ReadingSessionTimer() {
               {salvando ? "Salvando…" : "Confirmar"}
             </button>
             <button
-              onClick={() => setEncerrando(false)}
+              onClick={cancelarEncerrar}
               className="flex-1 rounded-xl border border-border py-2.5 text-sm"
             >
               Cancelar
