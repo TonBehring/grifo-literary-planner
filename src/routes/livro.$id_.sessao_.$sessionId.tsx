@@ -48,7 +48,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/livro/$id/sessao/$sessionId")({
+export const Route = createFileRoute("/livro/$id_/sessao_/$sessionId")({
   head: () => ({ meta: [
     { title: "Sessão de leitura — Grifo" },
     { name: "description", content: "Acompanhe o tempo e registre o progresso da sua sessão de leitura no Grifo." },

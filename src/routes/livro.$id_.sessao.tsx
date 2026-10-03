@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 
 const DURACOES = [15, 30, 45, 60];
 
-export const Route = createFileRoute("/livro/$id/sessao")({
+export const Route = createFileRoute("/livro/$id_/sessao")({
   head: () => ({ meta: [
     { title: "Iniciar sessão de leitura — Grifo" },
     { name: "description", content: "Configure uma sessão de leitura para o seu livro no Grifo." },
