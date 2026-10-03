@@ -283,112 +283,118 @@ const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <section className="space-y-7">
-      <div className="card-teal flex gap-5 rounded-3xl p-5">
-        <div className="flex w-28 shrink-0 flex-col gap-2">
-          <div className="h-40 w-28 overflow-hidden rounded-lg bg-teal-deep">
+      <div className="card-teal rounded-3xl p-5">
+        <div className="flex gap-5">
+          <div className="h-40 w-28 shrink-0 overflow-hidden rounded-lg bg-teal-deep">
             <BookCover src={ub.book?.cover_url} title={ub.book?.title} />
           </div>
-          {!activeLoan &&
-            subscriptionActive &&
-            ub.status === "lendo" && (
+          <div className="min-w-0">
+            <p className="text-[11px] tracking-[0.18em] text-primary uppercase">
+              {FORMAT_LABEL[ub.format] ?? ub.format}
+            </p>
+            <h1 className="font-display mt-1 text-2xl leading-snug">{ub.book?.title}</h1>
+            <p className="text-sm opacity-70">{ub.book?.author ?? "Autor desconhecido"}</p>
+            {ub.book?.genre && (
+              <span className="mt-1 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
+                {ub.book.genre}
+              </span>
+            )}
+            {ub.origem_emprestimo_id && (
+              <span className="mt-1 ml-2 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
+                Empréstimo recebido
+              </span>
+            )}
+          </div>
+        </div>
+
+        {ub.status === "abandonado" && ub.abandon_reason && (
+          <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs opacity-80">
+            <strong>Motivo do abandono:</strong> {ub.abandon_reason}
+          </p>
+        )}
+        {ub.status !== "desejo_compra" && (
+          <>
+            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="mt-2 text-xs opacity-80">{pct}% concluído</p>
+          </>
+        )}
+        {(ub.status === "lendo" || ub.status === "lido") && ub.started_at && (
+          <p className="mt-1 text-xs opacity-70">
+            Início: {formatDate(ub.started_at)}
+            {ub.finished_at && ` · Conclusão: ${formatDate(ub.finished_at)}`}
+            {" · "}
+            {ub.finished_at
+              ? `Lido em ${diasLabel(daysBetween(ub.started_at, ub.finished_at))}`
+              : `Lendo há ${diasLabel(daysBetween(ub.started_at, new Date().toISOString()))}`}
+          </p>
+        )}
+        {ub.rating != null && (
+          <div className="mt-3">
+            <StarRating value={ub.rating} size="sm" />
+          </div>
+        )}
+
+        {(!activeLoan && subscriptionActive && (ub.status === "lendo" ||
+          (ub.status !== "desejo_compra" && ub.status !== "lido" && ub.status !== "abandonado"))) && (
+          <div className="mt-4 flex flex-col gap-2">
+            {!activeLoan && subscriptionActive && ub.status === "lendo" && (
               <button
                 onClick={() => navigate({ to: "/livro/$id/sessao", params: { id } })}
-                className="flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-center text-[11px] font-medium leading-tight text-primary-foreground transition-opacity hover:opacity-90"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
               >
-                <Timer className="h-3.5 w-3.5" />
+                <Timer className="h-4 w-4" />
                 Iniciar leitura
               </button>
             )}
-          {!activeLoan &&
-            subscriptionActive &&
-            ub.status !== "desejo_compra" &&
-            ub.status !== "lido" &&
-            ub.status !== "abandonado" && (
-              <button
-                onClick={() => setCelebrate(true)}
-                className="rounded-lg border border-primary/60 py-2.5 text-center text-[11px] font-medium leading-tight text-cream transition-colors hover:bg-primary/20"
-              >
-                Terminei este livro
-              </button>
-            )}
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] tracking-[0.18em] text-primary uppercase">
-            {FORMAT_LABEL[ub.format] ?? ub.format}
-          </p>
-          <h1 className="font-display mt-1 text-2xl leading-snug">{ub.book?.title}</h1>
-          <p className="text-sm opacity-70">{ub.book?.author ?? "Autor desconhecido"}</p>
-          {ub.book?.genre && (
-            <span className="mt-1 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
-              {ub.book.genre}
-            </span>
-          )}
-          {ub.origem_emprestimo_id && (
-            <span className="mt-1 ml-2 inline-block rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
-              Empréstimo recebido
-            </span>
-          )}
-          {ub.status === "abandonado" && ub.abandon_reason && (
-            <p className="mt-3 rounded-xl bg-white/10 p-3 text-xs opacity-80">
-              <strong>Motivo do abandono:</strong> {ub.abandon_reason}
-            </p>
-          )}
-         {ub.status !== "desejo_compra" && (
-            <>
-              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-              </div>
-              <p className="mt-2 text-xs opacity-80">{pct}% concluído</p>
-            </>
-          )}
-          {(ub.status === "lendo" || ub.status === "lido") && ub.started_at && (
-            <p className="mt-1 text-xs opacity-70">
-              Início: {formatDate(ub.started_at)}
-              {ub.finished_at && ` · Conclusão: ${formatDate(ub.finished_at)}`}
-              {" · "}
-              {ub.finished_at
-                ? `Lido em ${diasLabel(daysBetween(ub.started_at, ub.finished_at))}`
-                : `Lendo há ${diasLabel(daysBetween(ub.started_at, new Date().toISOString()))}`}
-            </p>
-          )}
-          {ub.rating != null && (
-            <div className="mt-3">
-              <StarRating value={ub.rating} size="sm" />
-            </div>
-          )}
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-            {subscriptionActive && (
-              <button
-                onClick={() => {
-                  setEditing((v) => !v);
-                  setConfirmDelete(false);
-                }}
-                className="inline-flex items-center gap-1 text-primary underline underline-offset-4"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                {editing ? "Fechar edição" : "Editar"}
-              </button>
-            )}
-            {subscriptionActive && (ub.status === "lendo" || ub.status === "quero_ler") && (
-              <button
-                onClick={() => setAbandoning((v) => !v)}
-                className="inline-flex items-center gap-1 text-muted-foreground underline underline-offset-4"
-              >
-                Abandonar
-              </button>
-            )}
-            {!confirmDelete ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="inline-flex items-center gap-1 text-destructive underline underline-offset-4"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Excluir
-              </button>
-            ) : (
-              <span className="text-muted-foreground">Confirme abaixo</span>
-            )}
+            {!activeLoan &&
+              subscriptionActive &&
+              ub.status !== "desejo_compra" &&
+              ub.status !== "lido" &&
+              ub.status !== "abandonado" && (
+                <button
+                  onClick={() => setCelebrate(true)}
+                  className="w-full rounded-full border border-primary/60 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/20"
+                >
+                  Terminei este livro
+                </button>
+              )}
           </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 border-t border-white/15 pt-3 text-xs">
+          {subscriptionActive && (
+            <button
+              onClick={() => {
+                setEditing((v) => !v);
+                setConfirmDelete(false);
+              }}
+              className="inline-flex items-center gap-1 text-primary underline underline-offset-4"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {editing ? "Fechar edição" : "Editar"}
+            </button>
+          )}
+          {subscriptionActive && (ub.status === "lendo" || ub.status === "quero_ler") && (
+            <button
+              onClick={() => setAbandoning((v) => !v)}
+              className="inline-flex items-center gap-1 text-muted-foreground underline underline-offset-4"
+            >
+              Abandonar
+            </button>
+          )}
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center gap-1 text-destructive underline underline-offset-4"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir
+            </button>
+          ) : (
+            <span className="text-muted-foreground">Confirme abaixo</span>
+          )}
         </div>
       </div>
 
