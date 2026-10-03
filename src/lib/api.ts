@@ -620,6 +620,54 @@ export async function searchOpenLibrary(term: string): Promise<GoogleVolume[]> {
   }));
 }
 
+// --- Indicadores de tempo de leitura --------------------------------------
+
+export type ReadingTimeStats = {
+  totalSegundos: number;
+  paginasLidas: number;
+  sessoes: number;
+};
+
+function summarizeReadingSessions(
+  rows: Array<{
+    duracao_real_segundos: number | null;
+    pagina_inicio: number | null;
+    pagina_fim: number | null;
+  }>,
+): ReadingTimeStats {
+  const totalSegundos = rows.reduce((acc, r) => acc + (r.duracao_real_segundos ?? 0), 0);
+  const paginasLidas = rows.reduce((acc, r) => {
+    if (r.pagina_inicio != null && r.pagina_fim != null) {
+      return acc + Math.max(0, r.pagina_fim - r.pagina_inicio);
+    }
+    return acc;
+  }, 0);
+  return { totalSegundos, paginasLidas, sessoes: rows.length };
+}
+
+// Tempo total e ritmo (min/página) só deste livro — usado na tela do livro.
+export async function getReadingStatsForBook(userBookId: string): Promise<ReadingTimeStats> {
+  const { data, error } = await supabase
+    .from("reading_sessions")
+    .select("duracao_real_segundos, pagina_inicio, pagina_fim")
+    .eq("user_book_id", userBookId)
+    .not("finalizado_em", "is", null);
+  if (error) throw new Error(error.message);
+  return summarizeReadingSessions((data ?? []) as any);
+}
+
+// Tempo total e ritmo somando todos os livros do usuário — usado em
+// Estatísticas.
+export async function getReadingStatsOverall(userId: string): Promise<ReadingTimeStats> {
+  const { data, error } = await supabase
+    .from("reading_sessions")
+    .select("duracao_real_segundos, pagina_inicio, pagina_fim")
+    .eq("user_id", userId)
+    .not("finalizado_em", "is", null);
+  if (error) throw new Error(error.message);
+  return summarizeReadingSessions((data ?? []) as any);
+}
+
 // --- Sessões de leitura (cronometrada ou livre) --------------------------
 
 export type ReadingSession = {
