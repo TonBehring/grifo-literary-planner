@@ -21,6 +21,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
+  Church,
   CloudRain,
   Flame,
   Lock,
@@ -98,6 +99,14 @@ const SOUND_OPTIONS: SoundOption[] = [
     label: "Piano",
     url: "https://assets.mixkit.co/music/493/493.mp3",
     icon: Piano,
+  },
+  {
+    id: "gregoriano",
+    label: "Canto gregoriano",
+    // Faixa de domínio público (Public Domain Mark 1.0) hospedada no
+    // Internet Archive: https://archive.org/details/chantsloop1mp3
+    url: "https://archive.org/download/chantsloop1mp3/chantsloop1mp3.mp3",
+    icon: Church,
   },
 ];
 
