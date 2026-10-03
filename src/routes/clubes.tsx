@@ -68,7 +68,10 @@ function ClubesPage() {
 
   return (
     <section>
-      <h1 className="font-display text-2xl">Clubes de leitura</h1>
+      <h1 className="font-display text-2xl">
+        Clubes de leitura{" "}
+        <span className="text-sm font-sans font-medium text-destructive">(em desenvolvimento)</span>
+      </h1>
 
       <div className="mt-4 flex gap-2">
         <Link
