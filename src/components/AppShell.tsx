@@ -8,12 +8,14 @@ import {
   BarChart3,
   UserRound,
   Users,
+  Bell,
 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
+import { getUnreadCount } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -32,6 +34,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const subscription = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: getMySubscription,
+    enabled: Boolean(user),
+  });
+
+  const unreadCount = useQuery({
+    queryKey: ["notifications-unread-count", user?.id],
+    queryFn: getUnreadCount,
     enabled: Boolean(user),
   });
 
@@ -79,6 +87,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Plus className="h-4 w-4" /> Livro
             </Link>
           )}
+          <Link
+            to="/notificacoes"
+            aria-label="Notificações"
+            className="relative inline-flex items-center justify-center rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Bell className="h-4 w-4" />
+            {(unreadCount.data ?? 0) > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-destructive" />
+            )}
+          </Link>
           <Link
             to="/conta"
             aria-label="Minha conta"
