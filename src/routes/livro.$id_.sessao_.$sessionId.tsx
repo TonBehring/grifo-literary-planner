@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
+import { MoodPicker } from "@/components/MoodPicker";
 import {
   addReadingLog,
   finishReadingSession,
@@ -148,6 +149,7 @@ function ReadingSessionTimer() {
   const [encerrando, setEncerrando] = useState(false);
   const pausadoAntesDeEncerrarRef = useRef(false);
   const [paginaFim, setPaginaFim] = useState<number | null>(null);
+  const [mood, setMood] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
   const [somAberto, setSomAberto] = useState(false);
@@ -298,23 +300,27 @@ function ReadingSessionTimer() {
       // Já aproveita e atualiza o progresso do livro, igual à tela de
       // "Atualizar progresso" — evita a pessoa ter que repetir a página
       // manualmente depois de uma sessão.
+      let paginasLidas: number | null = null;
       if (
         ub.format === "fisico" &&
         paginaFim != null &&
         (ub.current_page == null || paginaFim > ub.current_page)
       ) {
-        const paginasLidas = Math.max(
-          0,
-          paginaFim - (ub.current_page ?? session.pagina_inicio ?? 0),
-        );
+        paginasLidas = Math.max(0, paginaFim - (ub.current_page ?? session.pagina_inicio ?? 0));
         await updateUserBook(id, { current_page: paginaFim });
-        await addReadingLog({
-          user_book_id: id,
-          user_id: user.id,
-          mood: null,
-          pages_read: paginasLidas,
-        });
       }
+
+      // O humor agora é perguntado aqui, ao encerrar a sessão, em vez de
+      // no painel "Atualizar progresso" — faz mais sentido já que a
+      // leitura em si passou a acontecer dentro do cronômetro. Registra
+      // o log sempre que a sessão terminar (mesmo sem páginas novas),
+      // pra essa leitura contar no calendário de constância.
+      await addReadingLog({
+        user_book_id: id,
+        user_id: user.id,
+        mood,
+        pages_read: paginasLidas,
+      });
 
       void queryClient.invalidateQueries({ queryKey: ["user_book", id] });
       void queryClient.invalidateQueries({ queryKey: ["user_books"] });
@@ -421,6 +427,10 @@ function ReadingSessionTimer() {
               onChange={(e) => setPaginaFim(Number(e.target.value))}
               className="w-28 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
             />
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">Humor do dia</p>
+          <div className="mt-2">
+            <MoodPicker value={mood} onChange={setMood} />
           </div>
           <div className="mt-4 flex gap-3">
             <button
