@@ -7,7 +7,6 @@ import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { BookEditPanel } from "@/components/BookEditPanel";
 import { CelebrationModal } from "@/components/CelebrationModal";
-import { MoodPicker } from "@/components/MoodPicker";
 import { NoteEditorModal } from "@/components/NoteEditorModal";
 import { StarRating } from "@/components/StarRating";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
@@ -83,7 +82,6 @@ function BookDetail() {
   const { active: subscriptionActive } = useHasActiveSubscription();
 
   const [progressInput, setProgressInput] = useState("");
-  const [mood, setMood] = useState<string | null>(null);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<BookNote | null>(null);
   const [celebrate, setCelebrate] = useState(false);
@@ -185,14 +183,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         await addReadingLog({
           user_book_id: id,
           user_id: user.id,
-          mood: mood ?? null,
+          mood: null,
           pages_read: paginasLidasNestaAtualizacao,
         });
       }
     },
     onSuccess: () => {
       setProgressInput("");
-      setMood(null);
       refresh();
       toast.success("Progresso atualizado");
     },
@@ -563,14 +560,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             </div>
           ) : (
             <>
-              <p className="mt-3 text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                Humor do dia
-              </p>
-              <div className="mt-2">
-                <MoodPicker value={mood} onChange={setMood} />
-              </div>
-
-              <div className="mt-5 flex items-center gap-2">
+              <div className="mt-3 flex items-center gap-2">
                 <input
                   value={progressInput}
                   onChange={(e) => setProgressInput(e.target.value)}
