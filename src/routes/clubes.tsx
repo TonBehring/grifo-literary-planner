@@ -110,7 +110,9 @@ function ClubesPage() {
               className="flex items-center gap-3"
             >
               <div className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                {club.livro_atual_capa ? (
+                {club.imagem_url ? (
+                  <img src={club.imagem_url} alt="" className="h-full w-full object-cover" />
+                ) : club.livro_atual_capa ? (
                   <BookCover src={club.livro_atual_capa} title={club.livro_atual_titulo} />
                 ) : (
                   <Users className="h-5 w-5 text-muted-foreground" />
