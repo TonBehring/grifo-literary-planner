@@ -26,6 +26,14 @@ import { useAuth } from "@/lib/auth";
 const DURACOES = [15, 30, 45, 60];
 
 export const Route = createFileRoute("/livro/$id/sessao")({
+  head: () => ({ meta: [
+    { title: "Iniciar sessão de leitura — Grifo" },
+    { name: "description", content: "Configure uma sessão de leitura para o seu livro no Grifo." },
+    { property: "og:title", content: "Iniciar sessão de leitura — Grifo" },
+    { property: "og:description", content: "Configure uma sessão de leitura para o seu livro no Grifo." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: () => (
     <AppShell>
       <ReadingSessionSetup />
