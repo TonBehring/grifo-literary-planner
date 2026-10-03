@@ -12,7 +12,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Search, Heart, Trash2, Copy, Users as UsersIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Search,
+  Heart,
+  MessageCircle,
+  Trash2,
+  Copy,
+  Users as UsersIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -25,6 +33,9 @@ import {
   addClubPost,
   deleteClubPost,
   toggleClubPostLike,
+  listClubPostComments,
+  addClubPostComment,
+  deleteClubPostComment,
   setClubCurrentBook,
   getOrCreateClubInviteCode,
   updateClubImage,
@@ -76,6 +87,172 @@ function MemberAvatar({ member, sizeClass = "h-6 w-6" }: { member: ClubMember; s
   );
 }
 
+// Pilha de avatares sobrepostos (estilo Instagram) + legenda de quem curtiu.
+function CurtidoresResumo({
+  curtidoPor,
+  currentUserId,
+  memberByUserId,
+  aberto,
+  onToggle,
+}: {
+  curtidoPor: string[];
+  currentUserId: string | undefined;
+  memberByUserId: Map<string, ClubMember>;
+  aberto: boolean;
+  onToggle: () => void;
+}) {
+  if (curtidoPor.length === 0) return null;
+
+  const nomeDe = (uid: string) => {
+    if (uid === currentUserId) return "você";
+    const m = memberByUserId.get(uid);
+    return m ? clubMemberDisplayName(m) : "alguém";
+  };
+
+  const primeiros = curtidoPor.slice(0, 3);
+  const restantes = curtidoPor.length - primeiros.length;
+
+  let legenda: string;
+  if (curtidoPor.length === 1) {
+    legenda = `Curtido por ${nomeDe(curtidoPor[0])}`;
+  } else if (restantes > 0) {
+    legenda = `Curtido por ${nomeDe(curtidoPor[0])} e mais ${curtidoPor.length - 1} ${
+      curtidoPor.length - 1 === 1 ? "pessoa" : "pessoas"
+    }`;
+  } else {
+    legenda = `Curtido por ${curtidoPor.map(nomeDe).join(", ")}`;
+  }
+
+  return (
+    <button onClick={onToggle} className="mt-1.5 flex items-center gap-1.5">
+      <span className="flex items-center">
+        {primeiros.map((uid, i) => {
+          const m = memberByUserId.get(uid);
+          return (
+            <span
+              key={uid}
+              className="-ml-1.5 first:ml-0 rounded-full ring-2 ring-background"
+              style={{ zIndex: primeiros.length - i }}
+            >
+              {m ? (
+                <MemberAvatar member={m} sizeClass="h-4 w-4" />
+              ) : (
+                <span className="h-4 w-4 rounded-full bg-muted" />
+              )}
+            </span>
+          );
+        })}
+      </span>
+      <span className="text-xs text-muted-foreground underline-offset-4 hover:underline">
+        {aberto ? "Ocultar curtidas" : legenda}
+      </span>
+    </button>
+  );
+}
+
+function PostComments({
+  postId,
+  memberByUserId,
+  currentUserId,
+  souAdmin,
+}: {
+  postId: string;
+  memberByUserId: Map<string, ClubMember>;
+  currentUserId: string | undefined;
+  souAdmin: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const comments = useQuery({
+    queryKey: ["club-post-comments", postId],
+    queryFn: () => listClubPostComments(postId),
+  });
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  async function enviar() {
+    if (!currentUserId || !texto.trim()) return;
+    setEnviando(true);
+    try {
+      await addClubPostComment({
+        post_id: postId,
+        user_id: currentUserId,
+        conteudo: texto.trim(),
+      });
+      setTexto("");
+      void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível comentar");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function apagar(commentId: string) {
+    try {
+      await deleteClubPostComment(commentId);
+      void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível apagar");
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      {comments.isLoading && (
+        <p className="text-xs text-muted-foreground">Carregando comentários…</p>
+      )}
+      {!comments.isLoading && comments.data?.length === 0 && (
+        <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
+      )}
+      <div className="flex flex-col gap-2">
+        {comments.data?.map((c) => {
+          const autor = memberByUserId.get(c.user_id);
+          return (
+            <div key={c.id} className="flex items-start gap-2">
+              {autor ? (
+                <MemberAvatar member={autor} sizeClass="h-6 w-6" />
+              ) : (
+                <span className="h-6 w-6 shrink-0 rounded-full bg-muted" />
+              )}
+              <p className="min-w-0 flex-1 text-xs">
+                <span className="font-medium">
+                  {autor ? clubMemberDisplayName(autor) : "Leitor do Grifo"}
+                </span>{" "}
+                <span className="text-muted-foreground">{c.conteudo}</span>
+              </p>
+              {(c.user_id === currentUserId || souAdmin) && (
+                <button
+                  onClick={() => apagar(c.id)}
+                  aria-label="Apagar comentário"
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && enviar()}
+          placeholder="Adicione um comentário…"
+          className="min-w-0 flex-1 rounded-full border border-border px-3 py-1.5 text-xs outline-none focus:border-primary"
+        />
+        <button
+          onClick={enviar}
+          disabled={enviando || !texto.trim()}
+          className="shrink-0 text-xs font-medium text-primary disabled:opacity-50"
+        >
+          Publicar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ClubPage() {
   const { clubId } = Route.useParams();
   const { user } = useAuth();
@@ -118,6 +295,7 @@ function ClubPage() {
 
   const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
   const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
+  const [comentariosAbertos, setComentariosAbertos] = useState<Record<string, boolean>>({});
 
   function invalidarClube() {
     void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
@@ -534,7 +712,8 @@ function ClubPage() {
                   </div>
                 </div>
                 <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
-                <div className="mt-2 flex items-center gap-3">
+
+                <div className="mt-2 flex items-center gap-4">
                   <button
                     onClick={() => curtir(post.id, post.curtido_por_mim)}
                     className={
@@ -543,20 +722,22 @@ function ClubPage() {
                     }
                   >
                     <Heart
-                      className={"h-3.5 w-3.5 " + (post.curtido_por_mim ? "fill-current" : "")}
+                      className={"h-4 w-4 " + (post.curtido_por_mim ? "fill-current" : "")}
                     />
                     Curtir
                   </button>
-                  {post.likes_count > 0 && (
-                    <button
-                      onClick={() =>
-                        setCurtidoresAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
-                      }
-                      className="text-xs text-muted-foreground underline underline-offset-4"
-                    >
-                      {post.likes_count} {post.likes_count === 1 ? "curtida" : "curtidas"}
-                    </button>
-                  )}
+                  <button
+                    onClick={() =>
+                      setComentariosAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
+                    }
+                    className={
+                      "inline-flex items-center gap-1 text-xs transition-colors " +
+                      (comentariosAbertos[post.id] ? "text-foreground" : "text-muted-foreground")
+                    }
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Comentar
+                  </button>
                   {(post.user_id === user?.id || souAdmin) && (
                     <button
                       onClick={() => apagarPost(post.id)}
@@ -567,9 +748,19 @@ function ClubPage() {
                     </button>
                   )}
                 </div>
+
+                <CurtidoresResumo
+                  curtidoPor={post.curtido_por}
+                  currentUserId={user?.id}
+                  memberByUserId={memberByUserId}
+                  aberto={Boolean(curtidoresAbertos[post.id])}
+                  onToggle={() =>
+                    setCurtidoresAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
+                  }
+                />
+
                 {curtidoresAbertos[post.id] && post.likes_count > 0 && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Curtido por{" "}
                     {post.curtido_por
                       .map((uid) => {
                         if (uid === user?.id) return "você";
@@ -578,6 +769,15 @@ function ClubPage() {
                       })
                       .join(", ")}
                   </p>
+                )}
+
+                {comentariosAbertos[post.id] && (
+                  <PostComments
+                    postId={post.id}
+                    memberByUserId={memberByUserId}
+                    currentUserId={user?.id}
+                    souAdmin={souAdmin}
+                  />
                 )}
               </div>
             );
