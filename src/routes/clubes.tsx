@@ -104,7 +104,11 @@ function ClubesPage() {
 
         {clubs?.map((club) => (
           <div key={club.id} className="panel-cream rounded-2xl p-4">
-            <div className="flex items-center gap-3">
+            <Link
+              to="/clubes/$clubId"
+              params={{ clubId: club.id }}
+              className="flex items-center gap-3"
+            >
               <div className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                 {club.livro_atual_capa ? (
                   <BookCover src={club.livro_atual_capa} title={club.livro_atual_titulo} />
@@ -124,7 +128,7 @@ function ClubesPage() {
                   {club.meu_papel === "admin" ? " · você é admin" : ""}
                 </p>
               </div>
-            </div>
+            </Link>
 
             {club.meu_papel === "admin" && (
               <div className="mt-3 border-t border-border/50 pt-3">
