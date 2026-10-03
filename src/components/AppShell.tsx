@@ -1,16 +1,25 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Bell, BookOpen, Library, HandHeart, Plus, LogOut, ShoppingCart, BarChart3, UserRound } from "lucide-react";
+import {
+  BookOpen,
+  Library,
+  HandHeart,
+  Plus,
+  LogOut,
+  BarChart3,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
-import { getUnreadCount, syncAppBadge } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
   { to: "/biblioteca", label: "Biblioteca", icon: Library },
+  { to: "/clubes", label: "Clubes", icon: Users },
   { to: "/emprestimos", label: "Empréstimos", icon: HandHeart },
   { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
 ];
@@ -26,25 +35,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     enabled: Boolean(user),
   });
 
-  const unread = useQuery({
-    queryKey: ["notifications-unread-count"],
-    queryFn: getUnreadCount,
-    enabled: Boolean(user),
-    refetchInterval: 60_000,
-  });
-
   useEffect(() => {
     if (!loading && !user && isSupabaseConfigured) {
       navigate({ to: "/auth" });
     }
   }, [loading, user, navigate]);
-
-  // Sempre que o número de não lidas mudar (nova notificação chegou, ou o
-  // usuário marcou como lida em outra aba), mantém o badge do ícone do app
-  // sincronizado — sem isso, o número só atualizaria quando chegasse um push.
-  useEffect(() => {
-    void syncAppBadge();
-  }, [unread.data]);
 
   if (!isSupabaseConfigured) {
     return (
@@ -75,7 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           Grifo
           <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-super" />
         </Link>
- <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {(pathname === "/" || pathname.startsWith("/biblioteca")) && (
             <Link
               to="/adicionar"
@@ -85,25 +80,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           )}
           <Link
-            to="/notificacoes"
-            aria-label="Notificações"
-            className="relative inline-flex items-center justify-center rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Bell className="h-4 w-4" />
-            {Boolean(unread.data) && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground">
-                {(unread.data ?? 0) > 9 ? "9+" : unread.data}
-              </span>
-            )}
-          </Link>
-        <Link
             to="/conta"
             aria-label="Minha conta"
             className="inline-flex items-center justify-center rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
           >
             <UserRound className="h-4 w-4" />
           </Link>
-         <button
+          <button
             aria-label="Sair da conta"
             onClick={() => {
               void signOut().then(() => navigate({ to: "/auth" }));
