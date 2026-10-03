@@ -124,7 +124,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative inline-flex">
+                  <Icon className="h-5 w-5" />
+                  {to === "/clubes" && (
+                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive" />
+                  )}
+                </span>
                 {label}
               </Link>
             );
