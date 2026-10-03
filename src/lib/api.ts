@@ -1102,6 +1102,42 @@ export async function deleteClubPost(postId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export type ClubComment = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  conteudo: string;
+  criado_em: string;
+};
+
+export async function listClubPostComments(postId: string): Promise<ClubComment[]> {
+  const { data, error } = await supabase
+    .from("club_post_comments")
+    .select("id, post_id, user_id, conteudo, criado_em")
+    .eq("post_id", postId)
+    .order("criado_em", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClubComment[];
+}
+
+export async function addClubPostComment(input: {
+  post_id: string;
+  user_id: string;
+  conteudo: string;
+}): Promise<void> {
+  const { error } = await supabase.from("club_post_comments").insert({
+    post_id: input.post_id,
+    user_id: input.user_id,
+    conteudo: input.conteudo,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteClubPostComment(commentId: string): Promise<void> {
+  const { error } = await supabase.from("club_post_comments").delete().eq("id", commentId);
+  if (error) throw new Error(error.message);
+}
+
 export async function toggleClubPostLike(
   postId: string,
   userId: string,
