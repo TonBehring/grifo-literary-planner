@@ -20,6 +20,8 @@ import {
   Trash2,
   Copy,
   Trophy,
+  CalendarDays,
+  Plus,
   Users as UsersIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +45,9 @@ import {
   searchGoogleBooks,
   clubMemberDisplayName,
   getClubRanking,
+  listClubEvents,
+  createClubEvent,
+  deleteClubEvent,
   type GoogleVolume,
   type ClubMember,
 } from "@/lib/api";
@@ -285,6 +290,12 @@ function ClubPage() {
     enabled: Boolean(user) && Boolean(detail.data?.livroAtualTitulo),
   });
 
+  const events = useQuery({
+    queryKey: ["club-events", clubId],
+    queryFn: () => listClubEvents(clubId),
+    enabled: Boolean(user),
+  });
+
   const [buscaLivroAberta, setBuscaLivroAberta] = useState(false);
   const [termoBusca, setTermoBusca] = useState("");
   const [resultadosBusca, setResultadosBusca] = useState<GoogleVolume[]>([]);
@@ -304,6 +315,13 @@ function ClubPage() {
   const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
   const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
   const [comentariosAbertos, setComentariosAbertos] = useState<Record<string, boolean>>({});
+
+  const [novoEventoAberto, setNovoEventoAberto] = useState(false);
+  const [tituloEvento, setTituloEvento] = useState("");
+  const [dataHoraEvento, setDataHoraEvento] = useState("");
+  const [localEvento, setLocalEvento] = useState("");
+  const [descricaoEvento, setDescricaoEvento] = useState("");
+  const [criandoEvento, setCriandoEvento] = useState(false);
 
   function invalidarClube() {
     void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
@@ -369,6 +387,44 @@ function ClubPage() {
       invalidarClube();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível remover a foto");
+    }
+  }
+
+  async function criarEvento() {
+    if (!user) return;
+    if (!tituloEvento.trim() || !dataHoraEvento) {
+      toast.error("Preencha pelo menos o título e a data/hora.");
+      return;
+    }
+    setCriandoEvento(true);
+    try {
+      await createClubEvent({
+        club_id: clubId,
+        titulo: tituloEvento.trim(),
+        descricao: descricaoEvento.trim() || null,
+        data_hora: new Date(dataHoraEvento).toISOString(),
+        local_ou_link: localEvento.trim() || null,
+        criado_por: user.id,
+      });
+      setTituloEvento("");
+      setDataHoraEvento("");
+      setLocalEvento("");
+      setDescricaoEvento("");
+      setNovoEventoAberto(false);
+      void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar o evento");
+    } finally {
+      setCriandoEvento(false);
+    }
+  }
+
+  async function apagarEvento(eventId: string) {
+    try {
+      await deleteClubEvent(eventId);
+      void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível apagar o evento");
     }
   }
 
@@ -632,6 +688,125 @@ function ClubPage() {
           </div>
         </div>
       )}
+
+      {/* Eventos / encontros */}
+      <div className="panel-cream mt-4 rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <CalendarDays className="h-4 w-4" />
+            Próximos encontros
+          </p>
+          {souAdmin && (
+            <button
+              onClick={() => setNovoEventoAberto((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {novoEventoAberto ? "Fechar" : "Marcar encontro"}
+            </button>
+          )}
+        </div>
+
+        {souAdmin && novoEventoAberto && (
+          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
+            <input
+              value={tituloEvento}
+              onChange={(e) => setTituloEvento(e.target.value)}
+              placeholder="Título (ex.: Discussão do capítulo 1)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <input
+              type="datetime-local"
+              value={dataHoraEvento}
+              onChange={(e) => setDataHoraEvento(e.target.value)}
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <input
+              value={localEvento}
+              onChange={(e) => setLocalEvento(e.target.value)}
+              placeholder="Local ou link (ex.: endereço, Zoom, Meet…)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <textarea
+              value={descricaoEvento}
+              onChange={(e) => setDescricaoEvento(e.target.value)}
+              rows={2}
+              placeholder="Descrição (opcional)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <button
+              onClick={criarEvento}
+              disabled={criandoEvento}
+              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {criandoEvento ? "Salvando…" : "Marcar encontro"}
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {events.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+          {!events.isLoading && events.data && events.data.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum encontro marcado ainda.</p>
+          )}
+
+          {events.data?.map((ev) => {
+            const passado = new Date(ev.data_hora).getTime() < Date.now();
+            const ehLink = ev.local_ou_link?.startsWith("http");
+            return (
+              <div
+                key={ev.id}
+                className={
+                  "rounded-xl border border-border p-3 " + (passado ? "opacity-50" : "")
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{ev.titulo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(ev.data_hora).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    {ev.local_ou_link &&
+                      (ehLink ? (
+                        <a
+                          href={ev.local_ou_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary underline underline-offset-4"
+                        >
+                          {ev.local_ou_link}
+                        </a>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{ev.local_ou_link}</p>
+                      ))}
+                    {ev.descricao && (
+                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                        {ev.descricao}
+                      </p>
+                    )}
+                  </div>
+                  {souAdmin && (
+                    <button
+                      onClick={() => apagarEvento(ev.id)}
+                      aria-label="Apagar evento"
+                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Membros */}
       <div className="panel-cream mt-4 rounded-2xl p-4">
