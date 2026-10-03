@@ -910,3 +910,200 @@ export async function joinClubByCode(codigo: string): Promise<string> {
   if (error) throw new Error(error.message);
   return data as string;
 }
+
+// --- Clube: detalhe, livro atual, membros e mural ---------------------------
+
+export type ClubMember = {
+  user_id: string;
+  papel: "admin" | "membro";
+  entrou_em: string;
+  username: string | null;
+  nome: string | null;
+};
+
+// Nome de exibição de um membro: nome/apelido salvo em "Minha conta", senão
+// o username, senão um rótulo genérico.
+export function clubMemberDisplayName(m: Pick<ClubMember, "nome" | "username">): string {
+  return m.nome || (m.username ? `@${m.username}` : "Leitor do Grifo");
+}
+
+export async function listClubMembers(clubId: string): Promise<ClubMember[]> {
+  const { data, error } = await supabase.rpc("listar_membros_do_clube", {
+    p_club_id: clubId,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClubMember[];
+}
+
+export type ClubDetail = {
+  club: Club;
+  meuPapel: "admin" | "membro";
+  livroAtualTitulo: string | null;
+  livroAtualAutor: string | null;
+  livroAtualCapa: string | null;
+};
+
+export async function getClubDetail(clubId: string, userId: string): Promise<ClubDetail> {
+  const { data: clubRow, error: clubError } = await supabase
+    .from("clubs")
+    .select("id, nome, descricao, imagem_url, tipo, criado_por, criado_em")
+    .eq("id", clubId)
+    .single();
+  if (clubError) throw new Error(clubError.message);
+
+  const { data: memberRow, error: memberError } = await supabase
+    .from("club_members")
+    .select("papel")
+    .eq("club_id", clubId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (memberError) throw new Error(memberError.message);
+  if (!memberRow) throw new Error("Você não é membro deste clube.");
+
+  const { data: bookRow, error: bookError } = await supabase
+    .from("club_books")
+    .select("book:books(titulo, autor, capa_url)")
+    .eq("club_id", clubId)
+    .eq("status", "atual")
+    .maybeSingle();
+  if (bookError) throw new Error(bookError.message);
+  const book = (
+    bookRow as { book: { titulo: string; autor: string | null; capa_url: string | null } | null } | null
+  )?.book;
+
+  return {
+    club: clubRow as Club,
+    meuPapel: (memberRow as { papel: "admin" | "membro" }).papel,
+    livroAtualTitulo: book?.titulo ?? null,
+    livroAtualAutor: book?.autor ?? null,
+    livroAtualCapa: book?.capa_url ?? null,
+  };
+}
+
+// Define (ou troca) o livro atual do clube, a partir de um resultado de
+// busca (mesmo GoogleVolume usado ao adicionar livro na estante). Encerra
+// o livro atual anterior (se houver) antes de marcar o novo.
+export async function setClubCurrentBook(
+  clubId: string,
+  volume: GoogleVolume,
+  adicionadoPor: string,
+): Promise<void> {
+  let bookId: string | null = null;
+
+  if (volume.isbn) {
+    const { data: existing } = await supabase
+      .from("books")
+      .select("id")
+      .eq("isbn", volume.isbn)
+      .maybeSingle();
+    bookId = (existing as { id: string } | null)?.id ?? null;
+  }
+
+  if (!bookId) {
+    const { data, error } = await supabase
+      .from("books")
+      .insert({
+        titulo: volume.title,
+        autor: volume.author,
+        capa_url: volume.cover_url,
+        isbn: volume.isbn,
+        total_paginas: volume.page_count,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    bookId = (data as { id: string }).id;
+  }
+
+  const { error: encerraError } = await supabase
+    .from("club_books")
+    .update({ status: "concluido", data_fim_real: new Date().toISOString().slice(0, 10) })
+    .eq("club_id", clubId)
+    .eq("status", "atual");
+  if (encerraError) throw new Error(encerraError.message);
+
+  const { error: insertError } = await supabase.from("club_books").insert({
+    club_id: clubId,
+    book_id: bookId,
+    status: "atual",
+    data_inicio: new Date().toISOString().slice(0, 10),
+    adicionado_por: adicionadoPor,
+  });
+  if (insertError) throw new Error(insertError.message);
+}
+
+export type ClubPost = {
+  id: string;
+  user_id: string;
+  conteudo: string;
+  pagina_referencia: number | null;
+  criado_em: string;
+  likes_count: number;
+  curtido_por_mim: boolean;
+};
+
+export async function listClubPosts(clubId: string, userId: string): Promise<ClubPost[]> {
+  const { data, error } = await supabase
+    .from("club_posts")
+    .select("id, user_id, conteudo, pagina_referencia, criado_em, club_post_likes(user_id)")
+    .eq("club_id", clubId)
+    .order("criado_em", { ascending: false });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    user_id: string;
+    conteudo: string;
+    pagina_referencia: number | null;
+    criado_em: string;
+    club_post_likes: Array<{ user_id: string }> | null;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    user_id: r.user_id,
+    conteudo: r.conteudo,
+    pagina_referencia: r.pagina_referencia,
+    criado_em: r.criado_em,
+    likes_count: r.club_post_likes?.length ?? 0,
+    curtido_por_mim: (r.club_post_likes ?? []).some((l) => l.user_id === userId),
+  }));
+}
+
+export async function addClubPost(input: {
+  club_id: string;
+  user_id: string;
+  conteudo: string;
+  pagina_referencia: number | null;
+}): Promise<void> {
+  const { error } = await supabase.from("club_posts").insert({
+    club_id: input.club_id,
+    user_id: input.user_id,
+    conteudo: input.conteudo,
+    pagina_referencia: input.pagina_referencia,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteClubPost(postId: string): Promise<void> {
+  const { error } = await supabase.from("club_posts").delete().eq("id", postId);
+  if (error) throw new Error(error.message);
+}
+
+export async function toggleClubPostLike(
+  postId: string,
+  userId: string,
+  curtidoAtualmente: boolean,
+): Promise<void> {
+  if (curtidoAtualmente) {
+    const { error } = await supabase
+      .from("club_post_likes")
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("club_post_likes")
+      .insert({ post_id: postId, user_id: userId });
+    if (error) throw new Error(error.message);
+  }
+}
