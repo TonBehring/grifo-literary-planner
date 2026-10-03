@@ -1139,6 +1139,53 @@ export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]
     .sort((a, b) => b.paginas_lidas - a.paginas_lidas || b.segundos_lidos - a.segundos_lidos);
 }
 
+export type ClubEvent = {
+  id: string;
+  club_id: string;
+  titulo: string;
+  descricao: string | null;
+  data_hora: string;
+  local_ou_link: string | null;
+  criado_por: string;
+  criado_em: string;
+};
+
+// Lista os eventos do clube, dos mais próximos pros mais distantes no
+// tempo (passados ficam no fim — a UI separa visualmente por data atual).
+export async function listClubEvents(clubId: string): Promise<ClubEvent[]> {
+  const { data, error } = await supabase
+    .from("club_events")
+    .select("id, club_id, titulo, descricao, data_hora, local_ou_link, criado_por, criado_em")
+    .eq("club_id", clubId)
+    .order("data_hora", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClubEvent[];
+}
+
+export async function createClubEvent(input: {
+  club_id: string;
+  titulo: string;
+  descricao: string | null;
+  data_hora: string;
+  local_ou_link: string | null;
+  criado_por: string;
+}): Promise<void> {
+  const { error } = await supabase.from("club_events").insert({
+    club_id: input.club_id,
+    titulo: input.titulo,
+    descricao: input.descricao,
+    data_hora: input.data_hora,
+    local_ou_link: input.local_ou_link,
+    criado_por: input.criado_por,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteClubEvent(eventId: string): Promise<void> {
+  const { error } = await supabase.from("club_events").delete().eq("id", eventId);
+  if (error) throw new Error(error.message);
+}
+
 export type ClubPost = {
   id: string;
   user_id: string;
