@@ -100,10 +100,10 @@ function ReadingSessionSetup() {
           ? `Sessão iniciada — ${duracaoMin} min no cronômetro.`
           : "Sessão de leitura livre iniciada.",
       );
-      // Próximo passo: navegar pra tela do cronômetro com session.id.
-      // Por ora, volta pro detalhe do livro pra já validar a gravação.
-      navigate({ to: "/livro/$id", params: { id } });
-      void session;
+      navigate({
+        to: "/livro/$id/sessao/$sessionId",
+        params: { id, sessionId: session.id },
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a sessão");
     } finally {
