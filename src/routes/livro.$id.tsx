@@ -18,6 +18,7 @@ import {
   deleteNote,
   deleteUserBook,
   getActiveLoanForUserBook,
+  getReadingStatsForBook,
   getUserBook,
   listNotes,
   updateNote,
@@ -40,6 +41,14 @@ function daysBetween(startIso: string, endIso: string) {
 
 function diasLabel(n: number) {
   return `${n} ${n === 1 ? "dia" : "dias"}`;
+}
+
+function formatDuracao(totalSegundos: number) {
+  const totalMin = Math.round(totalSegundos / 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0) return `${h}h ${m}min`;
+  return `${m} min`;
 }
 
 export const Route = createFileRoute("/livro/$id")({
@@ -101,6 +110,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: activeLoan } = useQuery({
     queryKey: ["active-loan", id],
     queryFn: () => getActiveLoanForUserBook(id),
+    enabled: Boolean(user),
+  });
+  const { data: readingStats } = useQuery({
+    queryKey: ["reading-stats", id],
+    queryFn: () => getReadingStatsForBook(id),
     enabled: Boolean(user),
   });
 
@@ -328,6 +342,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
             {ub.finished_at
               ? `Lido em ${diasLabel(daysBetween(ub.started_at, ub.finished_at))}`
               : `Lendo há ${diasLabel(daysBetween(ub.started_at, new Date().toISOString()))}`}
+          </p>
+        )}
+        {readingStats && readingStats.sessoes > 0 && (
+          <p className="mt-1 text-xs opacity-70">
+            Tempo de leitura: {formatDuracao(readingStats.totalSegundos)}
+            {readingStats.paginasLidas > 0 &&
+              ` · Ritmo: ${(readingStats.totalSegundos / 60 / readingStats.paginasLidas).toFixed(1)} min/página`}
           </p>
         )}
         {ub.rating != null && (
