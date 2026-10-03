@@ -659,6 +659,18 @@ export async function startReadingSession(input: {
   return data as ReadingSession;
 }
 
+// Busca uma sessão específica (usado na tela do cronômetro, que recebe
+// só o id da sessão pela URL).
+export async function getReadingSession(sessionId: string): Promise<ReadingSession> {
+  const { data, error } = await supabase
+    .from("reading_sessions")
+    .select()
+    .eq("id", sessionId)
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ReadingSession;
+}
+
 // Atualiza o som ambiente escolhido durante a sessão (pode ser chamado
 // várias vezes, se a pessoa trocar de som no meio da leitura).
 export async function updateReadingSessionSom(
