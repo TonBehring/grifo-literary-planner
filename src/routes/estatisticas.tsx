@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import {
@@ -10,7 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { getReadingStatsOverall } from "@/lib/api";
+import { getReadingStatsOverall, listAllMyNotes } from "@/lib/api";
+import { exportAllNotesToPdf } from "@/lib/notes-pdf";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/estatisticas")({
@@ -180,6 +182,31 @@ function StatsPage() {
   const since90 = new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10);
   const since = since90 < yearStart ? since90 : yearStart;
 
+  const [exportandoNotas, setExportandoNotas] = useState(false);
+
+  async function baixarTodasAsNotas() {
+    setExportandoNotas(true);
+    try {
+      const notas = await listAllMyNotes();
+      if (notas.length === 0) {
+        toast.error("Você ainda não tem nenhuma nota ou citação registrada.");
+        return;
+      }
+      const porLivro = new Map<string, typeof notas>();
+      for (const n of notas) {
+        const atual = porLivro.get(n.book_title) ?? [];
+        atual.push(n);
+        porLivro.set(n.book_title, atual);
+      }
+      const ordenado = new Map([...porLivro.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+      exportAllNotesToPdf(ordenado);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível gerar o PDF");
+    } finally {
+      setExportandoNotas(false);
+    }
+  }
+
   const finished = useQuery({
     queryKey: ["stats-finished", userId],
     queryFn: () => fetchFinished(userId),
@@ -239,7 +266,17 @@ function StatsPage() {
 
   return (
     <section className="pb-6">
-      <h1 className="font-display text-4xl leading-tight">Estatísticas</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-display text-4xl leading-tight">Estatísticas</h1>
+        <button
+          onClick={baixarTodasAsNotas}
+          disabled={exportandoNotas}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-medium text-muted-foreground disabled:opacity-60"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {exportandoNotas ? "Gerando…" : "Notas em PDF"}
+        </button>
+      </div>
 
      <h2 className="font-display mt-6 text-xl">Sua leitura em {YEAR}</h2>
       {loadingTop ? (
