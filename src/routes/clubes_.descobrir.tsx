@@ -11,7 +11,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -38,6 +38,7 @@ function DescobrirClubes() {
   });
 
   const [entrandoEm, setEntrandoEm] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
 
   async function entrar(clubId: string) {
     if (!user) return;
@@ -55,7 +56,10 @@ function DescobrirClubes() {
     }
   }
 
-  const disponiveis = (clubes.data ?? []).filter((c) => !c.ja_sou_membro);
+  const termo = busca.trim().toLowerCase();
+  const disponiveis = (clubes.data ?? [])
+    .filter((c) => !c.ja_sou_membro)
+    .filter((c) => !termo || c.nome.toLowerCase().includes(termo));
 
   return (
     <section>
@@ -70,13 +74,25 @@ function DescobrirClubes() {
         <h1 className="font-display text-xl">Descobrir clubes públicos</h1>
       </div>
 
+      <div className="mt-4 flex items-center gap-2 rounded-xl border border-border px-3 py-2.5">
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar clube pelo nome"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+        />
+      </div>
+
       <div className="mt-4 flex flex-col gap-3">
         {clubes.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
 
         {!clubes.isLoading && disponiveis.length === 0 && (
           <div className="panel-cream rounded-2xl p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Nenhum clube público disponível no momento.
+              {termo
+                ? "Nenhum clube público encontrado com esse nome."
+                : "Nenhum clube público disponível no momento."}
             </p>
           </div>
         )}
