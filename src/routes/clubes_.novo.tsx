@@ -7,12 +7,14 @@
 // pra exibir uma tela filha). Sem o "_", a rota existe mas nunca aparece
 // na tela.
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { createClub, createClubInvite, type ClubType } from "@/lib/api";
+import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/clubes/novo")({
@@ -26,6 +28,13 @@ export const Route = createFileRoute("/clubes/novo")({
 function NovoClube() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const subscription = useQuery({
+    queryKey: ["subscription", user?.id],
+    queryFn: getMySubscription,
+    enabled: Boolean(user),
+  });
+  const podeCriar = hasActiveAccess(subscription.data);
 
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -69,6 +78,24 @@ function NovoClube() {
         </button>
       </div>
 
+      {subscription.isLoading ? (
+        <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>
+      ) : !podeCriar ? (
+        <div className="panel-cream mt-6 rounded-2xl p-6 text-center">
+          <p className="font-display text-lg">Assine o Grifo para criar seu Clube de Leitura</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Criar e administrar um clube é um benefício de quem assina o Grifo. Qualquer pessoa
+            pode entrar no seu clube de graça — só pra criar e administrar é preciso assinatura
+            ativa.
+          </p>
+          <Link
+            to="/conta"
+            className="mt-4 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground"
+          >
+            Assinar o Grifo
+          </Link>
+        </div>
+      ) : (
       <div className="mt-6 flex flex-col gap-4">
         <div>
           <label className="text-sm text-muted-foreground">Nome do clube</label>
@@ -119,16 +146,19 @@ function NovoClube() {
           </div>
         </div>
       </div>
+      )}
 
-      <div className="mt-auto pt-10">
-        <button
-          onClick={criar}
-          disabled={salvando}
-          className="w-full rounded-full bg-primary py-4 text-base font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {salvando ? "Criando…" : "Criar clube"}
-        </button>
-      </div>
+      {podeCriar && (
+        <div className="mt-auto pt-10">
+          <button
+            onClick={criar}
+            disabled={salvando}
+            className="w-full rounded-full bg-primary py-4 text-base font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {salvando ? "Criando…" : "Criar clube"}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
