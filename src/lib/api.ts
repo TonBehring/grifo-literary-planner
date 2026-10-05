@@ -334,6 +334,38 @@ export async function deleteNote(id: string) {
   if (error) throw new Error(error.message);
 }
 
+export type NoteWithBook = BookNote & { book_title: string };
+
+// Todas as notas/citações do usuário, de todos os livros, já com o título
+// efetivo do livro — usado na exportação geral em PDF (Estatísticas).
+export async function listAllMyNotes(): Promise<NoteWithBook[]> {
+  const { data, error } = await supabase
+    .from("book_notes")
+    .select(
+      "id, user_book_id, conteudo, tipo, criado_em, pagina_referencia, user_book:user_books(titulo_override, book:books(titulo))",
+    )
+    .order("criado_em", { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    user_book_id: string;
+    conteudo: string;
+    tipo: string;
+    criado_em: string;
+    pagina_referencia: number | null;
+    user_book: { titulo_override: string | null; book: { titulo: string } | null } | null;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    user_book_id: r.user_book_id,
+    content: r.conteudo,
+    kind: r.tipo === "citacao" ? "citacao" : "nota",
+    page: r.pagina_referencia,
+    created_at: r.criado_em,
+    book_title: r.user_book?.titulo_override ?? r.user_book?.book?.titulo ?? "Livro",
+  }));
+}
+
 export async function addReadingLog(log: {
   user_book_id: string;
   user_id: string;
