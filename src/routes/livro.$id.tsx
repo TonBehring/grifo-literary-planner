@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Quote, Share2, StickyNote, Trash2, Pencil, Timer } from "lucide-react";
+import { Quote, Share2, StickyNote, Trash2, Pencil, Timer, Download } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote, type ShelfStatus, type UserBook } from "@/lib/types";
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
+import { exportBookNotesToPdf } from "@/lib/notes-pdf";
 import { useAuth } from "@/lib/auth";
 
 function formatDate(iso: string) {
@@ -582,7 +583,18 @@ const [confirmDelete, setConfirmDelete] = useState(false);
 
      {ub.status !== "desejo_compra" && (
       <div className="panel-cream rounded-2xl p-5">
-        <h2 className="font-display text-xl">Anotações e citações</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-display text-xl">Anotações e citações</h2>
+          {notes && notes.length > 0 && (
+            <button
+              onClick={() => exportBookNotesToPdf(ub.book?.title ?? "Livro", notes)}
+              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary underline underline-offset-4"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar PDF
+            </button>
+          )}
+        </div>
         {activeLoan ? (
           <p className="mt-3 text-sm text-muted-foreground">
             Novas anotações ficam bloqueadas enquanto o livro está emprestado.
