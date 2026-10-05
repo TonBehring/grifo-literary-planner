@@ -59,7 +59,10 @@ function preprocessForOcr(file: File): Promise<string> {
         const data = imageData.data;
         const contrast = 1.35; // realce leve de contraste
         for (let i = 0; i < data.length; i += 4) {
-          const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+          const red = data[i] ?? 0;
+          const green = data[i + 1] ?? 0;
+          const blue = data[i + 2] ?? 0;
+          const gray = red * 0.299 + green * 0.587 + blue * 0.114;
           const adjusted = (gray - 128) * contrast + 128;
           const clamped = Math.max(0, Math.min(255, adjusted));
           data[i] = clamped;
