@@ -49,7 +49,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/livro/$id/sessao/$sessionId")({
+export const Route = createFileRoute("/livro/$id_/sessao_/$sessionId")({
   component: () => (
     <AppShell>
       <ReadingSessionTimer />

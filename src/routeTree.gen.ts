@@ -14,6 +14,7 @@ import { Route as AdicionarRouteImport } from './routes/adicionar'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
+import { Route as ClubesRouteImport } from './routes/clubes'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as DesafioLiterarioRouteImport } from './routes/desafio-literario'
 import { Route as DesejosRouteImport } from './routes/desejos'
@@ -24,8 +25,13 @@ import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AssinaturaRetornoRouteImport } from './routes/assinatura.retorno'
+import { Route as ClubesClubIdRouteImport } from './routes/clubes_.$clubId'
+import { Route as ClubesDescobrirRouteImport } from './routes/clubes_.descobrir'
+import { Route as ClubesEntrarRouteImport } from './routes/clubes_.entrar'
+import { Route as ClubesNovoRouteImport } from './routes/clubes_.novo'
 import { Route as LivroIdRouteImport } from './routes/livro.$id'
-import { Route as LivroIdSessaoRouteImport } from './routes/livro.$id.sessao'
+import { Route as LivroIdSessaoRouteImport } from './routes/livro.$id_.sessao'
+import { Route as LivroIdSessaoSessionIdRouteImport } from './routes/livro.$id_.sessao_.$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -50,6 +56,11 @@ const AuthRoute = AuthRouteImport.update({
 const BibliotecaRoute = BibliotecaRouteImport.update({
   id: '/biblioteca',
   path: '/biblioteca',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClubesRoute = ClubesRouteImport.update({
+  id: '/clubes',
+  path: '/clubes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContaRoute = ContaRouteImport.update({
@@ -102,14 +113,39 @@ const AssinaturaRetornoRoute = AssinaturaRetornoRouteImport.update({
   path: '/assinatura/retorno',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClubesClubIdRoute = ClubesClubIdRouteImport.update({
+  id: '/clubes_/$clubId',
+  path: '/clubes/$clubId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClubesDescobrirRoute = ClubesDescobrirRouteImport.update({
+  id: '/clubes_/descobrir',
+  path: '/clubes/descobrir',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClubesEntrarRoute = ClubesEntrarRouteImport.update({
+  id: '/clubes_/entrar',
+  path: '/clubes/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClubesNovoRoute = ClubesNovoRouteImport.update({
+  id: '/clubes_/novo',
+  path: '/clubes/novo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LivroIdRoute = LivroIdRouteImport.update({
   id: '/livro/$id',
   path: '/livro/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LivroIdSessaoRoute = LivroIdSessaoRouteImport.update({
-  id: '/livro/$id/sessao',
+  id: '/livro/$id_/sessao',
   path: '/livro/$id/sessao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LivroIdSessaoSessionIdRoute = LivroIdSessaoSessionIdRouteImport.update({
+  id: '/livro/$id_/sessao_/$sessionId',
+  path: '/livro/$id/sessao/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -119,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/clubes': typeof ClubesRoute
   '/conta': typeof ContaRoute
   '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
@@ -129,8 +166,13 @@ export interface FileRoutesByFullPath {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
   '/assinatura/retorno': typeof AssinaturaRetornoRoute
+  '/clubes/$clubId': typeof ClubesClubIdRoute
+  '/clubes/descobrir': typeof ClubesDescobrirRoute
+  '/clubes/entrar': typeof ClubesEntrarRoute
+  '/clubes/novo': typeof ClubesNovoRoute
   '/livro/$id': typeof LivroIdRoute
   '/livro/$id/sessao': typeof LivroIdSessaoRoute
+  '/livro/$id/sessao/$sessionId': typeof LivroIdSessaoSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -138,6 +180,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/clubes': typeof ClubesRoute
   '/conta': typeof ContaRoute
   '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
@@ -148,8 +191,13 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
   '/assinatura/retorno': typeof AssinaturaRetornoRoute
+  '/clubes/$clubId': typeof ClubesClubIdRoute
+  '/clubes/descobrir': typeof ClubesDescobrirRoute
+  '/clubes/entrar': typeof ClubesEntrarRoute
+  '/clubes/novo': typeof ClubesNovoRoute
   '/livro/$id': typeof LivroIdRoute
   '/livro/$id/sessao': typeof LivroIdSessaoRoute
+  '/livro/$id/sessao/$sessionId': typeof LivroIdSessaoSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -158,6 +206,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
+  '/clubes': typeof ClubesRoute
   '/conta': typeof ContaRoute
   '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
@@ -168,8 +217,13 @@ export interface FileRoutesById {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
   '/assinatura/retorno': typeof AssinaturaRetornoRoute
+  '/clubes_/$clubId': typeof ClubesClubIdRoute
+  '/clubes_/descobrir': typeof ClubesDescobrirRoute
+  '/clubes_/entrar': typeof ClubesEntrarRoute
+  '/clubes_/novo': typeof ClubesNovoRoute
   '/livro/$id': typeof LivroIdRoute
-  '/livro/$id/sessao': typeof LivroIdSessaoRoute
+  '/livro/$id_/sessao': typeof LivroIdSessaoRoute
+  '/livro/$id_/sessao_/$sessionId': typeof LivroIdSessaoSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -179,6 +233,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/biblioteca'
+    | '/clubes'
     | '/conta'
     | '/desafio-literario'
     | '/desejos'
@@ -189,8 +244,13 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/termos'
     | '/assinatura/retorno'
+    | '/clubes/$clubId'
+    | '/clubes/descobrir'
+    | '/clubes/entrar'
+    | '/clubes/novo'
     | '/livro/$id'
     | '/livro/$id/sessao'
+    | '/livro/$id/sessao/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,6 +258,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/biblioteca'
+    | '/clubes'
     | '/conta'
     | '/desafio-literario'
     | '/desejos'
@@ -208,8 +269,13 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/termos'
     | '/assinatura/retorno'
+    | '/clubes/$clubId'
+    | '/clubes/descobrir'
+    | '/clubes/entrar'
+    | '/clubes/novo'
     | '/livro/$id'
     | '/livro/$id/sessao'
+    | '/livro/$id/sessao/$sessionId'
   id:
     | '__root__'
     | '/'
@@ -217,6 +283,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/biblioteca'
+    | '/clubes'
     | '/conta'
     | '/desafio-literario'
     | '/desejos'
@@ -227,8 +294,13 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/termos'
     | '/assinatura/retorno'
+    | '/clubes_/$clubId'
+    | '/clubes_/descobrir'
+    | '/clubes_/entrar'
+    | '/clubes_/novo'
     | '/livro/$id'
-    | '/livro/$id/sessao'
+    | '/livro/$id_/sessao'
+    | '/livro/$id_/sessao_/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -237,6 +309,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
+  ClubesRoute: typeof ClubesRoute
   ContaRoute: typeof ContaRoute
   DesafioLiterarioRoute: typeof DesafioLiterarioRoute
   DesejosRoute: typeof DesejosRoute
@@ -247,8 +320,13 @@ export interface RootRouteChildren {
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
   AssinaturaRetornoRoute: typeof AssinaturaRetornoRoute
+  ClubesClubIdRoute: typeof ClubesClubIdRoute
+  ClubesDescobrirRoute: typeof ClubesDescobrirRoute
+  ClubesEntrarRoute: typeof ClubesEntrarRoute
+  ClubesNovoRoute: typeof ClubesNovoRoute
   LivroIdRoute: typeof LivroIdRoute
   LivroIdSessaoRoute: typeof LivroIdSessaoRoute
+  LivroIdSessaoSessionIdRoute: typeof LivroIdSessaoSessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -286,6 +364,13 @@ declare module '@tanstack/react-router' {
       path: '/biblioteca'
       fullPath: '/biblioteca'
       preLoaderRoute: typeof BibliotecaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clubes': {
+      id: '/clubes'
+      path: '/clubes'
+      fullPath: '/clubes'
+      preLoaderRoute: typeof ClubesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/conta': {
@@ -358,6 +443,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AssinaturaRetornoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clubes_/$clubId': {
+      id: '/clubes_/$clubId'
+      path: '/clubes/$clubId'
+      fullPath: '/clubes/$clubId'
+      preLoaderRoute: typeof ClubesClubIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clubes_/descobrir': {
+      id: '/clubes_/descobrir'
+      path: '/clubes/descobrir'
+      fullPath: '/clubes/descobrir'
+      preLoaderRoute: typeof ClubesDescobrirRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clubes_/entrar': {
+      id: '/clubes_/entrar'
+      path: '/clubes/entrar'
+      fullPath: '/clubes/entrar'
+      preLoaderRoute: typeof ClubesEntrarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clubes_/novo': {
+      id: '/clubes_/novo'
+      path: '/clubes/novo'
+      fullPath: '/clubes/novo'
+      preLoaderRoute: typeof ClubesNovoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/livro/$id': {
       id: '/livro/$id'
       path: '/livro/$id'
@@ -365,11 +478,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LivroIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/livro/$id/sessao': {
-      id: '/livro/$id/sessao'
+    '/livro/$id_/sessao': {
+      id: '/livro/$id_/sessao'
       path: '/livro/$id/sessao'
       fullPath: '/livro/$id/sessao'
       preLoaderRoute: typeof LivroIdSessaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/livro/$id_/sessao_/$sessionId': {
+      id: '/livro/$id_/sessao_/$sessionId'
+      path: '/livro/$id/sessao/$sessionId'
+      fullPath: '/livro/$id/sessao/$sessionId'
+      preLoaderRoute: typeof LivroIdSessaoSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -381,6 +501,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
+  ClubesRoute: ClubesRoute,
   ContaRoute: ContaRoute,
   DesafioLiterarioRoute: DesafioLiterarioRoute,
   DesejosRoute: DesejosRoute,
@@ -391,8 +512,13 @@ const rootRouteChildren: RootRouteChildren = {
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
   AssinaturaRetornoRoute: AssinaturaRetornoRoute,
+  ClubesClubIdRoute: ClubesClubIdRoute,
+  ClubesDescobrirRoute: ClubesDescobrirRoute,
+  ClubesEntrarRoute: ClubesEntrarRoute,
+  ClubesNovoRoute: ClubesNovoRoute,
   LivroIdRoute: LivroIdRoute,
   LivroIdSessaoRoute: LivroIdSessaoRoute,
+  LivroIdSessaoSessionIdRoute: LivroIdSessaoSessionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

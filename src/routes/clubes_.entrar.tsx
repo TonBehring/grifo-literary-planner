@@ -14,7 +14,7 @@ import { joinClubByCode, listMyClubs } from "@/lib/api";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/clubes/entrar")({
+export const Route = createFileRoute("/clubes_/entrar")({
   component: () => (
     <AppShell>
       <EntrarClube />

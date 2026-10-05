@@ -63,7 +63,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/clubes/$clubId")({
+export const Route = createFileRoute("/clubes_/$clubId")({
   component: () => (
     <AppShell>
       <ClubPage />

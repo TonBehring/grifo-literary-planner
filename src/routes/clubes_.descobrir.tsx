@@ -19,7 +19,7 @@ import { listPublicClubs, joinPublicClub, listMyClubs } from "@/lib/api";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/clubes/descobrir")({
+export const Route = createFileRoute("/clubes_/descobrir")({
   component: () => (
     <AppShell>
       <DescobrirClubes />
