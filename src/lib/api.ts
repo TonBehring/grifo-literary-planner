@@ -957,6 +957,7 @@ export type ClubMember = {
   username: string | null;
   nome: string | null;
   avatar_url: string | null;
+  ranking_oculto: boolean;
 };
 
 // Nome de exibição de um membro: nome/apelido salvo em "Minha conta", senão
@@ -971,6 +972,85 @@ export async function listClubMembers(clubId: string): Promise<ClubMember[]> {
   });
   if (error) throw new Error(error.message);
   return (data ?? []) as ClubMember[];
+}
+
+// Promove um membro a admin (exige que ele tenha assinatura ativa) ou
+// rebaixa um admin a membro comum (nunca deixa o clube sem nenhum admin)
+// — as duas regras são checadas no banco, não dá pra burlar pelo client.
+export async function setClubMemberRole(
+  clubId: string,
+  userId: string,
+  papel: "admin" | "membro",
+): Promise<void> {
+  const { error } = await supabase.rpc("set_club_member_papel", {
+    p_club_id: clubId,
+    p_user_id: userId,
+    p_papel: papel,
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Liga/desliga a própria aparição no ranking de leitura do clube.
+export async function setMeuRankingOculto(clubId: string, oculto: boolean): Promise<void> {
+  const { error } = await supabase.rpc("set_meu_ranking_oculto", {
+    p_club_id: clubId,
+    p_oculto: oculto,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export type ClubGoal = {
+  id: string;
+  club_id: string;
+  titulo: string;
+  descricao: string | null;
+  prazo: string | null;
+  criado_por: string;
+  criado_em: string;
+};
+
+export async function listClubGoals(clubId: string): Promise<ClubGoal[]> {
+  const { data, error } = await supabase
+    .from("club_goals")
+    .select("id, club_id, titulo, descricao, prazo, criado_por, criado_em")
+    .eq("club_id", clubId)
+    .order("prazo", { ascending: true, nullsFirst: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClubGoal[];
+}
+
+export async function createClubGoal(input: {
+  club_id: string;
+  titulo: string;
+  descricao: string | null;
+  prazo: string | null;
+  criado_por: string;
+}): Promise<void> {
+  const { error } = await supabase.from("club_goals").insert({
+    club_id: input.club_id,
+    titulo: input.titulo,
+    descricao: input.descricao,
+    prazo: input.prazo,
+    criado_por: input.criado_por,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function updateClubGoal(
+  goalId: string,
+  patch: { titulo?: string; descricao?: string | null; prazo?: string | null },
+): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if (patch.titulo !== undefined) payload["titulo"] = patch.titulo;
+  if (patch.descricao !== undefined) payload["descricao"] = patch.descricao;
+  if (patch.prazo !== undefined) payload["prazo"] = patch.prazo;
+  const { error } = await supabase.from("club_goals").update(payload).eq("id", goalId);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteClubGoal(goalId: string): Promise<void> {
+  const { error } = await supabase.from("club_goals").delete().eq("id", goalId);
+  if (error) throw new Error(error.message);
 }
 
 export type ClubDetail = {
@@ -1086,7 +1166,10 @@ export type ClubRankingEntry = {
 // book_id — por isso o match por ISBN em setClubCurrentBook importa) na
 // própria estante, já que é de lá que vem o progresso real da pessoa.
 export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]> {
-  const members = await listClubMembers(clubId);
+  const todosOsMembros = await listClubMembers(clubId);
+  // Quem pediu pra não aparecer no ranking ("sem cobrança, sem julgamento")
+  // simplesmente não entra na lista.
+  const members = todosOsMembros.filter((m) => !m.ranking_oculto);
   if (members.length === 0) return [];
 
   const { data: clubBookRow, error: clubBookError } = await supabase
