@@ -15,7 +15,8 @@ import { ArrowLeft, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
-import { listPublicClubs, joinPublicClub } from "@/lib/api";
+import { listPublicClubs, joinPublicClub, listMyClubs } from "@/lib/api";
+import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/clubes/descobrir")({
@@ -39,6 +40,19 @@ function DescobrirClubes() {
 
   const [entrandoEm, setEntrandoEm] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+
+  const subscription = useQuery({
+    queryKey: ["subscription", user?.id],
+    queryFn: getMySubscription,
+    enabled: Boolean(user),
+  });
+  const meusClubes = useQuery({
+    queryKey: ["my-clubs", user?.id],
+    queryFn: () => listMyClubs(user!.id),
+    enabled: Boolean(user),
+  });
+  const limiteAtingido =
+    !hasActiveAccess(subscription.data) && (meusClubes.data?.length ?? 0) >= 1;
 
   async function entrar(clubId: string) {
     if (!user) return;
@@ -84,6 +98,18 @@ function DescobrirClubes() {
         />
       </div>
 
+      {limiteAtingido && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs">
+          <span>
+            Sem assinatura ativa, você já está no limite de 1 Clube de Leitura — pode olhar, mas
+            não consegue entrar em outro.
+          </span>
+          <Link to="/conta" className="font-medium text-primary underline underline-offset-4">
+            Assinar
+          </Link>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-col gap-3">
         {clubes.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
 
@@ -121,8 +147,8 @@ function DescobrirClubes() {
               </div>
               <button
                 onClick={() => entrar(club.id)}
-                disabled={entrandoEm === club.id}
-                className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                disabled={entrandoEm === club.id || limiteAtingido}
+                className="shrink-0 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-40"
               >
                 {entrandoEm === club.id ? "Entrando…" : "Entrar"}
               </button>
