@@ -22,6 +22,11 @@ import {
   Trophy,
   CalendarDays,
   Plus,
+  Target,
+  ShieldCheck,
+  ShieldMinus,
+  EyeOff,
+  Eye,
   Users as UsersIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +53,11 @@ import {
   listClubEvents,
   createClubEvent,
   deleteClubEvent,
+  listClubGoals,
+  createClubGoal,
+  deleteClubGoal,
+  setClubMemberRole,
+  setMeuRankingOculto,
   type GoogleVolume,
   type ClubMember,
 } from "@/lib/api";
@@ -296,6 +306,12 @@ function ClubPage() {
     enabled: Boolean(user),
   });
 
+  const goals = useQuery({
+    queryKey: ["club-goals", clubId],
+    queryFn: () => listClubGoals(clubId),
+    enabled: Boolean(user),
+  });
+
   const [buscaLivroAberta, setBuscaLivroAberta] = useState(false);
   const [termoBusca, setTermoBusca] = useState("");
   const [resultadosBusca, setResultadosBusca] = useState<GoogleVolume[]>([]);
@@ -322,6 +338,15 @@ function ClubPage() {
   const [localEvento, setLocalEvento] = useState("");
   const [descricaoEvento, setDescricaoEvento] = useState("");
   const [criandoEvento, setCriandoEvento] = useState(false);
+
+  const [novaMetaAberta, setNovaMetaAberta] = useState(false);
+  const [tituloMeta, setTituloMeta] = useState("");
+  const [descricaoMeta, setDescricaoMeta] = useState("");
+  const [prazoMeta, setPrazoMeta] = useState("");
+  const [criandoMeta, setCriandoMeta] = useState(false);
+
+  const [alterandoPapel, setAlterandoPapel] = useState(false);
+  const [alterandoRanking, setAlterandoRanking] = useState(false);
 
   function invalidarClube() {
     void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
@@ -428,6 +453,69 @@ function ClubPage() {
     }
   }
 
+  async function criarMeta() {
+    if (!user) return;
+    if (!tituloMeta.trim()) {
+      toast.error("Dê um título à meta.");
+      return;
+    }
+    setCriandoMeta(true);
+    try {
+      await createClubGoal({
+        club_id: clubId,
+        titulo: tituloMeta.trim(),
+        descricao: descricaoMeta.trim() || null,
+        prazo: prazoMeta || null,
+        criado_por: user.id,
+      });
+      setTituloMeta("");
+      setDescricaoMeta("");
+      setPrazoMeta("");
+      setNovaMetaAberta(false);
+      void queryClient.invalidateQueries({ queryKey: ["club-goals", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar a meta");
+    } finally {
+      setCriandoMeta(false);
+    }
+  }
+
+  async function apagarMeta(goalId: string) {
+    try {
+      await deleteClubGoal(goalId);
+      void queryClient.invalidateQueries({ queryKey: ["club-goals", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível apagar a meta");
+    }
+  }
+
+  async function alterarPapelMembro(userId: string, papel: "admin" | "membro") {
+    setAlterandoPapel(true);
+    try {
+      await setClubMemberRole(clubId, userId, papel);
+      toast.success(papel === "admin" ? "Agora é admin do clube." : "Virou membro comum.");
+      setMembroSelecionado(null);
+      void queryClient.invalidateQueries({ queryKey: ["club-members", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o papel");
+    } finally {
+      setAlterandoPapel(false);
+    }
+  }
+
+  async function alternarMeuRanking(ocultoAtual: boolean) {
+    setAlterandoRanking(true);
+    try {
+      await setMeuRankingOculto(clubId, !ocultoAtual);
+      void queryClient.invalidateQueries({ queryKey: ["club-members", clubId] });
+      void queryClient.invalidateQueries({ queryKey: ["club-ranking", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar sua preferência");
+    } finally {
+      setAlterandoRanking(false);
+    }
+  }
+
   async function verCodigo() {
     if (!user) return;
     if (codigoVisivel) {
@@ -519,6 +607,7 @@ function ClubPage() {
   const { club, meuPapel, livroAtualTitulo, livroAtualAutor, livroAtualCapa } = detail.data;
   const souAdmin = meuPapel === "admin";
   const memberByUserId = new Map((members.data ?? []).map((m) => [m.user_id, m]));
+  const meuMembro = user ? memberByUserId.get(user.id) : undefined;
 
   return (
     <section className="pb-6">
@@ -631,16 +720,134 @@ function ClubPage() {
         )}
       </div>
 
+      {/* Metas do clube */}
+      <div className="panel-cream mt-4 rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Target className="h-4 w-4" />
+            Metas do clube
+          </p>
+          {souAdmin && (
+            <button
+              onClick={() => setNovaMetaAberta((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {novaMetaAberta ? "Fechar" : "Nova meta"}
+            </button>
+          )}
+        </div>
+
+        {souAdmin && novaMetaAberta && (
+          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
+            <input
+              value={tituloMeta}
+              onChange={(e) => setTituloMeta(e.target.value)}
+              placeholder="Título (ex.: Ler o livro em 30 dias)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <textarea
+              value={descricaoMeta}
+              onChange={(e) => setDescricaoMeta(e.target.value)}
+              rows={2}
+              placeholder="Descrição (ex.: comentar os capítulos 1, 2 e 3 até o prazo)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <div>
+              <label className="text-xs text-muted-foreground">Prazo (opcional)</label>
+              <input
+                type="date"
+                value={prazoMeta}
+                onChange={(e) => setPrazoMeta(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <button
+              onClick={criarMeta}
+              disabled={criandoMeta}
+              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {criandoMeta ? "Salvando…" : "Criar meta"}
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {goals.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+          {!goals.isLoading && goals.data && goals.data.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhuma meta definida ainda.</p>
+          )}
+
+          {goals.data?.map((goal) => {
+            const prazoVencido = goal.prazo ? new Date(goal.prazo).getTime() < Date.now() : false;
+            return (
+              <div
+                key={goal.id}
+                className={"rounded-xl border border-border p-3 " + (prazoVencido ? "opacity-60" : "")}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{goal.titulo}</p>
+                    {goal.prazo && (
+                      <p className="text-xs text-muted-foreground">
+                        Prazo: {new Date(goal.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                    {goal.descricao && (
+                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                        {goal.descricao}
+                      </p>
+                    )}
+                  </div>
+                  {souAdmin && (
+                    <button
+                      onClick={() => apagarMeta(goal.id)}
+                      aria-label="Apagar meta"
+                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Ranking de leitura (só existe enquanto houver um livro atual) */}
       {livroAtualTitulo && (
         <div className="panel-cream mt-4 rounded-2xl p-4">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <Trophy className="h-4 w-4" />
-            Ranking de leitura
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <Trophy className="h-4 w-4" />
+              Ranking de leitura
+            </p>
+            {meuMembro && (
+              <button
+                onClick={() => alternarMeuRanking(meuMembro.ranking_oculto)}
+                disabled={alterandoRanking}
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline underline-offset-4 disabled:opacity-60"
+              >
+                {meuMembro.ranking_oculto ? (
+                  <>
+                    <EyeOff className="h-3.5 w-3.5" />
+                    Você está oculto
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-3.5 w-3.5" />
+                    Não aparecer
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube — só conta
-            quem tem esse mesmo livro na própria estante.
+            quem tem esse mesmo livro na própria estante. É só por diversão, ninguém é obrigado a
+            aparecer aqui.
           </p>
 
           <div className="mt-3 flex flex-col gap-1.5">
@@ -883,9 +1090,33 @@ function ClubPage() {
                 {new Date(membroSelecionado.entrou_em).toLocaleDateString("pt-BR")}
               </p>
             </div>
+            {souAdmin && membroSelecionado.user_id !== user?.id && (
+              <button
+                onClick={() =>
+                  alterarPapelMembro(
+                    membroSelecionado.user_id,
+                    membroSelecionado.papel === "admin" ? "membro" : "admin",
+                  )
+                }
+                disabled={alterandoPapel}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-border py-2.5 text-sm font-medium disabled:opacity-60"
+              >
+                {membroSelecionado.papel === "admin" ? (
+                  <>
+                    <ShieldMinus className="h-4 w-4" />
+                    Rebaixar a membro
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Promover a admin
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={() => setMembroSelecionado(null)}
-              className="mt-5 w-full rounded-full border border-border py-2.5 text-sm font-medium"
+              className="mt-2 w-full rounded-full border border-border py-2.5 text-sm font-medium"
             >
               Fechar
             </button>
