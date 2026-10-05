@@ -918,6 +918,36 @@ export async function joinClubByCode(codigo: string): Promise<string> {
   return data as string;
 }
 
+export type PublicClubSummary = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  imagem_url: string | null;
+  criado_em: string;
+  membros_count: number;
+  livro_atual_titulo: string | null;
+  livro_atual_capa: string | null;
+  ja_sou_membro: boolean;
+};
+
+// Lista clubes marcados como públicos, com contagem de membros (via RPC,
+// já que a policy normal de club_members não deixa ver isso de fora).
+export async function listPublicClubs(): Promise<PublicClubSummary[]> {
+  const { data, error } = await supabase.rpc("listar_clubes_publicos");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PublicClubSummary[];
+}
+
+// Entra direto num clube público, sem precisar de código de convite.
+export async function joinPublicClub(clubId: string, userId: string): Promise<void> {
+  const { error } = await supabase.from("club_members").insert({
+    club_id: clubId,
+    user_id: userId,
+    papel: "membro",
+  });
+  if (error) throw new Error(error.message);
+}
+
 // --- Clube: detalhe, livro atual, membros e mural ---------------------------
 
 export type ClubMember = {
