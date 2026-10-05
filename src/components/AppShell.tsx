@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
   { to: "/biblioteca", label: "Biblioteca", icon: Library },
-  { to: "/clubes", label: "Clubes", icon: Users },
+  { to: "/clubes", label: "Clubes de Leitura", icon: Users },
   { to: "/emprestimos", label: "Empréstimos", icon: HandHeart },
   { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
 ];
