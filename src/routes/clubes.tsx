@@ -7,7 +7,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, KeyRound, Users, Copy } from "lucide-react";
+import { Plus, KeyRound, Compass, Users, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
@@ -89,6 +89,14 @@ function ClubesPage() {
           Entrar com código
         </Link>
       </div>
+
+      <Link
+        to="/clubes/descobrir"
+        className="mt-2 flex items-center justify-center gap-2 rounded-full border border-dashed border-border py-3 text-sm font-medium text-muted-foreground"
+      >
+        <Compass className="h-4 w-4" />
+        Descobrir clubes públicos
+      </Link>
 
       <div className="mt-6 flex flex-col gap-3">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
