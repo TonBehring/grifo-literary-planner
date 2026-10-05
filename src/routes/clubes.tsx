@@ -1,178 +1,164 @@
-// src/routes/clubes.tsx
+// src/routes/clubes_.novo.tsx
 //
-// Tela de listagem dos clubes de leitura do usuário — ponto de entrada do
-// recurso. As ações de criar e entrar por código ficam em telas próprias
-// (clubes_.novo.tsx e clubes_.entrar.tsx) para manter esta tela simples.
+// IMPORTANTE: o nome do arquivo tem um "_" logo depois de "clubes"
+// (clubes_.novo.tsx, não clubes.novo.tsx). É proposital — é a mesma
+// convenção usada em livro.$id_.sessao.tsx, pra gerar a URL /clubes/novo
+// SEM aninhar essa tela dentro de clubes.tsx (que não tem um <Outlet />
+// pra exibir uma tela filha). Sem o "_", a rota existe mas nunca aparece
+// na tela.
 
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, KeyRound, Compass, Users, Copy } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { BookCover } from "@/components/BookCover";
-import { listMyClubs, getOrCreateClubInviteCode } from "@/lib/api";
+import { createClub, createClubInvite, type ClubType } from "@/lib/api";
+import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/clubes")({
+export const Route = createFileRoute("/clubes/novo")({
   component: () => (
     <AppShell>
-      <ClubesPage />
+      <NovoClube />
     </AppShell>
   ),
 });
 
-function ClubesPage() {
+function NovoClube() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const { data: clubs, isLoading } = useQuery({
-    queryKey: ["my-clubs", user?.id],
-    queryFn: () => listMyClubs(user!.id),
+  const subscription = useQuery({
+    queryKey: ["subscription", user?.id],
+    queryFn: getMySubscription,
     enabled: Boolean(user),
   });
+  const podeCriar = hasActiveAccess(subscription.data);
 
-  // Código de convite visível por clube (só é buscado/gerado quando a
-  // pessoa pede, pra não fazer uma chamada extra por clube na listagem).
-  const [codigoVisivel, setCodigoVisivel] = useState<Record<string, string>>({});
-  const [carregandoCodigo, setCarregandoCodigo] = useState<string | null>(null);
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [tipo, setTipo] = useState<ClubType>("privado");
+  const [salvando, setSalvando] = useState(false);
 
-  async function alternarCodigo(clubId: string) {
+  async function criar() {
     if (!user) return;
-    if (codigoVisivel[clubId]) {
-      setCodigoVisivel((prev) => {
-        const next = { ...prev };
-        delete next[clubId];
-        return next;
-      });
+    if (!nome.trim()) {
+      toast.error("Dê um nome ao clube.");
       return;
     }
-    setCarregandoCodigo(clubId);
+    setSalvando(true);
     try {
-      const codigo = await getOrCreateClubInviteCode(clubId, user.id);
-      setCodigoVisivel((prev) => ({ ...prev, [clubId]: codigo }));
+      const club = await createClub({
+        nome: nome.trim(),
+        descricao: descricao.trim() || null,
+        tipo,
+        criado_por: user.id,
+      });
+      const codigo = await createClubInvite(club.id, user.id);
+      toast.success(`Clube criado! Código de convite: ${codigo}`, { duration: 8000 });
+      navigate({ to: "/clubes" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível buscar o código");
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar o clube");
     } finally {
-      setCarregandoCodigo(null);
-    }
-  }
-
-  async function copiarCodigo(codigo: string) {
-    try {
-      await navigator.clipboard.writeText(codigo);
-      toast.success("Código copiado!");
-    } catch {
-      toast.error("Não foi possível copiar — copie manualmente.");
+      setSalvando(false);
     }
   }
 
   return (
-    <section>
-      <h1 className="font-display text-2xl">
-        Clubes de leitura{" "}
-        <span className="text-sm font-sans font-medium text-destructive">(em desenvolvimento)</span>
-      </h1>
-
-      <div className="mt-4 flex gap-2">
-        <Link
-          to="/clubes/novo"
-          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground"
+    <section className="flex min-h-[70vh] flex-col">
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl">Criar clube</h1>
+        <button
+          onClick={() => navigate({ to: "/clubes" })}
+          aria-label="Fechar"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-muted-foreground"
         >
-          <Plus className="h-4 w-4" />
-          Criar clube
-        </Link>
-        <Link
-          to="/clubes/entrar"
-          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium text-foreground"
-        >
-          <KeyRound className="h-4 w-4" />
-          Entrar com código
-        </Link>
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
-      <Link
-        to="/clubes/descobrir"
-        className="mt-2 flex items-center justify-center gap-2 rounded-full border border-dashed border-border py-3 text-sm font-medium text-muted-foreground"
-      >
-        <Compass className="h-4 w-4" />
-        Descobrir clubes públicos
-      </Link>
+      {subscription.isLoading ? (
+        <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>
+      ) : !podeCriar ? (
+        <div className="panel-cream mt-6 rounded-2xl p-6 text-center">
+          <p className="font-display text-lg">Assine o Grifo para criar seu Clube de Leitura</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Criar e administrar um clube é um benefício de quem assina o Grifo. Qualquer pessoa
+            pode entrar no seu clube de graça — só pra criar e administrar é preciso assinatura
+            ativa.
+          </p>
+          <Link
+            to="/conta"
+            className="mt-4 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground"
+          >
+            Assinar o Grifo
+          </Link>
+        </div>
+      ) : (
+      <div className="mt-6 flex flex-col gap-4">
+        <div>
+          <label className="text-sm text-muted-foreground">Nome do clube</label>
+          <input
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex.: Clube do Livro — Torcida Tal"
+            className="mt-1 w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary"
+          />
+        </div>
 
-      <div className="mt-6 flex flex-col gap-3">
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+        <div>
+          <label className="text-sm text-muted-foreground">Descrição (opcional)</label>
+          <textarea
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            rows={3}
+            placeholder="Do que esse clube trata?"
+            className="mt-1 w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary"
+          />
+        </div>
 
-        {!isLoading && clubs && clubs.length === 0 && (
-          <div className="panel-cream rounded-2xl p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Você ainda não participa de nenhum clube. Crie o seu ou entre com um código de
-              convite.
-            </p>
-          </div>
-        )}
-
-        {clubs?.map((club) => (
-          <div key={club.id} className="panel-cream rounded-2xl p-4">
-            <Link
-              to="/clubes/$clubId"
-              params={{ clubId: club.id }}
-              className="flex items-center gap-3"
+        <div>
+          <p className="text-sm text-muted-foreground">Visibilidade</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => setTipo("privado")}
+              className={
+                "flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors " +
+                (tipo === "privado"
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-muted-foreground")
+              }
             >
-              <div className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                {club.imagem_url ? (
-                  <img src={club.imagem_url} alt="" className="h-full w-full object-cover" />
-                ) : club.livro_atual_capa ? (
-                  <BookCover src={club.livro_atual_capa} title={club.livro_atual_titulo} />
-                ) : (
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-display truncate text-base">{club.nome}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {club.livro_atual_titulo
-                    ? `Lendo: ${club.livro_atual_titulo}`
-                    : "Sem livro atual"}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {club.membros_count} {club.membros_count === 1 ? "membro" : "membros"}
-                  {club.meu_papel === "admin" ? " · você é admin" : ""}
-                </p>
-              </div>
-            </Link>
-
-            {club.meu_papel === "admin" && (
-              <div className="mt-3 border-t border-border/50 pt-3">
-                <button
-                  onClick={() => alternarCodigo(club.id)}
-                  disabled={carregandoCodigo === club.id}
-                  className="text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
-                >
-                  {carregandoCodigo === club.id
-                    ? "Buscando código…"
-                    : codigoVisivel[club.id]
-                      ? "Ocultar código"
-                      : "Ver código de convite"}
-                </button>
-
-                {codigoVisivel[club.id] && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium tracking-[0.2em]">
-                      {codigoVisivel[club.id]}
-                    </span>
-                    <button
-                      onClick={() => copiarCodigo(codigoVisivel[club.id])}
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copiar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+              Privado (só por convite)
+            </button>
+            <button
+              onClick={() => setTipo("publico")}
+              className={
+                "flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors " +
+                (tipo === "publico"
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-muted-foreground")
+              }
+            >
+              Público
+            </button>
           </div>
-        ))}
+        </div>
       </div>
+      )}
+
+      {podeCriar && (
+        <div className="mt-auto pt-10">
+          <button
+            onClick={criar}
+            disabled={salvando}
+            className="w-full rounded-full bg-primary py-4 text-base font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {salvando ? "Criando…" : "Criar clube"}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
