@@ -63,7 +63,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/clubes/$clubId")({
+export const Route = createFileRoute("/clubes_/$clubId")({
   component: () => (
     <AppShell>
       <ClubPage />
@@ -131,9 +131,9 @@ function CurtidoresResumo({
 
   let legenda: string;
   if (curtidoPor.length === 1) {
-    legenda = `Curtido por ${nomeDe(curtidoPor[0])}`;
+    legenda = `Curtido por ${nomeDe(primeiros[0] ?? "")}`;
   } else if (restantes > 0) {
-    legenda = `Curtido por ${nomeDe(curtidoPor[0])} e mais ${curtidoPor.length - 1} ${
+    legenda = `Curtido por ${nomeDe(primeiros[0] ?? "")} e mais ${curtidoPor.length - 1} ${
       curtidoPor.length - 1 === 1 ? "pessoa" : "pessoas"
     }`;
   } else {

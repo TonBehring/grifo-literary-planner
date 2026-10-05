@@ -840,11 +840,14 @@ export async function listMyClubs(userId: string): Promise<ClubSummary[]> {
     .eq("status", "atual");
   if (bookError) throw new Error(bookError.message);
   const bookByClub = new Map<string, { titulo: string; capa_url: string | null }>();
-  for (const b of (bookRows ?? []) as Array<{
-    club_id: string;
-    book: { titulo: string; capa_url: string | null } | null;
-  }>) {
-    if (b.book) bookByClub.set(b.club_id, b.book);
+  for (const b of bookRows ?? []) {
+    const relatedBook = Array.isArray(b.book) ? b.book[0] : b.book;
+    if (relatedBook) {
+      bookByClub.set(b.club_id, {
+        titulo: relatedBook.titulo,
+        capa_url: relatedBook.capa_url,
+      });
+    }
   }
 
   return clubs.map((c) => ({

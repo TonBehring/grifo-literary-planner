@@ -160,7 +160,10 @@ function ClubesPage() {
                       {codigoVisivel[club.id]}
                     </span>
                     <button
-                      onClick={() => copiarCodigo(codigoVisivel[club.id])}
+                      onClick={() => {
+                        const codigo = codigoVisivel[club.id];
+                        if (codigo) void copiarCodigo(codigo);
+                      }}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <Copy className="h-3.5 w-3.5" />

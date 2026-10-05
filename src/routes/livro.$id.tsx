@@ -355,8 +355,9 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         )}
 
-        {(!activeLoan && subscriptionActive && (ub.status === "lendo" ||
-          (ub.status !== "desejo_compra" && ub.status !== "lido" && ub.status !== "abandonado"))) && (
+        {!activeLoan &&
+          subscriptionActive &&
+          (ub.status === "lendo" || ub.status === "quero_ler") && (
           <div className="mt-4 flex flex-col gap-2">
             {!activeLoan && subscriptionActive && ub.status === "lendo" && (
               <button
@@ -367,11 +368,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
                 Iniciar leitura
               </button>
             )}
-            {!activeLoan &&
-              subscriptionActive &&
-              ub.status !== "desejo_compra" &&
-              ub.status !== "lido" &&
-              ub.status !== "abandonado" && (
+            {!activeLoan && subscriptionActive && (
                 <button
                   onClick={() => setCelebrate(true)}
                   className="w-full rounded-full border border-primary/60 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/20"

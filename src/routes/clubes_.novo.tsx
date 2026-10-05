@@ -17,7 +17,7 @@ import { createClub, createClubInvite, type ClubType } from "@/lib/api";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/clubes/novo")({
+export const Route = createFileRoute("/clubes_/novo")({
   component: () => (
     <AppShell>
       <NovoClube />
