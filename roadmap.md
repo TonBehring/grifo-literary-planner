@@ -1,9 +1,9 @@
 # Roadmap — Grifo
 
 ## Anúncios (campanha Google Pesquisa)
-- [ ] Verificar a medição sem alterar o cadastro: o usuário relata cadastros reais hoje; a falha foi observada apenas no preview com endereço example.com, não comprova falha geral.
+- [x] Conferir a configuração da medição no site publicado e sua correspondência com a conta Google Ads; ação ativa e identificadores correspondentes em 2026-10-21.
 - [ ] Confirmar configurações atuais de e-mail e redirecionamento somente se uma investigação válida indicar necessidade; localhost:3000 é informação histórica, não verificada hoje.
-- [ ] Repetir o teste de cadastro no navegador e confirmar que a conversão "Cadastro concluído" chega ao Google.
+- [ ] Testar cadastro real no site publicado e observar transmissão; aguarda endereço de teste válido autorizado pelo usuário. Recebimento/atribuição no Google permanecem não verificados.
 - [ ] Criar a campanha de Pesquisa com o brief aprovado (palavras-chave e textos já aprovados).
 
 ## Pendências antigas
