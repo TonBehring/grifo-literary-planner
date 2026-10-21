@@ -27,7 +27,7 @@ function PrivacyPage() {
         </Link>
         <h1 className="font-display mt-3 text-3xl leading-tight">Política de Privacidade</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Última atualização: 28 de setembro de 2026
+          Última atualização: 21 de outubro de 2026
         </p>
       </div>
 
@@ -174,9 +174,26 @@ function PrivacyPage() {
 
         <Section title="9. Cookies e armazenamento local">
           <p>
-            O Grifo usa apenas o armazenamento estritamente necessário para manter você conectado
-            e para lembrar preferências do próprio aplicativo. Não usamos cookies de rastreamento
-            publicitário nem compartilhamos esse tipo de dado com redes de anúncio.
+            O Grifo usa o armazenamento necessário para manter você conectado e para lembrar
+            preferências do próprio aplicativo.
+          </p>
+          <p className="mt-2">
+            <strong>Medição de anúncios (Google Ads):</strong> usamos a tag do Google Ads para
+            medir se nossos anúncios trazem novos leitores ao Grifo (por exemplo, contando
+            quando uma conta é criada após um clique em anúncio). Para visitantes de regiões
+            que exigem consentimento (União Europeia, Reino Unido, Suíça e Quebec), essa
+            medição só é ativada se você aceitar no banner de cookies — recusar não muda
+            nada no funcionamento do app, e a escolha pode ser alterada a qualquer momento.
+            Saiba como o Google trata esses dados em{" "}
+            <a
+              href="https://business.safety.google/privacy/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-4"
+            >
+              business.safety.google/privacy
+            </a>
+            .
           </p>
         </Section>
 
