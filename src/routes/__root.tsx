@@ -13,6 +13,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../lib/auth";
+import { loadGoogleAds } from "../lib/google-ads";
+import { ConsentBanner } from "../components/ConsentBanner";
 import { Toaster } from "../components/ui/sonner";
 
 function NotFoundComponent() {
@@ -100,6 +102,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Grifo" },
     ],
+    // Padrões de consentimento do Google Ads: ativo no mundo todo, negado
+    // nas regiões que exigem consentimento até o visitante decidir no banner.
+    scripts: [
+      {
+        children:
+          "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{ad_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',wait_for_update:500,region:['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH','CA-QC']});",
+      },
+    ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -151,11 +161,19 @@ function RootComponent() {
     }
   }, []);
 
+  // Carrega a tag do Google Ads respeitando o consentimento (só no navegador).
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      void loadGoogleAds();
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <ConsentBanner />
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>

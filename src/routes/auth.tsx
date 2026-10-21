@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { reportSignupConversion } from "@/lib/google-ads";
 
 function friendlyAuthError(message: string): string {
   const m = message.toLowerCase();
@@ -88,6 +89,9 @@ const [name, setName] = useState("");
           },
         });
         if (error) throw error;
+        // Medição da campanha de anúncios: conta a conversão "Cadastro
+        // concluído" (respeita o consentimento de rastreamento do visitante).
+        void reportSignupConversion();
         if (!data.session) {
           toast.success("Confirme seu e-mail para ativar a conta.");
           return;
