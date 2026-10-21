@@ -70,7 +70,9 @@ function ClubesPage() {
     <section>
       <h1 className="font-display text-2xl">
         Clubes de leitura{" "}
-        <span className="text-sm font-sans font-medium text-destructive">(em desenvolvimento)</span>
+        <span className="ml-1 align-middle rounded-full border border-destructive/40 px-2 py-0.5 font-sans text-[10px] font-semibold uppercase tracking-wider text-destructive">
+          Beta
+        </span>
       </h1>
 
       <div className="mt-4 flex gap-2">
