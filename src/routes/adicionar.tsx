@@ -68,12 +68,14 @@ const [format, setFormat] = useState<BookFormat>("fisico");
   const [searched, setSearched] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isbnNotFound, setIsbnNotFound] = useState<string | null>(null);
+  const [scanConfirm, setScanConfirm] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { active: subscriptionActive, loading: subscriptionLoading } = useHasActiveSubscription();
 
-async function searchByTerm(value: string) {
+async function searchByTerm(value: string, fromScan = false) {
     const query = value.trim();
     if (query.length < 2) return;
     const looksLikeIsbn = /^[\d-]{10,17}$/.test(query);
@@ -85,6 +87,13 @@ async function searchByTerm(value: string) {
         setResults(found);
         setSearched(true);
         if (found.length === 0) setIsbnNotFound(query.replace(/[^0-9Xx]/g, ""));
+        else if (fromScan && found[0]) {
+          const first = found[0];
+          setSelected(first);
+          setEditTitle(first.title);
+          setScanConfirm(true);
+          setManual(false);
+        }
         return;
       }
       const found = await searchGoogleBooks(query);
@@ -118,8 +127,10 @@ async function searchByTerm(value: string) {
   function handleScan(text: string) {
     const code = text.replace(/[^0-9Xx]/g, "");
     setScannerOpen(false);
+    setScanConfirm(false);
+    setSelected(null);
     setTerm(code);
-    void searchByTerm(code);
+    void searchByTerm(code, true);
   }
 
 
@@ -133,7 +144,9 @@ async function searchByTerm(value: string) {
           isbn: manualIsbn,
           page_count: manualPages ? Number(manualPages) : null,
         }
-      : selected;
+      : selected && scanConfirm
+        ? { ...selected, title: editTitle.trim() }
+        : selected;
     if (!payload || !payload.title) {
       toast.error("Informe ao menos o título do livro");
       return;
@@ -257,12 +270,17 @@ try {
 
       {selected && !manual ? (
         <div className="mt-6">
+          {scanConfirm && (
+            <p className="font-display mb-3 text-2xl">É este livro?</p>
+          )}
           <div className="card-teal flex w-full gap-4 rounded-2xl p-3 text-left">
             <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-muted">
               <BookCover src={selected.cover_url} title={selected.title} />
             </div>
             <div className="min-w-0">
-              <h3 className="font-display truncate text-lg">{selected.title}</h3>
+              <h3 className="font-display truncate text-lg">
+                {scanConfirm ? editTitle || selected.title : selected.title}
+              </h3>
               <p className="truncate text-sm opacity-70">
                 {selected.author ?? "Autor desconhecido"}
               </p>
@@ -271,8 +289,24 @@ try {
               )}
             </div>
           </div>
+          {scanConfirm && (
+            <label className="mt-3 block">
+              <span className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                Título (edite se precisar)
+              </span>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                maxLength={200}
+                className="mt-2 w-full rounded-xl border border-border bg-card/0 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+            </label>
+          )}
           <button
-            onClick={() => setSelected(null)}
+            onClick={() => {
+              setSelected(null);
+              setScanConfirm(false);
+            }}
             className="mt-3 text-sm text-primary underline underline-offset-4"
           >
             Trocar livro
@@ -287,6 +321,7 @@ try {
                 onClick={() => {
                   setSelected(v);
                   setManual(false);
+                  setScanConfirm(false);
                 }}
                 className="flex w-full gap-4 rounded-2xl p-3 text-left transition-colors panel-cream"
               >
@@ -476,7 +511,7 @@ try {
           >
             {saving
               ? "Salvando…"
-              : `Adicionar "${(manual ? manualTitle : selected?.title) || "livro"}"`}
+              : `Adicionar "${(manual ? manualTitle : scanConfirm ? editTitle : selected?.title) || "livro"}"`}
           </button>
         </div>
       )}
