@@ -64,6 +64,7 @@ const [format, setFormat] = useState<BookFormat>("fisico");
   const [manualCover, setManualCover] = useState<string | null>(null);
   const [manualIsbn, setManualIsbn] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const { user } = useAuth();
@@ -330,17 +331,21 @@ try {
               cover={manualCover}
               title={manualTitle || null}
               uploading={uploadingCover}
+              error={coverError}
               onUpload={async (file) => {
                 if (!user) {
                   toast.error("Faça login para enviar uma capa");
                   return;
                 }
                 setUploadingCover(true);
+                setCoverError(null);
                 try {
                   setManualCover(await uploadCover(file, user.id));
                   toast.success("Capa carregada");
                 } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
+                  const msg = err instanceof Error ? err.message : "Não foi possível carregar a capa";
+                  setCoverError(msg);
+                  toast.error(msg);
                 } finally {
                   setUploadingCover(false);
                 }
@@ -353,7 +358,10 @@ try {
                 setManualCover(url);
                 toast.success("Capa definida pelo link");
               }}
-              onRemove={() => setManualCover(null)}
+              onRemove={() => {
+                setManualCover(null);
+                setCoverError(null);
+              }}
             />
           </div>
         </div>
@@ -445,7 +453,7 @@ try {
 
           <button
             onClick={save}
-            disabled={saving}
+            disabled={saving || uploadingCover}
             className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
             {saving

@@ -562,6 +562,7 @@ export type GoogleVolume = {
   cover_url: string | null;
   isbn: string | null;
   page_count: number | null;
+  language?: string | null;
 };
 
 export async function searchLocalCatalog(isbn: string): Promise<GoogleVolume[]> {
@@ -583,41 +584,76 @@ export async function searchLocalCatalog(isbn: string): Promise<GoogleVolume[]> 
     },
   ];
 }
-export async function searchGoogleBooks(term: string): Promise<GoogleVolume[]> {
-  const isIsbn = /^[\d-]{10,17}$/.test(term.trim());
-  const q = isIsbn ? `isbn:${term.replace(/-/g, "")}` : term;
+type GoogleBooksJson = {
+  items?: Array<{
+    id: string;
+    volumeInfo?: {
+      title?: string;
+      authors?: string[];
+      pageCount?: number;
+      language?: string;
+      imageLinks?: { thumbnail?: string };
+      industryIdentifiers?: Array<{ type?: string; identifier: string }>;
+    };
+  }>;
+};
+
+async function fetchGoogleBooks(q: string, ptOnly: boolean): Promise<GoogleVolume[] | null> {
+  const extra = ptOnly ? "&langRestrict=pt" : "";
   let res: Response;
   try {
     res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?maxResults=20&q=${encodeURIComponent(q)}`,
+      `https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books&country=BR${extra}&q=${encodeURIComponent(q)}`,
     );
   } catch {
-    return searchOpenLibrary(term);
+    return null;
   }
-  if (!res.ok) return searchOpenLibrary(term);
-  const json = (await res.json()) as {
-    items?: Array<{
-      id: string;
-      volumeInfo?: {
-        title?: string;
-        authors?: string[];
-        pageCount?: number;
-        imageLinks?: { thumbnail?: string };
-        industryIdentifiers?: Array<{ identifier: string }>;
-      };
-    }>;
-  };
-  const items = (json.items ?? []).map((item) => {
+  if (!res.ok) return null;
+  const json = (await res.json()) as GoogleBooksJson;
+  return (json.items ?? []).map((item) => {
     const v = item.volumeInfo ?? {};
+    const ids = v.industryIdentifiers ?? [];
+    const isbn =
+      ids.find((i) => i.type === "ISBN_13")?.identifier ??
+      ids.find((i) => i.type === "ISBN_10")?.identifier ??
+      ids[0]?.identifier ??
+      null;
     return {
       id: item.id,
       title: v.title ?? "Sem título",
       author: v.authors?.join(", ") ?? null,
       cover_url: v.imageLinks?.thumbnail?.replace("http://", "https://") ?? null,
-      isbn: v.industryIdentifiers?.[0]?.identifier ?? null,
+      isbn,
       page_count: v.pageCount ?? null,
+      language: v.language ?? null,
     };
   });
+}
+
+export async function searchGoogleBooks(term: string): Promise<GoogleVolume[]> {
+  const isIsbn = /^[\d-]{10,17}$/.test(term.trim());
+  const q = isIsbn ? `isbn:${term.replace(/-/g, "")}` : term;
+  const first = await fetchGoogleBooks(q, true);
+  let items = first ?? [];
+  if (items.length < 5) {
+    const second = await fetchGoogleBooks(q, false);
+    if (second) {
+      const seenIsbn = new Set(items.map((i) => i.isbn).filter(Boolean));
+      const seenId = new Set(items.map((i) => i.id));
+      for (const v of second) {
+        if (seenId.has(v.id) || (v.isbn && seenIsbn.has(v.isbn))) continue;
+        if (v.isbn) seenIsbn.add(v.isbn);
+        seenId.add(v.id);
+        items.push(v);
+      }
+    }
+    if (first === null && second === null) return searchOpenLibrary(term);
+  }
+  const isPt = (l?: string | null) => (l ?? "").toLowerCase().startsWith("pt");
+  items = items
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => Number(isPt(b.v.language)) - Number(isPt(a.v.language)) || a.i - b.i)
+    .map((x) => x.v);
   if (items.length === 0) return searchOpenLibrary(term);
   return items;
 }

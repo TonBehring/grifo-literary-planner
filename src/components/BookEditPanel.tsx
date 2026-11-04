@@ -23,6 +23,7 @@ export function BookEditPanel({
   const [genre, setGenre] = useState<string | null>(ub.book?.genre ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   async function save() {
     if (!title.trim()) {
@@ -88,13 +89,17 @@ export function BookEditPanel({
           cover={cover}
           title={title || null}
           uploading={uploading}
+          error={coverError}
           onUpload={async (file) => {
             if (!user) return;
             setUploading(true);
+            setCoverError(null);
             try {
               setCover(await uploadCover(file, user.id));
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Não foi possível carregar a capa");
+              const msg = err instanceof Error ? err.message : "Não foi possível carregar a capa";
+              setCoverError(msg);
+              toast.error(msg);
             } finally {
               setUploading(false);
             }
@@ -107,7 +112,10 @@ export function BookEditPanel({
             setCover(url);
             toast.success("Capa definida pelo link");
           }}
-          onRemove={() => setCover(null)}
+          onRemove={() => {
+            setCover(null);
+            setCoverError(null);
+          }}
         />
         <p className="mt-2 text-xs text-muted-foreground">
           Depois de definir a capa, toque em “Salvar alterações” para gravar no livro.
@@ -145,7 +153,7 @@ export function BookEditPanel({
 
       <button
         onClick={save}
-        disabled={saving}
+        disabled={saving || uploading}
         className="mt-6 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
       >
         {saving ? "Salvando…" : "Salvar alterações"}
