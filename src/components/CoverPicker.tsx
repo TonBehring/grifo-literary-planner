@@ -9,10 +9,12 @@ export function CoverPicker({
   onUseUrl,
   onRemove,
   uploading,
+  error,
 }: {
   cover: string | null;
   title?: string | null;
-  onUpload: (file: File) => void;
+  onUpload: (file: File) => void | Promise<void>;
+  error?: string | null;
   onUseUrl: (url: string) => void;
   onRemove: () => void;
   uploading: boolean;
@@ -151,7 +153,12 @@ export function CoverPicker({
           onChange={handleFileChange}
         />
 
-        <p className="mt-2 text-xs text-muted-foreground">JPG ou PNG, até 5MB.</p>
+        {error && (
+          <p role="alert" className="mt-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">JPG, PNG ou foto do celular.</p>
       </div>
     </div>
   );
