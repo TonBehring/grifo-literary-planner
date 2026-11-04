@@ -14,7 +14,7 @@ import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
-import { addBookToShelf, searchGoogleBooks, searchLocalCatalog, type GoogleVolume } from "@/lib/api";
+import { addBookToShelf, searchByIsbn, searchGoogleBooks, type GoogleVolume } from "@/lib/api";
 import { FORMAT_LABEL, STATUS_LABEL, GENRE_OPTIONS, type BookFormat, type ShelfStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { uploadCover } from "@/lib/cover-upload";
@@ -67,6 +67,7 @@ const [format, setFormat] = useState<BookFormat>("fisico");
   const [coverError, setCoverError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [isbnNotFound, setIsbnNotFound] = useState<string | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -77,15 +78,14 @@ async function searchByTerm(value: string) {
     if (query.length < 2) return;
     const looksLikeIsbn = /^[\d-]{10,17}$/.test(query);
     setSearching(true);
+    setIsbnNotFound(null);
     try {
       if (looksLikeIsbn) {
-        const local = await searchLocalCatalog(query);
-        if (local.length > 0) {
-          setResults(local);
-          setSearched(true);
-          setSearching(false);
-          return;
-        }
+        const found = await searchByIsbn(query);
+        setResults(found);
+        setSearched(true);
+        if (found.length === 0) setIsbnNotFound(query.replace(/[^0-9Xx]/g, ""));
+        return;
       }
       const found = await searchGoogleBooks(query);
       setResults(found);
@@ -236,6 +236,24 @@ try {
       </Dialog>
 
       {searching && <p className="mt-6 text-sm text-muted-foreground">Buscando…</p>}
+
+      {isbnNotFound && !searching && !manual && (
+        <div className="panel-cream mt-6 rounded-2xl p-5 text-sm">
+          <p>Não encontramos esse ISBN. Você pode cadastrar o livro manualmente.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setManual(true);
+              setSelected(null);
+              setManualTitle("");
+              setManualIsbn(isbnNotFound);
+            }}
+            className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Cadastrar manualmente
+          </button>
+        </div>
+      )}
 
       {selected && !manual ? (
         <div className="mt-6">
