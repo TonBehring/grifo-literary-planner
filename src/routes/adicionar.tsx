@@ -87,9 +87,10 @@ async function searchByTerm(value: string, fromScan = false) {
         setResults(found);
         setSearched(true);
         if (found.length === 0) setIsbnNotFound(query.replace(/[^0-9Xx]/g, ""));
-        else if (fromScan) {
-          setSelected(found[0]);
-          setEditTitle(found[0].title);
+        else if (fromScan && found[0]) {
+          const first = found[0];
+          setSelected(first);
+          setEditTitle(first.title);
           setScanConfirm(true);
           setManual(false);
         }
