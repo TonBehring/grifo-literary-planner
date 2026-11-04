@@ -752,13 +752,66 @@ export async function searchByIsbn(raw: string): Promise<GoogleVolume[]> {
   if (local.length > 0) return local;
 
   const ol = await fetchOpenLibraryEdition(isbn);
-  if (ol) return [ol];
+  if (ol) return [await enrichFromGoogle(ol, false)];
 
   const g = (await fetchGoogleBooks(`isbn:${isbn}`, false).catch(() => null)) ?? [];
-  if (g.length > 0) return g;
+  if (g.length > 0) {
+    const [first, ...rest] = g;
+    return first && !first.cover_url ? [await enrichFromGoogle(first, false), ...rest] : g;
+  }
 
   const br = await fetchBrasilApiIsbn(isbn);
-  return br ? [br] : [];
+  if (!br) return [];
+  const multiAuthor = (br.author ?? "").split(",").filter((n) => n.trim()).length > 1;
+  return [await enrichFromGoogle(br, multiAuthor)];
+}
+
+/** Normaliza títulos: sem maiúsculas, acentos e pontuação. */
+export function normalizeTitle(t: string): string {
+  return t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function surname(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1] ?? "";
+}
+
+/**
+ * Busca extra (uma única chamada) no Google Books por título e autor, para
+ * completar capa faltando e/ou corrigir autor quando a CBL mistura tradutor.
+ * Mantém sempre o ISBN original. Em falha, devolve o livro como veio.
+ */
+async function enrichFromGoogle(book: GoogleVolume, fixAuthor: boolean): Promise<GoogleVolume> {
+  const needCover = !book.cover_url;
+  if (!needCover && !fixAuthor) return book;
+  const names = (book.author ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+  const authorQ = fixAuthor
+    ? names.map((n) => `inauthor:"${surname(n)}"`).join(" OR ")
+    : names[0]
+      ? `inauthor:"${surname(names[0])}"`
+      : "";
+  const q = `intitle:"${book.title}"${authorQ ? `+${fixAuthor ? `(${authorQ})` : authorQ}` : ""}`;
+  const items = await fetchGoogleBooks(q, true).catch(() => null);
+  if (!items) return book;
+  const target = normalizeTitle(book.title);
+  const lowerNames = names.map((n) => normalizeTitle(n));
+  const match = items.find((v) => {
+    if (normalizeTitle(v.title) !== target) return false;
+    if (!fixAuthor || !v.author) return true;
+    const va = normalizeTitle(v.author);
+    return lowerNames.some((n) => va.includes(n) || va.includes(normalizeTitle(surname(n))));
+  });
+  if (!match) return book;
+  return {
+    ...book,
+    cover_url: book.cover_url ?? match.cover_url ?? null,
+    author: fixAuthor && match.author ? match.author : book.author,
+  };
 }
 
 export async function searchOpenLibrary(term: string): Promise<GoogleVolume[]> {
