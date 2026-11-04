@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { listContacts } from "./contatos";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
+const GOOGLE_BOOKS_KEY = "AIzaSyAKLIS-JsGIcKYrX3CTGdBYWPfwtoId2Rw";
+
 const USER_BOOK_SELECT =
   "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
 
@@ -603,7 +605,7 @@ async function fetchGoogleBooks(q: string, ptOnly: boolean): Promise<GoogleVolum
   let res: Response;
   try {
     res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books&country=BR${extra}&q=${encodeURIComponent(q)}`,
+      `https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books&country=BR${extra}&key=${GOOGLE_BOOKS_KEY}&q=${encodeURIComponent(q)}`,
     );
   } catch {
     return null;
@@ -665,7 +667,7 @@ export async function searchOpenLibrary(term: string): Promise<GoogleVolume[]> {
     ? `isbn=${clean.replace(/-/g, "")}`
     : `q=${encodeURIComponent(clean)}`;
   const res = await fetch(
-    `https://openlibrary.org/search.json?${params}&limit=20&fields=key,title,author_name,cover_i,isbn,number_of_pages_median`,
+    `https://openlibrary.org/search.json?${params}&lang=pt&limit=20&fields=key,title,author_name,cover_i,isbn,number_of_pages_median`,
   );
   if (!res.ok) throw new Error("Não foi possível buscar agora. Tente o cadastro manual.");
   const json = (await res.json()) as {
