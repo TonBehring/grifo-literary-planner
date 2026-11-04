@@ -790,12 +790,10 @@ async function enrichFromGoogle(book: GoogleVolume, fixAuthor: boolean): Promise
   const needCover = !book.cover_url;
   if (!needCover && !fixAuthor) return book;
   const names = (book.author ?? "").split(",").map((n) => n.trim()).filter(Boolean);
-  const authorQ = fixAuthor
-    ? names.map((n) => `inauthor:"${surname(n)}"`).join(" OR ")
-    : names[0]
-      ? `inauthor:"${surname(names[0])}"`
-      : "";
-  const q = `intitle:"${book.title}"${authorQ ? `+${fixAuthor ? `(${authorQ})` : authorQ}` : ""}`;
+  // Com vários nomes (autor + tradutor), o Google não aceita OR entre inauthor:,
+  // então buscamos só pelo título e filtramos pelos nomes no resultado.
+  const authorQ = !fixAuthor && names[0] ? `+inauthor:"${surname(names[0])}"` : "";
+  const q = `intitle:"${book.title}"${authorQ}`;
   const items = await fetchGoogleBooks(q, true).catch(() => null);
   if (!items) return book;
   const target = normalizeTitle(book.title);
