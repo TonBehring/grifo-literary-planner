@@ -686,30 +686,79 @@ async function fetchBrasilApiIsbn(isbn: string): Promise<GoogleVolume | null> {
   }
 }
 
-/** Busca por ISBN: catálogo local → BrasilAPI → Google Books → Open Library. */
+async function fetchOlNames(keys: string[]): Promise<string[]> {
+  const names = await Promise.all(
+    keys.map(async (key) => {
+      try {
+        const r = await fetch(`https://openlibrary.org${key}.json`);
+        if (!r.ok) return null;
+        const a = (await r.json()) as { name?: string };
+        return a.name ?? null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return names.filter((n): n is string => !!n);
+}
+
+/** Open Library por edição (título da edição, não da obra original). */
+async function fetchOpenLibraryEdition(isbn: string): Promise<GoogleVolume | null> {
+  try {
+    const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as {
+      title?: string;
+      subtitle?: string;
+      number_of_pages?: number;
+      covers?: number[];
+      authors?: Array<{ key: string }>;
+      works?: Array<{ key: string }>;
+    };
+    if (!d.title) return null;
+    let authorKeys = (d.authors ?? []).map((a) => a.key).filter(Boolean);
+    if (authorKeys.length === 0 && d.works?.[0]?.key) {
+      try {
+        const w = await fetch(`https://openlibrary.org${d.works[0].key}.json`);
+        if (w.ok) {
+          const wd = (await w.json()) as { authors?: Array<{ author?: { key: string } }> };
+          authorKeys = (wd.authors ?? [])
+            .map((a) => a.author?.key)
+            .filter((k): k is string => !!k);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    const names = await fetchOlNames(authorKeys);
+    const cover = d.covers?.find((c) => c > 0);
+    return {
+      id: `ol-isbn-${isbn}`,
+      title: d.subtitle ? `${d.title}: ${d.subtitle}` : d.title,
+      author: names.length ? names.join(", ") : null,
+      cover_url: cover ? `https://covers.openlibrary.org/b/id/${cover}-M.jpg` : null,
+      isbn,
+      page_count: d.number_of_pages ?? null,
+    } as GoogleVolume;
+  } catch {
+    return null;
+  }
+}
+
+/** Busca por ISBN: catálogo local → Open Library (edição) → Google Books → BrasilAPI. */
 export async function searchByIsbn(raw: string): Promise<GoogleVolume[]> {
   const isbn = raw.replace(/[^0-9Xx]/g, "");
   const local = await searchLocalCatalog(isbn).catch(() => []);
   if (local.length > 0) return local;
 
-  const br = await fetchBrasilApiIsbn(isbn);
-  if (br) {
-    if (!br.cover_url) {
-      const g =
-        (await fetchGoogleBooks(`isbn:${isbn}`, false).catch(() => null)) ?? [];
-      br.cover_url = g.find((v) => v.cover_url)?.cover_url ?? null;
-    }
-    return [br];
-  }
+  const ol = await fetchOpenLibraryEdition(isbn);
+  if (ol) return [ol];
 
   const g = (await fetchGoogleBooks(`isbn:${isbn}`, false).catch(() => null)) ?? [];
   if (g.length > 0) return g;
 
-  try {
-    return await searchOpenLibrary(isbn);
-  } catch {
-    return [];
-  }
+  const br = await fetchBrasilApiIsbn(isbn);
+  return br ? [br] : [];
 }
 
 export async function searchOpenLibrary(term: string): Promise<GoogleVolume[]> {
