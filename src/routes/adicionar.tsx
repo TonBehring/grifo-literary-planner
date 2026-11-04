@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { Camera, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -67,6 +67,8 @@ const [format, setFormat] = useState<BookFormat>("fisico");
   const [coverError, setCoverError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusSearchOnClose = useRef(false);
   const [isbnNotFound, setIsbnNotFound] = useState<string | null>(null);
   const [scanConfirm, setScanConfirm] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -205,6 +207,7 @@ try {
 
       <form onSubmit={runSearch} className="mt-6 flex gap-2">
         <input
+          ref={searchInputRef}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           maxLength={120}
@@ -229,7 +232,13 @@ try {
       </form>
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" onCloseAutoFocus={(event) => {
+          if (focusSearchOnClose.current) {
+            event.preventDefault();
+            focusSearchOnClose.current = false;
+            searchInputRef.current?.focus();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle className="font-display">Escanear ISBN</DialogTitle>
             <DialogDescription>
@@ -242,7 +251,10 @@ try {
                 <div className="h-[320px] rounded-xl bg-muted" aria-label="Carregando câmera" />
               }
             >
-              <IsbnScannerView onResult={handleScan} />
+              <IsbnScannerView onResult={handleScan} onManualEntry={() => {
+                focusSearchOnClose.current = true;
+                setScannerOpen(false);
+              }} />
             </Suspense>
           )}
         </DialogContent>
