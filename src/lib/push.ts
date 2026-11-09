@@ -1,6 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const VAPID_PUBLIC_KEY = import.meta.env['VITE_VAPID_PUBLIC_KEY'] as string | undefined;
+// Chave pública VAPID do projeto. Vem do ambiente se existir; senão, usa a
+// chave pública fixa abaixo — é pública, então pode ficar no código.
+const VAPID_PUBLIC_KEY =
+  (import.meta.env['VITE_VAPID_PUBLIC_KEY'] as string | undefined) ||
+  "BGPVnE5aduHcm4cODLeGOhjVd-QMkY4kcCOqyvNB2UA1SJT8eRCfqNYYUBsuAMja1n5cLvdeHdR5WGhVKEZEavI";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -11,6 +15,25 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+// Compara, byte a byte, a chave de aplicação de uma inscrição existente com a
+// chave atual. O navegador devolve ArrayBuffer ou Uint8Array dependendo do
+// caso, então normaliza antes de comparar.
+function sameApplicationKey(
+  actual: ArrayBuffer | ArrayBufferView | null | undefined,
+  expected: Uint8Array,
+): boolean {
+  if (!actual) return false;
+  const bytes =
+    actual instanceof ArrayBuffer
+      ? new Uint8Array(actual)
+      : new Uint8Array(actual.buffer, actual.byteOffset, actual.byteLength);
+  if (bytes.length !== expected.length) return false;
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] !== expected[i]) return false;
+  }
+  return true;
 }
 
 export function isPushSupported(): boolean {
@@ -31,7 +54,7 @@ export async function subscribeToPush(): Promise<void> {
     throw new Error("Notificações push não são suportadas neste navegador/dispositivo.");
   }
   if (!VAPID_PUBLIC_KEY) {
-    throw new Error("VITE_VAPID_PUBLIC_KEY não configurada no projeto.");
+    throw new Error("Não foi possível ativar as notificações agora. Tente novamente mais tarde.");
   }
 
   const permission = await Notification.requestPermission();
@@ -40,13 +63,20 @@ export async function subscribeToPush(): Promise<void> {
   }
 
   const registration = await navigator.serviceWorker.ready;
+  const desiredKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
   const existing = await registration.pushManager.getSubscription();
-  const subscription =
-    existing ??
-    (await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    }));
+
+  // Uma inscrição criada com outra chave não funciona com a chave atual:
+  // descarta a antiga e assina de novo.
+  let subscription: PushSubscription | null = existing;
+  if (existing && !sameApplicationKey(existing.options.applicationServerKey, desiredKey)) {
+    await existing.unsubscribe();
+    subscription = null;
+  }
+  subscription ??= await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: desiredKey,
+  });
 
   const subJson = subscription.toJSON();
   if (!subJson.endpoint || !subJson.keys?.['p256dh'] || !subJson.keys?.['auth']) {
