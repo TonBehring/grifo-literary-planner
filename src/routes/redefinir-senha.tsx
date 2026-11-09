@@ -47,9 +47,12 @@ function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center px-5 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center">
-          <h1 className="font-display text-5xl tracking-tight">
-            Grifo
-            <span className="ml-1 inline-block h-2 w-2 rounded-full bg-primary align-super" />
+          <h1>
+            <img
+              src="/brand/logo-grifo.png"
+              alt="Grifo"
+              className="mx-auto h-14 w-auto"
+            />
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">Crie uma nova senha para sua conta.</p>
         </div>

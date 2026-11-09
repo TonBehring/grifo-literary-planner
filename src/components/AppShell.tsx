@@ -74,9 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen pb-28">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-5 pt-8 pb-4">
-        <Link to="/" className="font-display text-2xl tracking-tight">
-          Grifo
-          <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-super" />
+        <Link to="/" className="inline-flex items-center">
+          <img src="/brand/logo-grifo.png" alt="Grifo" className="h-8 w-auto" />
         </Link>
         <div className="flex items-center gap-2">
           {(pathname === "/" || pathname.startsWith("/biblioteca")) && (
