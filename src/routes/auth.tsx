@@ -102,7 +102,7 @@ const [name, setName] = useState("");
       setResent(true);
       setCooldown(60);
     } catch {
-      toast.error("Não foi possible reenviar o e-mail. Tente de novo.".replace("possible", "possível"));
+      toast.error("Não foi possível reenviar o e-mail. Tente de novo.");
     } finally {
       sending.current = false;
       setResending(false);
