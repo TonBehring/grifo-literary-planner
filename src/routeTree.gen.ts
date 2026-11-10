@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BibliotecaRouteImport } from './routes/biblioteca'
 import { Route as ClubesRouteImport } from './routes/clubes'
+import { Route as ConfirmarRouteImport } from './routes/confirmar'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as DesafioLiterarioRouteImport } from './routes/desafio-literario'
 import { Route as DesejosRouteImport } from './routes/desejos'
@@ -61,6 +62,11 @@ const BibliotecaRoute = BibliotecaRouteImport.update({
 const ClubesRoute = ClubesRouteImport.update({
   id: '/clubes',
   path: '/clubes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmarRoute = ConfirmarRouteImport.update({
+  id: '/confirmar',
+  path: '/confirmar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContaRoute = ContaRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/clubes': typeof ClubesRoute
+  '/confirmar': typeof ConfirmarRoute
   '/conta': typeof ContaRoute
   '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/clubes': typeof ClubesRoute
+  '/confirmar': typeof ConfirmarRoute
   '/conta': typeof ContaRoute
   '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/biblioteca': typeof BibliotecaRoute
   '/clubes': typeof ClubesRoute
+  '/confirmar': typeof ConfirmarRoute
   '/conta': typeof ContaRoute
   '/desafio-literario': typeof DesafioLiterarioRoute
   '/desejos': typeof DesejosRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/biblioteca'
     | '/clubes'
+    | '/confirmar'
     | '/conta'
     | '/desafio-literario'
     | '/desejos'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/biblioteca'
     | '/clubes'
+    | '/confirmar'
     | '/conta'
     | '/desafio-literario'
     | '/desejos'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/biblioteca'
     | '/clubes'
+    | '/confirmar'
     | '/conta'
     | '/desafio-literario'
     | '/desejos'
@@ -310,6 +322,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BibliotecaRoute: typeof BibliotecaRoute
   ClubesRoute: typeof ClubesRoute
+  ConfirmarRoute: typeof ConfirmarRoute
   ContaRoute: typeof ContaRoute
   DesafioLiterarioRoute: typeof DesafioLiterarioRoute
   DesejosRoute: typeof DesejosRoute
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/clubes'
       fullPath: '/clubes'
       preLoaderRoute: typeof ClubesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirmar': {
+      id: '/confirmar'
+      path: '/confirmar'
+      fullPath: '/confirmar'
+      preLoaderRoute: typeof ConfirmarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/conta': {
@@ -502,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BibliotecaRoute: BibliotecaRoute,
   ClubesRoute: ClubesRoute,
+  ConfirmarRoute: ConfirmarRoute,
   ContaRoute: ContaRoute,
   DesafioLiterarioRoute: DesafioLiterarioRoute,
   DesejosRoute: DesejosRoute,
