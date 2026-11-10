@@ -17,6 +17,7 @@ import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { getUnreadCount } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
+import { SubscriptionNudge } from "@/components/SubscriptionNudge";
 
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
@@ -127,6 +128,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         {children}
       </main>
+
+      <SubscriptionNudge
+        subscription={subscription.data}
+        loading={subscription.isLoading || subscription.isError}
+        pathname={pathname}
+      />
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl">
