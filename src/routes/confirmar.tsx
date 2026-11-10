@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ConfirmEmailPage } from "@/components/ConfirmEmailPage";
 
 export const Route = createFileRoute("/confirmar")({
-  validateSearch: (search: Record<string, unknown>): { token_hash?: string; type?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { token_hash?: string | undefined; type?: string | undefined } => ({
     token_hash: typeof search['token_hash'] === "string" ? search['token_hash'] : undefined,
     type: typeof search['type'] === "string" ? search['type'] : "email",
   }),

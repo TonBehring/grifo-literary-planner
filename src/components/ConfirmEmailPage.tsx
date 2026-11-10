@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
-type Props = { tokenHash?: string; type?: string };
+type Props = { tokenHash?: string | undefined; type?: string | undefined };
 
 export function ConfirmEmailPage({ tokenHash, type = "email" }: Props) {
   const { user, loading } = useAuth();
