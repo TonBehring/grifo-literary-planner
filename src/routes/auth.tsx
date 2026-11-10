@@ -1,12 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { reportSignupConversion } from "@/lib/google-ads";
+import { Button } from "@/components/ui/button";
 
-function friendlyAuthError(message: string): string {
+function isEmailSendLimited(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { status?: number; code?: string; message?: string };
+  const message = value.message?.toLowerCase() ?? "";
+  return value.status === 429 || value.code === "over_email_send_rate_limit" ||
+    message.includes("security purposes") || message.includes("rate limit");
+}
+
+function friendlyAuthError(message: string, error?: unknown): string {
+  if (isEmailSendLimited(error ?? { message })) {
+    return "Já enviamos um e-mail agora há pouco. Confira sua caixa de entrada; se precisar, peça outro em 1 minuto.";
+  }
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials")) return "E-mail ou senha incorretos.";
   if (m.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
@@ -49,6 +61,16 @@ const [name, setName] = useState("");
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [signupDoneEmail, setSignupDoneEmail] = useState<string | null>(null);
+  const submitting = useRef(false);
+  const sending = useRef(false);
+
+  function showSignupDone() {
+    setSignupDoneEmail(email);
+    setPassword("");
+    setResent(false);
+    setCooldown(60);
+  }
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -57,21 +79,18 @@ const [name, setName] = useState("");
   }, [cooldown]);
 
   async function resendConfirmation() {
-    if (!unconfirmedEmail || cooldown > 0) return;
+    const targetEmail = signupDoneEmail ?? unconfirmedEmail;
+    if (!targetEmail || cooldown > 0 || sending.current) return;
+    sending.current = true;
     setResending(true);
     try {
       const { error } = await supabase.auth.resend({
         type: "signup",
-        email: unconfirmedEmail,
+        email: targetEmail,
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) {
-        const m = error.message.toLowerCase();
-        const limited =
-          error.status === 429 ||
-          (error as { code?: string }).code === "over_email_send_rate_limit" ||
-          m.includes("rate limit") ||
-          m.includes("security purposes");
+        const limited = isEmailSendLimited(error);
         if (limited) {
           toast.error("Aguarde um minuto para pedir outro e-mail.");
           setCooldown(60);
@@ -82,7 +101,10 @@ const [name, setName] = useState("");
       }
       setResent(true);
       setCooldown(60);
+    } catch {
+      toast.error("Não foi possível reenviar o e-mail. Tente de novo.");
     } finally {
+      sending.current = false;
       setResending(false);
     }
   }
@@ -95,6 +117,7 @@ const [name, setName] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current || busy || signupDoneEmail) return;
     if (!isSupabaseConfigured) {
       toast.error("Conecte o banco de dados para entrar.");
       return;
@@ -103,6 +126,7 @@ const [name, setName] = useState("");
       toast.error("Você precisa aceitar os Termos de Uso e a Política de Privacidade para criar conta.");
       return;
     }
+    submitting.current = true;
     setBusy(true);
     try {
       if (mode === "reset") {
@@ -130,11 +154,18 @@ const [name, setName] = useState("");
           },
         });
         if (error) throw error;
+        if (data.user?.identities?.length === 0) {
+          toast.error("Este e-mail já tem cadastro. Entre com sua senha ou use Esqueci minha senha.");
+          setMode("login");
+          setPassword("");
+          setUnconfirmedEmail(null);
+          return;
+        }
         // Medição da campanha de anúncios: conta a conversão "Cadastro
         // concluído" (respeita o consentimento de rastreamento do visitante).
-        void reportSignupConversion();
+        if (data.user) void reportSignupConversion();
         if (!data.session) {
-          toast.success("Confirme seu e-mail para ativar a conta.");
+          showSignupDone();
           return;
         }
       } else {
@@ -151,8 +182,10 @@ const [name, setName] = useState("");
         setUnconfirmedEmail(null);
       }
    } catch (err) {
-      toast.error(err instanceof Error ? friendlyAuthError(err.message) : "Não foi possível continuar");
+      if (mode === "signup" && isEmailSendLimited(err)) showSignupDone();
+      toast.error(friendlyAuthError(err instanceof Error ? err.message : "", err));
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -173,6 +206,41 @@ const [name, setName] = useState("");
           </p>
         </div>
 
+        {signupDoneEmail ? (
+          <section className="card-teal mt-8 rounded-3xl p-6 text-center" aria-live="polite">
+            <h2 className="font-display text-2xl">Falta só um passo! 📬</h2>
+            <p className="mt-4 text-sm leading-relaxed">
+              Enviamos um link de confirmação para <strong className="break-all">{signupDoneEmail}</strong>.
+              {" "}Abra o e-mail e toque em Confirmar para ativar sua conta.
+            </p>
+            <p className="mt-3 text-xs leading-relaxed opacity-70">
+              Não chegou em alguns minutos? Olhe no spam ou em Promoções.
+            </p>
+            <Button onClick={() => void resendConfirmation()} disabled={resending || cooldown > 0}
+              className="mt-6 h-12 w-full whitespace-normal">
+              {resending ? "Reenviando…" : cooldown > 0 ? `Reenviar e-mail (${cooldown}s)` : "Reenviar e-mail"}
+            </Button>
+            {resent && <p className="mt-3 text-xs text-primary">E-mail reenviado!</p>}
+            <Button variant="link" className="mt-3 h-auto w-full whitespace-normal" onClick={() => {
+              setSignupDoneEmail(null);
+              setMode("signup");
+              setEmail("");
+              setPassword("");
+              setName("");
+              setAcceptedTerms(false);
+              setShowPassword(false);
+              setUnconfirmedEmail(null);
+              setResent(false);
+            }}>Usar outro e-mail</Button>
+            <Button variant="link" className="h-auto w-full whitespace-normal" onClick={() => {
+              setEmail(signupDoneEmail);
+              setSignupDoneEmail(null);
+              setMode("login");
+              setPassword("");
+              setUnconfirmedEmail(null);
+            }}>Já confirmei, quero entrar</Button>
+          </section>
+        ) : (
         <form onSubmit={submit} className="card-teal mt-8 rounded-3xl p-6">
           {mode !== "reset" && (
             <div className="mb-6 flex rounded-full bg-white/10 p-1 text-sm">
@@ -180,6 +248,7 @@ const [name, setName] = useState("");
                 <button
                   key={m}
                   type="button"
+                  disabled={busy}
                   onClick={() => setMode(m)}
                   className={
                     "flex-1 rounded-full py-2 transition-colors " +
@@ -335,6 +404,7 @@ const [name, setName] = useState("");
             </button>
           )}
         </form>
+        )}
       </div>
     </div>
   );
