@@ -134,13 +134,6 @@ const [name, setName] = useState("");
           redirectTo: `${window.location.origin}/redefinir-senha`,
         });
         if (error) throw error;
-        if (data.user?.identities?.length === 0) {
-          toast.error("Este e-mail já tem cadastro. Entre com sua senha ou use Esqueci minha senha.");
-          setMode("login");
-          setPassword("");
-          setUnconfirmedEmail(null);
-          return;
-        }
         toast.success("Se esse e-mail estiver cadastrado, enviamos um link para redefinir a senha.");
         setMode("login");
         setPassword("");
@@ -161,6 +154,13 @@ const [name, setName] = useState("");
           },
         });
         if (error) throw error;
+        if (data.user?.identities?.length === 0) {
+          toast.error("Este e-mail já tem cadastro. Entre com sua senha ou use Esqueci minha senha.");
+          setMode("login");
+          setPassword("");
+          setUnconfirmedEmail(null);
+          return;
+        }
         // Medição da campanha de anúncios: conta a conversão "Cadastro
         // concluído" (respeita o consentimento de rastreamento do visitante).
         if (data.user) void reportSignupConversion();
