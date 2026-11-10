@@ -45,6 +45,47 @@ const [name, setName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  async function resendConfirmation() {
+    if (!unconfirmedEmail || cooldown > 0) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: unconfirmedEmail,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) {
+        const m = error.message.toLowerCase();
+        const limited =
+          error.status === 429 ||
+          (error as { code?: string }).code === "over_email_send_rate_limit" ||
+          m.includes("rate limit") ||
+          m.includes("security purposes");
+        if (limited) {
+          toast.error("Aguarde um minuto para pedir outro e-mail.");
+          setCooldown(60);
+        } else {
+          toast.error("Não foi possível reenviar o e-mail. Tente de novo.");
+        }
+        return;
+      }
+      setResent(true);
+      setCooldown(60);
+    } finally {
+      setResending(false);
+    }
+  }
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -98,7 +139,16 @@ const [name, setName] = useState("");
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          const code = (error as { code?: string }).code;
+          if (code === "email_not_confirmed" || error.message.toLowerCase().includes("email not confirmed")) {
+            setUnconfirmedEmail(email);
+            setResent(false);
+            return;
+          }
+          throw error;
+        }
+        setUnconfirmedEmail(null);
       }
    } catch (err) {
       toast.error(err instanceof Error ? friendlyAuthError(err.message) : "Não foi possível continuar");
@@ -226,6 +276,29 @@ const [name, setName] = useState("");
                 do Grifo.
               </span>
             </label>
+          )}
+
+          {mode === "login" && unconfirmedEmail && (
+            <div className="mb-4 rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm">
+              <p>
+                Falta só confirmar seu e-mail. Enviamos um link para{" "}
+                <strong className="break-all">{unconfirmedEmail}</strong>. Não achou? Olhe também no
+                spam.
+              </p>
+              <button
+                type="button"
+                onClick={() => void resendConfirmation()}
+                disabled={resending || cooldown > 0}
+                className="mt-3 w-full rounded-lg border border-primary/60 py-2 text-xs font-medium text-primary transition-opacity hover:opacity-90 disabled:opacity-60"
+              >
+                {resending
+                  ? "Reenviando…"
+                  : cooldown > 0
+                    ? `Reenviar e-mail de confirmação (${cooldown}s)`
+                    : "Reenviar e-mail de confirmação"}
+              </button>
+              {resent && <p className="mt-2 text-xs font-medium text-primary">E-mail reenviado!</p>}
+            </div>
           )}
 
           {mode === "login" && (
