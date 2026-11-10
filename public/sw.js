@@ -12,6 +12,11 @@ self.addEventListener("activate", (event) => {
 // (critério do Chrome/Android pra PWA) — sem cache agressivo por enquanto,
 // só repassa pra rede e cai pro cache se ficar offline.
 self.addEventListener("fetch", (event) => {
+  // Links de confirmação são sempre obtidos da rede, nunca do cache offline.
+  if (new URL(event.request.url).pathname.replace(/\/$/, "") === "/confirmar") {
+    event.respondWith(fetch(event.request, { cache: "no-store" }));
+    return;
+  }
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request)),
   );

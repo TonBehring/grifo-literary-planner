@@ -12,3 +12,5 @@
 - Keep founder status fetching in `src/lib/founders.ts`, not `src/routes/`, because route files are registered as pages and the account imports this query as shared logic.
 
 - ISBN camera scanning uses native BarcodeDetector or its browser ponyfill with one shared camera lifecycle; keep react-zxing only for the QR scanner to avoid changing QR behavior.
+
+- Keep email confirmation at a public `/confirmar` route with verification only in the explicit button handler and network-only service-worker fetching, so email security scanners cannot consume tokens on page load.
