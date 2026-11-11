@@ -17,6 +17,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   select.mockReturnValue({ eq }); eq.mockReturnValue({ maybeSingle });
   maybeSingle.mockResolvedValue({ data: null, error: null });
   rpc.mockResolvedValue({ error: null });
