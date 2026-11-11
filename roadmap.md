@@ -1,5 +1,8 @@
 # Roadmap — Grifo
 
+## WhatsApp
+- [ ] Adicionar aviso coordenado com assinatura e edição na conta usando somente a RPC existente; testar validação, adiamento e salvamento.
+
 ## Anúncios (campanha Google Pesquisa)
 - [ ] Adequar a campanha existente à lista de espera, mantendo-a pausada: textos aprovados em 2026-10-21; atualização no Google não autorizada nesta etapa. Bloqueadores: confirmar recebimento no Brevo e instalar medição específica na landing page.
 - [x] Verificar medição da lista em 2026-10-21: nenhuma tag/evento Google no navegador; aviso de sucesso aparece mesmo quando envio ao Brevo é bloqueado. Nenhum contato real criado no teste. Não comprova falha dos cadastros reais.

@@ -10,7 +10,7 @@ import {
   Users,
   Bell,
 } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { getUnreadCount } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { SubscriptionNudge } from "@/components/SubscriptionNudge";
+import { WhatsAppNudge } from "@/components/WhatsAppNudge";
 
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
@@ -31,6 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [subscriptionNudgeOpen, setSubscriptionNudgeOpen] = useState(false);
 
   const subscription = useQuery({
     queryKey: ["subscription", user?.id],
@@ -133,7 +135,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         subscription={subscription.data}
         loading={subscription.isLoading || subscription.isError}
         pathname={pathname}
+        onOpenChange={setSubscriptionNudgeOpen}
       />
+      <WhatsAppNudge key={`${user.id}:${pathname}`} userId={user.id} pathname={pathname}
+        subscriptionOpen={subscriptionNudgeOpen}
+        subscriptionLoading={subscription.isLoading || subscription.isError} />
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl">

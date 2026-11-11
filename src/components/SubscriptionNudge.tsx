@@ -58,10 +58,12 @@ export function SubscriptionNudge({
   subscription,
   loading,
   pathname,
+  onOpenChange,
 }: {
   subscription: Subscription | null | undefined;
   loading: boolean;
   pathname: string;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -72,6 +74,10 @@ export function SubscriptionNudge({
     if (eligible && !dismissedRecently()) setOpen(true);
     if (!eligible) setOpen(false);
   }, [eligible]);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
 
   const offer = useQuery({
     queryKey: ["offer-status"],
