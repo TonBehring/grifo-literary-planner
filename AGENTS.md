@@ -14,3 +14,5 @@
 - ISBN camera scanning uses native BarcodeDetector or its browser ponyfill with one shared camera lifecycle; keep react-zxing only for the QR scanner to avoid changing QR behavior.
 
 - Keep email confirmation at a public `/confirmar` route with verification only in the explicit button handler and network-only service-worker fetching, so email security scanners cannot consume tokens on page load.
+
+- Share WhatsApp profile reads and RPC-only writes in `src/lib/whatsapp.ts` and the form between account and nudge, so both surfaces use identical validation and user-scoped cache; AppShell coordinates subscription priority and keys the WhatsApp nudge by navigation to defer conflicts to the next page.

@@ -66,9 +66,17 @@
   --color-teal: var(--teal);
   --color-teal-deep: var(--teal-deep);
   --color-cream: var(--cream);
+  --color-contact-surface: var(--contact-surface);
+  --color-contact-heading: var(--contact-heading);
+  --color-contact-action: var(--contact-action);
+  --color-contact-detail: var(--contact-detail);
 }
 
 :root {
+  --contact-surface: #F9F4EA;
+  --contact-heading: #052C2D;
+  --contact-action: #144142;
+  --contact-detail: #DAAE5A;
   --radius: 0.75rem;
   --cream: oklch(0.968 0.014 85.5);
   --teal: oklch(0.345 0.048 197);
@@ -184,6 +192,16 @@
 
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+.contact-theme {
+  --background: var(--contact-surface);
+  --foreground: var(--contact-heading);
+  --primary: var(--contact-detail);
+  --primary-foreground: var(--contact-heading);
+  --ring: var(--contact-detail);
+  --muted-foreground: oklch(0.5 0.028 190);
+  --input: var(--contact-detail);
 }
 
 .no-scrollbar::-webkit-scrollbar {
