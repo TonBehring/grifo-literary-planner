@@ -1,7 +1,8 @@
 # Roadmap — Grifo
 
 ## WhatsApp
-- [ ] Adicionar aviso coordenado com assinatura e edição na conta usando somente a RPC existente; testar validação, adiamento e salvamento.
+- [x] Adicionar aviso coordenado com assinatura e edição na conta usando somente a RPC existente; 25 testes de WhatsApp passaram, fluxo visual conferido com respostas simuladas e compilação automática aprovada.
+- [ ] Validar salvamento real de WhatsApp em uma conta autorizada; bloqueador: não há sessão real disponível neste ambiente.
 
 ## Anúncios (campanha Google Pesquisa)
 - [ ] Adequar a campanha existente à lista de espera, mantendo-a pausada: textos aprovados em 2026-10-21; atualização no Google não autorizada nesta etapa. Bloqueadores: confirmar recebimento no Brevo e instalar medição específica na landing page.
