@@ -67,6 +67,26 @@ it("opens only after three seconds for a missing profile", async () => {
 it("does not open after subscription closes in the same navigation", async () => {
   await nudge(true); await nudge(false); await advance(4000); expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
+it("can open on the next navigation after a subscription conflict", async () => {
+  await nudge(true); await nudge(false); await advance(4000);
+  await act(async () => root.render(<QueryClientProvider client={client}><WhatsAppNudge key="next-page" userId="reader" pathname="/estatisticas" subscriptionOpen={false} subscriptionLoading={false} /></QueryClientProvider>));
+  await advance(3000); expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+});
+it.each(["Agora não", "Close"])("%s closes and suppresses for three days", async (name) => {
+  await nudge(); await advance(3000);
+  const button = Array.from(document.querySelectorAll("button")).find((item) => item.textContent === name);
+  if (!button) throw new Error("Missing dismiss control");
+  await act(async () => button.click());
+  expect(Number(localStorage.getItem(WHATSAPP_DISMISS_KEY))).toBe(Date.now() + 259200000);
+  expect(document.querySelector('[role="dialog"][data-state="open"]')).toBeNull();
+});
+it("renders invalid RPC errors without updating the saved profile", async () => {
+  rpc.mockResolvedValue({ error: { message: "whatsapp_invalido" } });
+  await act(async () => root.render(<QueryClientProvider client={client}><WhatsAppForm userId="reader" profile={{ whatsapp: "5511987654321", whatsapp_aceita_contato: true }} /></QueryClientProvider>));
+  await act(async () => container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe("Confira o número com DDD, por favor.");
+  expect(client.getQueryData(["profile-whatsapp", "reader"])).toBeUndefined();
+});
 it("does not open with an existing saved number", async () => {
   maybeSingle.mockResolvedValue({ data: { whatsapp: "5511987654321", whatsapp_aceita_contato: false }, error: null });
   await nudge(); await advance(4000); expect(document.querySelector('[role="dialog"]')).toBeNull();
