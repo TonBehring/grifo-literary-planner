@@ -66,7 +66,7 @@ export function SubscriptionNudge({
   onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
+  const [redirecting, setRedirecting] = useState<"card" | "pix" | null>(null);
   const excluded = pathname === "/conta" || pathname.startsWith("/assinatura/retorno");
   const eligible = !loading && !hasActiveAccess(subscription) && !excluded;
 
@@ -99,14 +99,14 @@ export function SubscriptionNudge({
     setOpen(false);
   }
 
-  async function subscribe() {
-    setRedirecting(true);
+  async function subscribe(method: "card" | "pix") {
+    setRedirecting(method);
     try {
-      const url = await createSubscriptionCheckout();
+      const url = await createSubscriptionCheckout(method);
       window.location.href = url;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a assinatura");
-      setRedirecting(false);
+      setRedirecting(null);
     }
   }
 
@@ -156,12 +156,23 @@ export function SubscriptionNudge({
         <div className="mt-2 flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => void subscribe()}
-            disabled={redirecting}
+            onClick={() => void subscribe("pix")}
+            disabled={redirecting !== null}
             className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            {redirecting ? "Abrindo pagamento…" : pending ? "Continuar minha assinatura" : "Assinar o Grifo"}
+            {redirecting === "pix" ? "Abrindo pagamento…" : "Pagar com Pix"}
           </button>
+          <button
+            type="button"
+            onClick={() => void subscribe("card")}
+            disabled={redirecting !== null}
+            className="w-full rounded-xl border border-primary/40 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+          >
+            {redirecting === "card" ? "Abrindo pagamento…" : "Pagar com cartão"}
+          </button>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Pix: pagamento anual, sem renovação automática. Cartão: renova sozinho todo ano.
+          </p>
           <button
             type="button"
             onClick={dismiss}
