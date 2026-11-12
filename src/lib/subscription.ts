@@ -20,8 +20,12 @@ export function hasActiveAccess(sub: Subscription | null | undefined): boolean {
   return new Date(sub.current_period_end).getTime() > Date.now();
 }
 
-export async function createSubscriptionCheckout(): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("asaas-create-subscription");
+export async function createSubscriptionCheckout(
+  method: "card" | "pix" = "card",
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("asaas-create-subscription", {
+    body: { method },
+  });
   if (error) throw new Error(error.message);
   const payload = data as { checkout_url?: string; error?: string } | null;
   if (!payload?.checkout_url) {

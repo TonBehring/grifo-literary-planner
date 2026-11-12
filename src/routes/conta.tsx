@@ -373,17 +373,17 @@ function FounderBookmarkIcon({ className }: { className?: string }) {
 }
 
 function SubscriptionSection() {
-  const [redirecting, setRedirecting] = useState(false);
+  const [busy, setBusy] = useState<"card" | "pix" | null>(null);
   const subscription = useQuery({ queryKey: ["subscription"], queryFn: getMySubscription });
 
-  async function subscribe() {
-    setRedirecting(true);
+  async function subscribe(method: "card" | "pix") {
+    setBusy(method);
     try {
-      const url = await createSubscriptionCheckout();
+      const url = await createSubscriptionCheckout(method);
       window.location.href = url;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a assinatura");
-      setRedirecting(false);
+      setBusy(null);
     }
   }
 
@@ -402,11 +402,11 @@ function SubscriptionSection() {
           </p>
           {subscription.data?.provider === "mercado_pago" && (
             <button
-              onClick={subscribe}
-              disabled={redirecting}
+              onClick={() => void subscribe("card")}
+              disabled={busy !== null}
               className="mt-4 text-sm text-primary underline underline-offset-4 disabled:opacity-60"
             >
-              {redirecting ? "Abrindo checkout…" : "Gerenciar / renovar assinatura"}
+              {busy === "card" ? "Abrindo checkout…" : "Gerenciar / renovar assinatura"}
             </button>
           )}
         </>
@@ -415,13 +415,25 @@ function SubscriptionSection() {
           <p className="mt-2 text-sm text-muted-foreground">
             Você ainda não tem uma assinatura ativa.
           </p>
-          <button
-            onClick={subscribe}
-            disabled={redirecting}
-            className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {redirecting ? "Abrindo checkout…" : "Assinar o Grifo"}
-          </button>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              onClick={() => void subscribe("pix")}
+              disabled={busy !== null}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {busy === "pix" ? "Abrindo pagamento…" : "Pagar com Pix"}
+            </button>
+            <button
+              onClick={() => void subscribe("card")}
+              disabled={busy !== null}
+              className="w-full rounded-xl border border-primary/40 py-3 text-sm font-medium text-primary disabled:opacity-60"
+            >
+              {busy === "card" ? "Abrindo pagamento…" : "Pagar com cartão"}
+            </button>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Pix: pagamento anual, sem renovação automática. Cartão: renova sozinho todo ano.
+            </p>
+          </div>
         </>
       )}
     </div>
