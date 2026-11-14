@@ -208,10 +208,19 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         page: data.page ? Number(data.page) : null,
       });
     },
-    onSuccess: () => {
+    onSuccess: (savedNote) => {
       setNoteModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
-      toast.success("Anotação guardada");
+      if (savedNote.kind === "citacao") {
+        toast.success("Citação guardada", {
+          action: {
+            label: "Transformar em imagem para os stories",
+            onClick: () => void shareQuote(savedNote),
+          },
+        });
+      } else {
+        toast.success("Anotação guardada");
+      }
     },
    onError: (e: Error) => toast.error(e.message),
   });

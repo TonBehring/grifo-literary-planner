@@ -178,13 +178,14 @@ function PrivacyPage() {
             preferências do próprio aplicativo.
           </p>
           <p className="mt-2">
-            <strong>Medição de anúncios (Google Ads):</strong> usamos a tag do Google Ads para
-            medir se nossos anúncios trazem novos leitores ao Grifo (por exemplo, contando
-            quando uma conta é criada após um clique em anúncio). Para visitantes de regiões
-            que exigem consentimento (União Europeia, Reino Unido, Suíça e Quebec), essa
-            medição só é ativada se você aceitar no banner de cookies — recusar não muda
-            nada no funcionamento do app, e a escolha pode ser alterada a qualquer momento.
-            Saiba como o Google trata esses dados em{" "}
+            <strong>Medição de anúncios (Google Ads e Meta):</strong> usamos essas plataformas
+            para medir se nossos anúncios trazem novos leitores ao Grifo, otimizar campanhas e
+            registrar visitas às páginas, cadastros concluídos e assinaturas confirmadas. Na Meta,
+            a assinatura informa o valor cobrado em reais; não enviamos e-mail, nome ou outro dado
+            pessoal ao Pixel. Para visitantes de regiões que exigem consentimento (União Europeia,
+            Reino Unido, Suíça e Canadá), essa medição só é ativada se você aceitar no banner de
+            cookies — recusar não muda nada no funcionamento do app, e a escolha pode ser alterada
+            a qualquer momento. Saiba como o Google trata esses dados em{" "}
             <a
               href="https://business.safety.google/privacy/"
               target="_blank"

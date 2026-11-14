@@ -105,6 +105,9 @@ export async function generateQuoteImage(opts: {
   ctx.fillStyle = gold;
   ctx.font = '600 68px "Playfair Display", Georgia, serif';
   ctx.fillText("Grifo\u2022", W / 2, H - 96);
+  ctx.fillStyle = tealSoft;
+  ctx.font = '400 24px "Inter", sans-serif';
+  ctx.fillText("useogrifo.app", W / 2, H - 40);
   ctx.textAlign = "left";
 
   return await new Promise<Blob>((resolve, reject) => {
