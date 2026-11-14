@@ -80,7 +80,7 @@ it("signs out a locally signed-in account before verifying a new token", async (
   await click();
   expect(signOut).toHaveBeenCalledWith({ scope: "local" });
   expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "test-token", type: "email" });
-  expect(signOut.mock.invocationCallOrder[0]).toBeLessThan(verifyOtp.mock.invocationCallOrder[0]);
+  expect(signOut.mock.invocationCallOrder[0] ?? -1).toBeLessThan(verifyOtp.mock.invocationCallOrder[0] ?? Infinity);
   expect(navigate).toHaveBeenCalledWith({ to: "/" });
 });
 it("still verifies when the local sign-out fails", async () => {
