@@ -1,5 +1,12 @@
 # Roadmap — Grifo
 
+## Pedido de 14/11/2026
+- [ ] Liberar busca e adição à estante sem assinatura; manter ações pagas com convite claro e proteger o cronômetro.
+- [ ] Guardar origem do cadastro por 30 dias, enviar no signUp e criar relatório administrativo por período com função SQL admin-only.
+- [ ] Instalar Pixel da Meta com consentimento, PageView por rota, CompleteRegistration e Purchase deduplicado.
+- [ ] Adicionar useogrifo.app ao cartão e oferecer geração da imagem após salvar uma citação.
+- [ ] Rodar testes, tipagem e build; registrar migração criada e qualquer validação não feita.
+
 ## WhatsApp
 - [x] Adicionar aviso coordenado com assinatura e edição na conta usando somente a RPC existente; 25 testes de WhatsApp passaram, fluxo visual conferido com respostas simuladas e compilação automática aprovada.
 - [ ] Validar salvamento real de WhatsApp em uma conta autorizada; bloqueador: não há sessão real disponível neste ambiente.
