@@ -3,11 +3,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ConfirmEmailPage } from "./ConfirmEmailPage";
 
-const { verifyOtp, resend, navigate, auth } = vi.hoisted(() => ({
-  verifyOtp: vi.fn(), resend: vi.fn(), navigate: vi.fn(),
+const { verifyOtp, resend, signOut, navigate, auth } = vi.hoisted(() => ({
+  verifyOtp: vi.fn(), resend: vi.fn(), signOut: vi.fn(), navigate: vi.fn(),
   auth: { user: null as null | { id: string }, loading: false },
 }));
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { verifyOtp, resend } } }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { verifyOtp, resend, signOut } } }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => auth }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 vi.mock("@tanstack/react-router", () => ({
@@ -24,6 +24,7 @@ beforeEach(() => {
   auth.user = null;
   verifyOtp.mockResolvedValue({ error: null });
   resend.mockResolvedValue({ error: null });
+  signOut.mockResolvedValue({ error: null });
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -72,11 +73,30 @@ it("rejects unsupported token types without calling auth", async () => {
   await click();
   expect(verifyOtp).not.toHaveBeenCalled();
 });
-it("does not verify when already signed in", async () => {
-  auth.user = { id: "reader" };
+it("signs out a locally signed-in account before verifying a new token", async () => {
+  auth.user = { id: "other-reader" };
   await render();
-  expect(verifyOtp).not.toHaveBeenCalled();
+  expect(container.querySelector('a[href="/"]')).toBeNull();
+  await click();
+  expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+  expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "test-token", type: "email" });
+  expect(signOut.mock.invocationCallOrder[0] ?? -1).toBeLessThan(verifyOtp.mock.invocationCallOrder[0] ?? Infinity);
+  expect(navigate).toHaveBeenCalledWith({ to: "/" });
+});
+it("still verifies when the local sign-out fails", async () => {
+  auth.user = { id: "other-reader" };
+  signOut.mockRejectedValue(new Error("network"));
+  await render();
+  await click();
+  expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "test-token", type: "email" });
+});
+it("shows the confirmed screen only when no token is present", async () => {
+  auth.user = { id: "reader" };
+  await render("email", "");
+  expect(container.textContent).toContain("Seu e-mail já está confirmado");
   expect(container.querySelector('a[href="/"]')).not.toBeNull();
+  expect(verifyOtp).not.toHaveBeenCalled();
+  expect(signOut).not.toHaveBeenCalled();
 });
 it("blocks duplicate verification while the first request is pending", async () => {
   verifyOtp.mockReturnValue(new Promise(() => {}));

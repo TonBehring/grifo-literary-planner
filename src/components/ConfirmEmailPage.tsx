@@ -27,7 +27,7 @@ export function ConfirmEmailPage({ tokenHash, type = "email" }: Props) {
   }, [cooldown]);
 
   async function confirm() {
-    if (confirming.current || loading || user) return;
+    if (confirming.current || loading) return;
     const otpType = type === "signup" ? "email" : type;
     if (!tokenHash || (otpType !== "email" && otpType !== "email_change" && otpType !== "invite")) {
       setFailed(true);
@@ -36,6 +36,15 @@ export function ConfirmEmailPage({ tokenHash, type = "email" }: Props) {
     confirming.current = true;
     setBusy(true);
     try {
+      if (user) {
+        // Outra conta pode estar logada neste navegador: sair localmente libera o espaço
+        // para a sessão da conta nova criada pelo verifyOtp.
+        try {
+          await supabase.auth.signOut({ scope: "local" });
+        } catch {
+          // Se o sign-out local falhar, a confirmação abaixo continua mesmo assim.
+        }
+      }
       const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
       if (error) {
         setFailed(true);
@@ -91,7 +100,7 @@ export function ConfirmEmailPage({ tokenHash, type = "email" }: Props) {
       <div className="w-full max-w-sm">
         <img src="/brand/logo-grifo.png" alt="Grifo" className="mx-auto h-14 w-auto max-w-full object-contain" />
         <section className="card-teal mt-8 rounded-3xl p-6 text-center" aria-busy={busy || resending}>
-          {user && !busy ? (
+          {user && !tokenHash && !busy ? (
             <>
               <h1 className="font-display text-2xl">Seu e-mail já está confirmado.</h1>
               <Button asChild className="mt-6 h-12 w-full"><Link to="/">Ir para o Grifo</Link></Button>
