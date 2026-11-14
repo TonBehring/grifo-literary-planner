@@ -213,6 +213,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
       if (savedNote.kind === "citacao") {
         toast.success("Citação guardada", {
+          style: { width: "min(520px, calc(100vw - 2rem))" },
           action: {
             label: "Transformar em imagem para os stories",
             onClick: () => void shareQuote(savedNote),

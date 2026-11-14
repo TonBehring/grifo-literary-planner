@@ -51,6 +51,16 @@ import {
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/livro/$id_/sessao_/$sessionId")({
+  head: () => ({
+    meta: [
+      { title: "Cronômetro de leitura — Grifo" },
+      { name: "description", content: "Acompanhe sua sessão de leitura com cronômetro e som ambiente no Grifo." },
+      { property: "og:title", content: "Cronômetro de leitura — Grifo" },
+      { property: "og:description", content: "Acompanhe sua sessão de leitura com cronômetro e som ambiente no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: () => (
     <AppShell>
       <ReadingSessionTimer />

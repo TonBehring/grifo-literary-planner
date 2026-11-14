@@ -19,6 +19,16 @@ import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/clubes_/novo")({
+  head: () => ({
+    meta: [
+      { title: "Criar clube de leitura — Grifo" },
+      { name: "description", content: "Crie e administre um clube de leitura no Grifo." },
+      { property: "og:title", content: "Criar clube de leitura — Grifo" },
+      { property: "og:description", content: "Crie e administre um clube de leitura no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: () => (
     <AppShell>
       <NovoClube />

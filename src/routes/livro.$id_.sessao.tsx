@@ -27,6 +27,16 @@ import { useAuth } from "@/lib/auth";
 const DURACOES = [15, 30, 45, 60];
 
 export const Route = createFileRoute("/livro/$id_/sessao")({
+  head: () => ({
+    meta: [
+      { title: "Preparar sessão de leitura — Grifo" },
+      { name: "description", content: "Escolha a duração e prepare seu cronômetro de leitura no Grifo." },
+      { property: "og:title", content: "Preparar sessão de leitura — Grifo" },
+      { property: "og:description", content: "Escolha a duração e prepare seu cronômetro de leitura no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: () => (
     <AppShell>
       <ReadingSessionSetup />
