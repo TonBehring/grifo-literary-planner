@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { MoodPicker } from "@/components/MoodPicker";
+import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import {
   addReadingLog,
   finishReadingSession,
@@ -50,6 +51,16 @@ import {
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/livro/$id_/sessao_/$sessionId")({
+  head: () => ({
+    meta: [
+      { title: "Cronômetro de leitura — Grifo" },
+      { name: "description", content: "Acompanhe sua sessão de leitura com cronômetro e som ambiente no Grifo." },
+      { property: "og:title", content: "Cronômetro de leitura — Grifo" },
+      { property: "og:description", content: "Acompanhe sua sessão de leitura com cronômetro e som ambiente no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: () => (
     <AppShell>
       <ReadingSessionTimer />
@@ -123,6 +134,7 @@ function ReadingSessionTimer() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { active: subscriptionActive, loading: subscriptionLoading } = useHasActiveSubscription();
 
   const { data: ub } = useQuery({
     queryKey: ["user_book", id],
@@ -273,8 +285,19 @@ function ReadingSessionTimer() {
     }
   }
 
-  if (isLoading || !ub || !session) {
+  if (isLoading || subscriptionLoading || !ub || !session) {
     return <p className="text-sm text-muted-foreground">Carregando…</p>;
+  }
+
+  if (!subscriptionActive) {
+    return (
+      <section>
+        <h1 className="font-display text-3xl">Sessão de leitura</h1>
+        <div className="mt-6">
+          <SubscriptionRequiredNotice action="usar o cronômetro de leitura" />
+        </div>
+      </section>
+    );
   }
 
   const startedMs = new Date(session.iniciado_em).getTime();
@@ -288,7 +311,7 @@ function ReadingSessionTimer() {
   const somSelecionado = SOUND_OPTIONS.find((o) => o.id === somAtual) ?? null;
 
   async function confirmarEncerramento() {
-    if (!user || !ub || !session) return;
+    if (!user || !ub || !session || !subscriptionActive) return;
     setSalvando(true);
     try {
       const duracaoReal = Math.round(elapsedSeconds);

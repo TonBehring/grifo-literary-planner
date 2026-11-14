@@ -113,6 +113,7 @@ function AdminPage() {
         ))}
       </div>
 
+      <OriginsSection />
       <FoundersSection />
       <SupabaseUsageSection />
       <WaitlistSection />
@@ -120,6 +121,95 @@ function AdminPage() {
       <BroadcastPushForm />
       <PnlSection />
     </section>
+  );
+}
+
+// --- Cadastros por origem ------------------------------------------------
+
+type OrigemPeriodo = "7" | "30" | "lancamento";
+type CadastroOrigem = {
+  utm_source: string;
+  utm_campaign: string;
+  cadastros: number;
+  assinaturas_ativas: number;
+};
+
+export function originPeriodStart(periodo: OrigemPeriodo, now = Date.now()): string {
+  if (periodo === "lancamento") return "2026-11-09T00:00:00-03:00";
+  return new Date(now - Number(periodo) * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function fetchCadastrosPorOrigem(periodo: OrigemPeriodo): Promise<CadastroOrigem[]> {
+  const { data, error } = await supabase.rpc("admin_cadastros_por_origem", {
+    p_inicio: originPeriodStart(periodo),
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CadastroOrigem[];
+}
+
+function OriginsSection() {
+  const [periodo, setPeriodo] = useState<OrigemPeriodo>("30");
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-cadastros-origem", periodo],
+    queryFn: () => fetchCadastrosPorOrigem(periodo),
+    retry: false,
+  });
+
+  return (
+    <div className="panel-cream mt-6 rounded-2xl p-5">
+      <h2 className="font-display text-xl">Cadastros por origem</h2>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {([
+          ["7", "Últimos 7 dias"],
+          ["30", "Últimos 30 dias"],
+          ["lancamento", "Desde 09/11/2026"],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={periodo === value}
+            onClick={() => setPeriodo(value)}
+            className={
+              "rounded-full border px-3 py-1.5 text-xs " +
+              (periodo === value ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-sm text-muted-foreground">Carregando origens…</p>
+      ) : isError ? (
+        <p className="mt-4 text-sm text-muted-foreground">Não foi possível carregar as origens.</p>
+      ) : !data?.length ? (
+        <p className="mt-4 text-sm text-muted-foreground">Nenhum cadastro neste período.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[480px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">utm_source</th>
+                <th className="py-2 pr-3 font-medium">utm_campaign</th>
+                <th className="py-2 pr-3 text-right font-medium">Cadastros</th>
+                <th className="py-2 text-right font-medium">Assinaturas ativas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row) => (
+                <tr key={`${row.utm_source}:${row.utm_campaign}`} className="border-b border-border/50 last:border-0">
+                  <td className="py-2.5 pr-3">{row.utm_source || "direto"}</td>
+                  <td className="py-2.5 pr-3">{row.utm_campaign || "—"}</td>
+                  <td className="py-2.5 pr-3 text-right">{row.cadastros}</td>
+                  <td className="py-2.5 text-right">{row.assinaturas_ativas}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -11,6 +11,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: null }) }));
 vi.mock("@/lib/google-ads", () => ({ reportSignupConversion: conversion }));
+vi.mock("@/lib/meta-pixel", () => ({ reportMetaCompleteRegistration: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn() } }));
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: unknown) => options,
@@ -21,6 +22,7 @@ let container: HTMLDivElement;
 beforeEach(async () => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  localStorage.clear();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   signUp.mockResolvedValue({ data: { user: { id: "new-user", identities: [{}] }, session: null }, error: null });
   resend.mockResolvedValue({ error: null });
@@ -119,4 +121,20 @@ it("blocks double submissions while signup is pending", async () => {
   });
   expect(signUp).toHaveBeenCalledTimes(1);
   expect(button("Aguarde…").disabled).toBe(true);
+});
+it("sends the saved campaign origin with a successful signup", async () => {
+  localStorage.setItem("grifo_origem", JSON.stringify({
+    utm_source: "instagram",
+    utm_campaign: "lista_espera",
+    ref: "bio",
+    captured_at: new Date().toISOString(),
+  }));
+  await prepare();
+  await submit();
+  expect(conversion).toHaveBeenCalledTimes(1);
+  expect(signUp).toHaveBeenCalledWith(expect.objectContaining({
+    options: expect.objectContaining({
+      data: expect.objectContaining({ utm_source: "instagram", utm_campaign: "lista_espera", ref: "bio" }),
+    }),
+  }));
 });

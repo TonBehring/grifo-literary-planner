@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { reportSignupConversion } from "@/lib/google-ads";
+import { reportMetaCompleteRegistration } from "@/lib/meta-pixel";
+import { getSignupOriginMetadata } from "@/lib/origin";
 import { Button } from "@/components/ui/button";
 
 function isEmailSendLimited(error: unknown): boolean {
@@ -150,6 +152,7 @@ const [name, setName] = useState("");
               // Registro de consentimento (LGPD) — guarda quando a pessoa
               // aceitou os Termos/Política vigentes no momento do cadastro.
               terms_accepted_at: new Date().toISOString(),
+              ...getSignupOriginMetadata(),
             },
           },
         });
@@ -163,7 +166,10 @@ const [name, setName] = useState("");
         }
         // Medição da campanha de anúncios: conta a conversão "Cadastro
         // concluído" (respeita o consentimento de rastreamento do visitante).
-        if (data.user) void reportSignupConversion();
+        if (data.user) {
+          void reportSignupConversion();
+          void reportMetaCompleteRegistration();
+        }
         if (!data.session) {
           showSignupDone();
           return;

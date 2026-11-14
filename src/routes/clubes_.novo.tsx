@@ -7,17 +7,28 @@
 // pra exibir uma tela filha). Sem o "_", a rota existe mas nunca aparece
 // na tela.
 
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { SubscriptionRequiredNotice } from "@/components/SubscriptionGate";
 import { createClub, createClubInvite, type ClubType } from "@/lib/api";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/clubes_/novo")({
+  head: () => ({
+    meta: [
+      { title: "Criar clube de leitura — Grifo" },
+      { name: "description", content: "Crie e administre um clube de leitura no Grifo." },
+      { property: "og:title", content: "Criar clube de leitura — Grifo" },
+      { property: "og:description", content: "Crie e administre um clube de leitura no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: () => (
     <AppShell>
       <NovoClube />
@@ -81,19 +92,8 @@ function NovoClube() {
       {subscription.isLoading ? (
         <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>
       ) : !podeCriar ? (
-        <div className="panel-cream mt-6 rounded-2xl p-6 text-center">
-          <p className="font-display text-lg">Assine o Grifo para criar seu Clube de Leitura</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Criar e administrar um clube é um benefício de quem assina o Grifo. Qualquer pessoa
-            pode entrar no seu clube de graça — só pra criar e administrar é preciso assinatura
-            ativa.
-          </p>
-          <Link
-            to="/conta"
-            className="mt-4 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground"
-          >
-            Assinar o Grifo
-          </Link>
+        <div className="mt-6">
+          <SubscriptionRequiredNotice action="criar um clube" />
         </div>
       ) : (
       <div className="mt-6 flex flex-col gap-4">

@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
@@ -16,6 +17,9 @@ import { AuthProvider } from "../lib/auth";
 import { loadGoogleAds } from "../lib/google-ads";
 import { ConsentBanner } from "../components/ConsentBanner";
 import { Toaster } from "../components/ui/sonner";
+import { captureSignupOrigin } from "../lib/origin";
+import { onAdConsentChange } from "../lib/consent";
+import { revokeMetaPixel, trackMetaPageView } from "../lib/meta-pixel";
 
 function NotFoundComponent() {
   return (
@@ -149,6 +153,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   // Registra o service worker (PWA + notificações push). Só roda no navegador
   // (o TanStack Start também executa esse componente no servidor, onde
@@ -167,6 +172,19 @@ function RootComponent() {
       void loadGoogleAds();
     }
   }, []);
+
+  useEffect(() => {
+    captureSignupOrigin();
+  }, []);
+
+  useEffect(() => {
+    void trackMetaPageView();
+  }, [pathname]);
+
+  useEffect(() => onAdConsentChange((granted) => {
+    if (granted) void trackMetaPageView();
+    else revokeMetaPixel();
+  }), []);
 
   return (
     <QueryClientProvider client={queryClient}>

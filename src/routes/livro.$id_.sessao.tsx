@@ -19,6 +19,7 @@ import { X, Lock, Unlock, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
+import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import { getUserBook } from "@/lib/api";
 import { startReadingSession } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +27,16 @@ import { useAuth } from "@/lib/auth";
 const DURACOES = [15, 30, 45, 60];
 
 export const Route = createFileRoute("/livro/$id_/sessao")({
+  head: () => ({
+    meta: [
+      { title: "Preparar sessão de leitura — Grifo" },
+      { name: "description", content: "Escolha a duração e prepare seu cronômetro de leitura no Grifo." },
+      { property: "og:title", content: "Preparar sessão de leitura — Grifo" },
+      { property: "og:description", content: "Escolha a duração e prepare seu cronômetro de leitura no Grifo." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: () => (
     <AppShell>
       <ReadingSessionSetup />
@@ -37,6 +48,7 @@ function ReadingSessionSetup() {
   const { id } = Route.useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { active: subscriptionActive, loading: subscriptionLoading } = useHasActiveSubscription();
 
   const { data: ub, isLoading } = useQuery({
     queryKey: ["user_book", id],
@@ -85,7 +97,7 @@ function ReadingSessionSetup() {
   }, []);
 
   async function iniciarLeitura() {
-    if (!user || !ub) return;
+    if (!user || !ub || !subscriptionActive) return;
     setIniciando(true);
     try {
       const session = await startReadingSession({
@@ -111,8 +123,19 @@ function ReadingSessionSetup() {
     }
   }
 
-  if (isLoading || !ub) {
+  if (isLoading || subscriptionLoading || !ub) {
     return <p className="text-sm text-muted-foreground">Carregando…</p>;
+  }
+
+  if (!subscriptionActive) {
+    return (
+      <section>
+        <h1 className="font-display text-3xl">Sessão de leitura</h1>
+        <div className="mt-6">
+          <SubscriptionRequiredNotice action="iniciar uma sessão de leitura" />
+        </div>
+      </section>
+    );
   }
 
   return (

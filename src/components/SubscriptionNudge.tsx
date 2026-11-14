@@ -183,8 +183,8 @@ export function SubscriptionNudge({
         </div>
 
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          O que dá para fazer sem assinatura: ver o que você já registrou e participar de 1 clube de
-          leitura.
+          O que dá para fazer sem assinatura: montar sua estante, ver o que você já registrou e
+          participar de 1 clube de leitura.
         </p>
       </DialogContent>
     </Dialog>

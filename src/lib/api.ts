@@ -313,14 +313,30 @@ export async function addNote(note: {
   content: string;
   kind: "nota" | "citacao";
   page: number | null;
-}) {
-  const { error } = await supabase.from("book_notes").insert({
+}): Promise<BookNote> {
+  const { data, error } = await supabase.from("book_notes").insert({
     user_book_id: note.user_book_id,
     conteudo: note.content,
     tipo: note.kind === "citacao" ? "citacao" : "anotacao",
     pagina_referencia: note.page,
-  });
+  }).select("id, user_book_id, conteudo, tipo, criado_em, pagina_referencia").single();
   if (error) throw new Error(error.message);
+  const row = data as {
+    id: string;
+    user_book_id: string;
+    conteudo: string;
+    tipo: string;
+    criado_em: string;
+    pagina_referencia: number | null;
+  };
+  return {
+    id: row.id,
+    user_book_id: row.user_book_id,
+    content: row.conteudo,
+    kind: row.tipo === "citacao" ? "citacao" : "nota",
+    page: row.pagina_referencia,
+    created_at: row.criado_em,
+  };
 }
 
 export async function updateNote(id: string, patch: { content?: string; page?: number | null }) {

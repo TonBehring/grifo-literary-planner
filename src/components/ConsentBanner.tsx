@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   STORAGE_KEY,
   isConsentRequiredRegion,
-  updateConsent,
+  saveAdConsent,
 } from "@/lib/consent";
 
 // Banner de consentimento de rastreamento publicitário. Só aparece para
@@ -27,8 +27,7 @@ export function ConsentBanner() {
   }, []);
 
   function choose(decision: "granted" | "denied") {
-    localStorage.setItem(STORAGE_KEY, decision);
-    updateConsent(decision);
+    saveAdConsent(decision);
     setVisible(false);
   }
 
@@ -46,7 +45,7 @@ export function ConsentBanner() {
           Cookies de medição
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Usamos cookies do Google Ads para medir se nossos anúncios trazem
+          Usamos cookies de publicidade para medir se nossos anúncios trazem
           novos leitores ao Grifo. Você pode aceitar ou recusar — o app
           funciona igual nos dois casos. Detalhes na{" "}
           <Link to="/privacidade" className="text-primary underline underline-offset-4">

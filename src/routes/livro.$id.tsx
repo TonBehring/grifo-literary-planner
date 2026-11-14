@@ -200,7 +200,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const saveNote = useMutation({
     mutationFn: async (data: { content: string; kind: "nota" | "citacao"; page: string }) => {
       if (!user) throw new Error("Não autenticado");
-      await addNote({
+      return addNote({
         user_book_id: id,
         user_id: user.id,
         content: data.content.slice(0, 2000),
@@ -208,10 +208,20 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         page: data.page ? Number(data.page) : null,
       });
     },
-    onSuccess: () => {
+    onSuccess: (savedNote) => {
       setNoteModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["notes", id] });
-      toast.success("Anotação guardada");
+      if (savedNote.kind === "citacao") {
+        toast.success("Citação guardada", {
+          style: { width: "min(520px, calc(100vw - 2rem))" },
+          action: {
+            label: "Transformar em imagem para os stories",
+            onClick: () => void shareQuote(savedNote),
+          },
+        });
+      } else {
+        toast.success("Anotação guardada");
+      }
     },
    onError: (e: Error) => toast.error(e.message),
   });
@@ -355,6 +365,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         )}
 
+        {!activeLoan && !subscriptionActive && (ub.status === "lendo" || ub.status === "quero_ler") && (
+          <div className="mt-4">
+            <SubscriptionRequiredNotice action="iniciar uma sessão de leitura, mudar o status ou avaliar este livro" />
+          </div>
+        )}
         {!activeLoan &&
           subscriptionActive &&
           (ub.status === "lendo" || ub.status === "quero_ler") && (
