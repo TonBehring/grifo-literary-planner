@@ -40,6 +40,7 @@ export async function hasAdConsent(): Promise<boolean> {
 }
 
 export async function canTrackAds(): Promise<boolean> {
+  if ((navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl) return false;
   const choice = localStorage.getItem(STORAGE_KEY);
   if (choice !== null) return choice === "granted";
   const required = await isConsentRequiredRegion();
@@ -54,4 +55,27 @@ export function updateConsent(decision: "granted" | "denied") {
     ad_user_data: decision,
     ad_personalization: decision,
   });
+}
+
+const AD_CONSENT_EVENT = "grifo:ad-consent-change";
+
+export function saveAdConsent(decision: "granted" | "denied") {
+  localStorage.setItem(STORAGE_KEY, decision);
+  updateConsent(decision);
+  window.dispatchEvent(new CustomEvent(AD_CONSENT_EVENT, { detail: decision }));
+}
+
+export function onAdConsentChange(listener: (granted: boolean) => void): () => void {
+  const onLocalChoice = (event: Event) => {
+    listener((event as CustomEvent<"granted" | "denied">).detail === "granted");
+  };
+  const onOtherTab = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) listener(event.newValue === "granted");
+  };
+  window.addEventListener(AD_CONSENT_EVENT, onLocalChoice);
+  window.addEventListener("storage", onOtherTab);
+  return () => {
+    window.removeEventListener(AD_CONSENT_EVENT, onLocalChoice);
+    window.removeEventListener("storage", onOtherTab);
+  };
 }

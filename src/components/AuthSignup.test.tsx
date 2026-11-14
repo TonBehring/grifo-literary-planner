@@ -11,6 +11,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: null }) }));
 vi.mock("@/lib/google-ads", () => ({ reportSignupConversion: conversion }));
+vi.mock("@/lib/meta-pixel", () => ({ reportMetaCompleteRegistration: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn() } }));
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: unknown) => options,

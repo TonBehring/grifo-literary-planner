@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
+import { reportMetaPurchase } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/assinatura/retorno")({
   head: () => ({ meta: [
@@ -33,6 +34,7 @@ function ReturnPage() {
         const sub = await getMySubscription();
         if (cancelled) return;
         if (hasActiveAccess(sub)) {
+          void reportMetaPurchase(sub);
           setConfirmed(true);
           setChecking(false);
           clearInterval(interval);
