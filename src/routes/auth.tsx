@@ -6,7 +6,7 @@ import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { reportSignupConversion } from "@/lib/google-ads";
 import { reportMetaCompleteRegistration } from "@/lib/meta-pixel";
-import { getSignupOriginMetadata } from "@/lib/origin";
+import { captureSignupOrigin, getSignupOriginMetadata } from "@/lib/origin";
 import { Button } from "@/components/ui/button";
 
 function isEmailSendLimited(error: unknown): boolean {
@@ -112,6 +112,10 @@ const [name, setName] = useState("");
   }
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    captureSignupOrigin();
+  }, []);
 
   useEffect(() => {
     if (user) navigate({ to: "/" });

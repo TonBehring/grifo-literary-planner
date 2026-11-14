@@ -1,8 +1,17 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { captureSignupOrigin } from "./lib/origin";
 
 export const getRouter = () => {
+  // Captura antes de qualquer render ou redirecionamento, sem efeitos no import/SSR.
+  if (typeof window !== "undefined") {
+    try {
+      captureSignupOrigin();
+    } catch {
+      // Armazenamento indisponível não deve impedir a abertura do app.
+    }
+  }
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
