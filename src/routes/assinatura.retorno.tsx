@@ -33,7 +33,7 @@ function ReturnPage() {
       try {
         const sub = await getMySubscription();
         if (cancelled) return;
-        if (hasActiveAccess(sub)) {
+        if (sub && hasActiveAccess(sub)) {
           void reportMetaPurchase(sub);
           setConfirmed(true);
           setChecking(false);
