@@ -200,7 +200,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const saveNote = useMutation({
     mutationFn: async (data: { content: string; kind: "nota" | "citacao"; page: string }) => {
       if (!user) throw new Error("Não autenticado");
-      await addNote({
+      return addNote({
         user_book_id: id,
         user_id: user.id,
         content: data.content.slice(0, 2000),
