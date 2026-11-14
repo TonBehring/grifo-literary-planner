@@ -22,6 +22,7 @@ let container: HTMLDivElement;
 beforeEach(async () => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  localStorage.clear();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   signUp.mockResolvedValue({ data: { user: { id: "new-user", identities: [{}] }, session: null }, error: null });
   resend.mockResolvedValue({ error: null });
