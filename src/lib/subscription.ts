@@ -1,15 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type Subscription = {
+  id?: string;
   provider: "mercado_pago" | "asaas" | "cortesia";
   status: string;
   current_period_end: string | null;
+  charged_value?: number | string | null;
 };
 
 export async function getMySubscription(): Promise<Subscription | null> {
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("provider, status, current_period_end")
+    .select("id, provider, status, current_period_end, charged_value")
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as Subscription | null) ?? null;
