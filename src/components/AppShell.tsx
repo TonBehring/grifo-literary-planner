@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-3xl px-5">
         {!subscription.isLoading && !hasActiveAccess(subscription.data) && pathname !== "/conta" && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs">
-            <span>Sua assinatura não está ativa — você só consegue ver o que já registrou.</span>
+            <span>Sua estante é gratuita. Assine para registrar progresso, anotações e muito mais.</span>
             <Link to="/conta" className="font-medium text-primary underline underline-offset-4">
               Assinar
             </Link>

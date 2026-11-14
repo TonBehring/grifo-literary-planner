@@ -355,6 +355,11 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           </div>
         )}
 
+        {!activeLoan && !subscriptionActive && (ub.status === "lendo" || ub.status === "quero_ler") && (
+          <div className="mt-4">
+            <SubscriptionRequiredNotice action="iniciar uma sessão de leitura, mudar o status ou avaliar este livro" />
+          </div>
+        )}
         {!activeLoan &&
           subscriptionActive &&
           (ub.status === "lendo" || ub.status === "quero_ler") && (
