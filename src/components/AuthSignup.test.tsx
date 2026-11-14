@@ -122,3 +122,19 @@ it("blocks double submissions while signup is pending", async () => {
   expect(signUp).toHaveBeenCalledTimes(1);
   expect(button("Aguarde…").disabled).toBe(true);
 });
+it("sends the saved campaign origin with a successful signup", async () => {
+  localStorage.setItem("grifo_origem", JSON.stringify({
+    utm_source: "instagram",
+    utm_campaign: "lista_espera",
+    ref: "bio",
+    captured_at: new Date().toISOString(),
+  }));
+  await prepare();
+  await submit();
+  expect(conversion).toHaveBeenCalledTimes(1);
+  expect(signUp).toHaveBeenCalledWith(expect.objectContaining({
+    options: expect.objectContaining({
+      data: expect.objectContaining({ utm_source: "instagram", utm_campaign: "lista_espera", ref: "bio" }),
+    }),
+  }));
+});
