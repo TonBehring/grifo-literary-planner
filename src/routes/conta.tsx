@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ContatosPanel } from "@/components/ContatosPanel";
 import { WhatsAppSection } from "@/components/WhatsAppSection";
+import { InstallSection } from "@/components/InstallSection";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCover } from "@/lib/cover-upload";
 import { getMyFounderStatus } from "@/lib/founders";
@@ -151,6 +152,7 @@ function AccountPage() {
       <NotificationsSection />
 
       <WhatsAppSection />
+      <InstallSection />
 
       <div className="panel-cream mt-6 space-y-4 rounded-2xl p-5">
         <div className="flex items-center gap-4">

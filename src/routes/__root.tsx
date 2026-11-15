@@ -20,6 +20,9 @@ import { Toaster } from "../components/ui/sonner";
 import { captureSignupOrigin } from "../lib/origin";
 import { onAdConsentChange } from "../lib/consent";
 import { revokeMetaPixel, trackMetaPageView } from "../lib/meta-pixel";
+import { initializeInstallCapture } from "../lib/install";
+
+initializeInstallCapture();
 
 function NotFoundComponent() {
   return (

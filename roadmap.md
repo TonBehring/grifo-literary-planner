@@ -1,5 +1,10 @@
 # Roadmap — Grifo
 
+## Instalação do app
+- [x] Adicionar captura antecipada de instalação, faixa coordenada com avisos e seção na conta, sem alterar os avisos existentes.
+- [x] Testar plataformas, modo instalado e intervalo de 7 dias: 90 testes passaram e compilação aprovada; instruções Android/iOS/inapp, cópia do link e dispensa conferidas no navegador com conta simulada.
+- [ ] Validar instalação nativa em celular real no site publicado; bloqueador: este ambiente não oferece um dispositivo físico nem uma conta real autorizada.
+
 ## Pedido de 14/11/2026
 - [x] Liberar busca e adição à estante sem assinatura; manter ações pagas com convite claro e proteger o cronômetro.
 - [x] Guardar origem do cadastro por 30 dias, enviar no signUp e preparar relatório administrativo por período com função SQL admin-only.

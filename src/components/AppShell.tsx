@@ -19,6 +19,7 @@ import { getUnreadCount } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { SubscriptionNudge } from "@/components/SubscriptionNudge";
 import { WhatsAppNudge } from "@/components/WhatsAppNudge";
+import { InstallBanner } from "@/components/InstallBanner";
 
 const NAV = [
   { to: "/", label: "Lendo Agora", icon: BookOpen },
@@ -33,6 +34,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [subscriptionNudgeOpen, setSubscriptionNudgeOpen] = useState(false);
+  const [whatsappNudgeOpen, setWhatsappNudgeOpen] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setWhatsappNudgeOpen(Boolean(document.querySelector('[data-whatsapp-nudge][data-state="open"]')));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] });
+    return () => observer.disconnect();
+  }, []);
 
   const subscription = useQuery({
     queryKey: ["subscription", user?.id],
@@ -141,7 +151,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         subscriptionOpen={subscriptionNudgeOpen}
         subscriptionLoading={subscription.isLoading || subscription.isError} />
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/90 backdrop-blur">
+      <InstallBanner userId={user.id} pathname={pathname} dialogOpen={subscriptionNudgeOpen || whatsappNudgeOpen} />
+
+      <nav data-install-navigation className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl">
           {NAV.map(({ to, label, icon: Icon }) => {
             const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
