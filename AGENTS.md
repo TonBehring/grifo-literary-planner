@@ -16,3 +16,5 @@
 - Keep email confirmation at a public `/confirmar` route with verification only in the explicit button handler and network-only service-worker fetching, so email security scanners cannot consume tokens on page load.
 
 - Share WhatsApp profile reads and RPC-only writes in `src/lib/whatsapp.ts` and the form between account and nudge, so both surfaces use identical validation and user-scoped cache; AppShell coordinates subscription priority and keys the WhatsApp nudge by navigation to defer conflicts to the next page.
+
+- Keep install-event capture and platform state in `src/lib/install.ts`, initialized by the root before mounting; share instructions between account and banner, and observe WhatsApp visibility in AppShell without modifying existing nudges.
