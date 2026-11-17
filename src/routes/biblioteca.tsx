@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LayoutGrid } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
+import { ShareWishlistDialog } from "@/components/ShareWishlistDialog";
 import { listUserBooks } from "@/lib/api";
 import { STATUS_LABEL, type ShelfStatus, type UserBook } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -167,6 +168,12 @@ function LibraryPage() {
             </div>
           )}
         </>
+      )}
+
+      {view === "desejos" && wishlistData && wishlistData.length > 0 && (
+        <div className="mt-4">
+          <ShareWishlistDialog books={wishlistData} />
+        </div>
       )}
 
       {view === "desejos" && (

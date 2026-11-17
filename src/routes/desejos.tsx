@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
 import { listUserBooks } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { ShareWishlistDialog } from "@/components/ShareWishlistDialog";
 
 export const Route = createFileRoute("/desejos")({
   head: () => ({
@@ -40,6 +41,11 @@ function WishlistPage() {
       <p className="mt-2 text-sm text-muted-foreground">
         Livros que você ainda não tem, mas quer colocar na sua estante.
       </p>
+      {data && data.length > 0 && (
+        <div className="mt-4">
+          <ShareWishlistDialog books={data} />
+        </div>
+      )}
 
       <div className="mt-6 space-y-4">
         {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
