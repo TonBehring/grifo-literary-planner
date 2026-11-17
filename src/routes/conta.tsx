@@ -13,6 +13,7 @@ import { getMyFounderStatus } from "@/lib/founders";
 import { createSubscriptionCheckout, getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { getPushPermission, isPushSupported, sendTestPush, subscribeToPush } from "@/lib/push";
 import { useAuth } from "@/lib/auth";
+import { hasEmailIdentity, isGoogleUser } from "@/lib/oauth";
 
 export const Route = createFileRoute("/conta")({
   head: () => ({
@@ -229,6 +230,12 @@ function AccountPage() {
         </button>
 
         <div className="border-t border-border pt-4">
+          {user && isGoogleUser(user) && (
+            <p className="mb-3 text-sm text-muted-foreground">
+              {hasEmailIdentity(user) ? "Conta Google conectada." : "Você entra com sua conta Google."}
+            </p>
+          )}
+          {(!user || hasEmailIdentity(user)) && (<>
           {!changingPassword && (
             <button
               onClick={() => setChangingPassword(true)}
@@ -322,6 +329,7 @@ function AccountPage() {
               </button>
             </div>
           )}
+          </>)}
         </div>
 
       </div>

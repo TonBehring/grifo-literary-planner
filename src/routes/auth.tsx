@@ -8,6 +8,10 @@ import { reportSignupConversion } from "@/lib/google-ads";
 import { reportMetaCompleteRegistration } from "@/lib/meta-pixel";
 import { captureSignupOrigin, getSignupOriginMetadata } from "@/lib/origin";
 import { Button } from "@/components/ui/button";
+import { detectInstallPlatform } from "@/lib/install";
+import { markOAuthPending } from "@/lib/oauth";
+
+const GOOGLE_ERROR = "Não foi possível entrar com o Google. Tente de novo.";
 
 function isEmailSendLimited(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -113,9 +117,56 @@ const [name, setName] = useState("");
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [inApp, setInApp] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
   useEffect(() => {
     captureSignupOrigin();
+    try {
+      setInApp(detectInstallPlatform(navigator.userAgent, navigator.maxTouchPoints) === "inapp");
+    } catch {
+      setInApp(false);
+    }
+    try {
+      const url = new URL(window.location.href);
+      const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+      if (url.searchParams.has("error") || url.searchParams.has("error_description") ||
+        hash.has("error") || hash.has("error_description")) {
+        toast.error(GOOGLE_ERROR);
+        ["error", "error_code", "error_description"].forEach((k) => url.searchParams.delete(k));
+        url.hash = "";
+        window.history.replaceState(null, "", url.pathname + url.search);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
+
+  async function continueWithGoogle() {
+    if (googleBusy) return;
+    setGoogleBusy(true);
+    try {
+      captureSignupOrigin();
+      markOAuthPending();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/" },
+      });
+      if (error) throw error;
+    } catch {
+      toast.error(GOOGLE_ERROR);
+      setGoogleBusy(false);
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText("https://useogrifo.app");
+      toast.success("Link copiado!");
+    } catch {
+      toast.error("Não foi possível copiar o link.");
+    }
+  }
 
   useEffect(() => {
     if (user) navigate({ to: "/" });
@@ -268,6 +319,50 @@ const [name, setName] = useState("");
                   {m === "login" ? "Entrar" : "Criar conta"}
                 </button>
               ))}
+            </div>
+          )}
+
+          {mode !== "reset" && (
+            <div className="mb-6">
+              {inApp ? (
+                <div className="rounded-xl border border-white/15 bg-white/5 p-3 text-xs leading-relaxed text-white/80">
+                  <p>
+                    Para entrar com o Google, abra o Grifo no navegador do celular. Toque nos três
+                    pontinhos e escolha Abrir no navegador.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copyLink()}
+                    className="mt-3 w-full rounded-lg border border-primary/60 py-2 text-xs font-medium text-primary"
+                  >
+                    Copiar link
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void continueWithGoogle()}
+                    disabled={googleBusy || busy}
+                    className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-[#747775] bg-[#FFFFFF] px-3 text-sm font-medium text-[#1F1F1F] transition-opacity hover:opacity-95 disabled:opacity-70"
+                  >
+                    <svg aria-hidden="true" width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.090c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+                    <span>{googleBusy ? "Abrindo o Google…" : "Continuar com o Google"}</span>
+                  </button>
+                  <p className="mt-2 text-[11px] leading-relaxed text-white/70">
+                    Ao continuar com o Google, você aceita os{" "}
+                    <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">Termos de Uso</a>{" "}
+                    e a{" "}
+                    <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">Política de Privacidade</a>{" "}
+                    do Grifo.
+                  </p>
+                </>
+              )}
+              <div className="mt-5 flex items-center gap-3 text-xs text-white/60">
+                <span className="h-px flex-1 bg-white/15" />
+                ou
+                <span className="h-px flex-1 bg-white/15" />
+              </div>
             </div>
           )}
 
