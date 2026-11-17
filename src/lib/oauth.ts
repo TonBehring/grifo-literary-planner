@@ -48,7 +48,7 @@ export async function handleOAuthLogin(user: User, now = Date.now()): Promise<vo
     const created = Date.parse(user.created_at ?? "");
     const isNew = Number.isFinite(created) && now - created < NEW_ACCOUNT_MS;
 
-    if (!user.user_metadata?.terms_accepted_at) {
+    if (!user.user_metadata?.["terms_accepted_at"]) {
       try {
         await supabase.auth.updateUser({
           data: {

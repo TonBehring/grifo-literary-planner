@@ -16,7 +16,7 @@ beforeEach(() => { vi.clearAllMocks(); resetOAuthProcessed(); localStorage.clear
 it("grava terms_accepted_at quando falta", async () => {
   await handleOAuthLogin(user(), NOW);
   expect(updateUser).toHaveBeenCalledTimes(1);
-  expect(updateUser.mock.calls[0][0].data.terms_accepted_at).toBe(new Date(NOW).toISOString());
+  expect(updateUser.mock.calls[0]?.[0].data.terms_accepted_at).toBe(new Date(NOW).toISOString());
 });
 it("não grava terms_accepted_at quando já existe", async () => {
   await handleOAuthLogin(user({ user_metadata: { terms_accepted_at: "x" } }), NOW);
