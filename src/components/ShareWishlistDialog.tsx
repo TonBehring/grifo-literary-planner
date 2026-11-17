@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import type { UserBook } from "@/lib/types";
 import { firstName, generateWishlistCard, toCardBooks } from "@/lib/wishlist-card";
 
-const FILE_NAME = "grifo-quero-comprar.png";
+const FILE_NAME = "grifo-lista-de-desejos.png";
 
 async function resolveName(user: { id: string; user_metadata?: Record<string, unknown> } | null) {
   if (!user) return "";
@@ -68,7 +68,7 @@ export function ShareWishlistDialog({ books }: { books: UserBook[] }) {
       try {
         await navigator.share({
           files: [file],
-          title: "Minha lista Quero comprar",
+          title: "Minha lista de desejos",
           text: "Minha lista de desejos no Grifo: useogrifo.app",
         });
       } catch (e) {
@@ -120,7 +120,7 @@ export function ShareWishlistDialog({ books }: { books: UserBook[] }) {
             <>
               <img
                 src={url}
-                alt="Pré-visualização da lista Quero comprar"
+                alt="Pré-visualização da sua lista de desejos"
                 className="mx-auto max-h-[60vh] w-auto rounded-lg border object-contain"
               />
               <div className="flex flex-col gap-2 sm:flex-row">

@@ -3,6 +3,11 @@ import type { UserBook } from "@/lib/types";
 
 export const CARD_W = 1080;
 export const CARD_H = 1920;
+export const CARD_TITLE = "Lista de desejos";
+const TITLE_BASELINE = 340;
+const SUBTITLE_BASELINE = 410;
+const RIBBON_WITH_SUBTITLE = 470;
+const RIBBON_WITHOUT_SUBTITLE = 400;
 const CREAM = "#F9F4EA";
 const DARK = "#052C2D";
 const GREEN = "#144142";
@@ -29,9 +34,22 @@ export function firstName(name: string | null | undefined): string {
   return (name ?? "").trim().split(/\s+/)[0] ?? "";
 }
 
+/** Small line under the title. Empty when there is no name, so the card shows no hole. */
 export function subtitleFor(nome: string | null | undefined): string {
   const f = firstName(nome);
-  return f ? `A lista de desejos de ${f}` : "Minha lista de desejos";
+  return f ? `de ${f}` : "";
+}
+
+export type WishlistHeader = { title: string; subtitle: string; ribbonY: number };
+
+/** Card header: fixed title, optional "de {first name}" line, and the gold ribbon position. */
+export function headerFor(nome: string | null | undefined): WishlistHeader {
+  const subtitle = subtitleFor(nome);
+  return {
+    title: CARD_TITLE,
+    subtitle,
+    ribbonY: subtitle ? RIBBON_WITH_SUBTITLE : RIBBON_WITHOUT_SUBTITLE,
+  };
 }
 
 export function extraLabel(n: number): string {
@@ -262,18 +280,21 @@ export async function generateWishlistCard({
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = DARK;
   ctx.font = `700 104px ${SERIF}`;
-  ctx.fillText("Quero comprar", CARD_W / 2, 340);
-  ctx.fillStyle = GREEN;
-  ctx.font = `400 38px ${SANS}`;
-  ctx.fillText(subtitleFor(nome), CARD_W / 2, 410);
+  const header = headerFor(nome);
+  ctx.fillText(header.title, CARD_W / 2, TITLE_BASELINE);
+  if (header.subtitle) {
+    ctx.fillStyle = GREEN;
+    ctx.font = `400 38px ${SANS}`;
+    ctx.fillText(header.subtitle, CARD_W / 2, SUBTITLE_BASELINE);
+  }
 
   ctx.fillStyle = GOLD;
-  ctx.fillRect(CARD_W / 2 - 180, 470, 360, 3);
+  ctx.fillRect(CARD_W / 2 - 180, header.ribbonY, 360, 3);
   ctx.beginPath();
-  ctx.moveTo(CARD_W / 2, 461);
-  ctx.lineTo(CARD_W / 2 + 10, 471.5);
-  ctx.lineTo(CARD_W / 2, 482);
-  ctx.lineTo(CARD_W / 2 - 10, 471.5);
+  ctx.moveTo(CARD_W / 2, header.ribbonY - 9);
+  ctx.lineTo(CARD_W / 2 + 10, header.ribbonY + 1.5);
+  ctx.lineTo(CARD_W / 2, header.ribbonY + 12);
+  ctx.lineTo(CARD_W / 2 - 10, header.ribbonY + 1.5);
   ctx.closePath();
   ctx.fill();
 

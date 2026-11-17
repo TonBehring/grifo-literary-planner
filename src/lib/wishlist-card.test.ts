@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }));
-import { computeLayout, extraLabel, loadCover, subtitleFor, wrapText } from "./wishlist-card";
+import { computeLayout, extraLabel, headerFor, loadCover, subtitleFor, wrapText } from "./wishlist-card";
 
 const mono = { measureText: (t: string) => ({ width: t.length * 10 }) };
 
@@ -29,9 +29,24 @@ describe("wishlist card layout", () => {
     expect(l.extra).toBe(4);
     expect(extraLabel(4)).toBe("e mais 4 livros");
   });
-  it("subtitle uses first name or falls back", () => {
-    expect(subtitleFor("Ton Behring")).toBe("A lista de desejos de Ton");
-    expect(subtitleFor("")).toBe("Minha lista de desejos");
+  it("subtitle is 'de {first name}' or empty when there is no name", () => {
+    expect(subtitleFor("Ton Behring")).toBe("de Ton");
+    expect(subtitleFor("  Ana   Clara Souza ")).toBe("de Ana");
+    expect(subtitleFor("")).toBe("");
+    expect(subtitleFor(null)).toBe("");
+    expect(subtitleFor(undefined)).toBe("");
+  });
+  it("header title is 'Lista de desejos', never the internal list name", () => {
+    expect(headerFor("Ton Behring").title).toBe("Lista de desejos");
+    expect(headerFor(null).title).toBe("Lista de desejos");
+    expect(headerFor("Ton Behring").title).not.toContain("Quero comprar");
+  });
+  it("gold ribbon rises when the 'de ...' line is absent", () => {
+    const withName = headerFor("Ton Behring");
+    const withoutName = headerFor(null);
+    expect(withName.subtitle).toBe("de Ton");
+    expect(withoutName.subtitle).toBe("");
+    expect(withoutName.ribbonY).toBeLessThan(withName.ribbonY);
   });
 });
 
