@@ -12,7 +12,6 @@ import { StarRating } from "@/components/StarRating";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import { renderFormattedText } from "@/lib/note-format";
 import {
-  addNote,
   addReadingLog,
   deleteNote,
   deleteUserBook,
@@ -27,6 +26,7 @@ import { FORMAT_LABEL, STATUS_LABEL, progressOf, type BookFormat, type BookNote,
 import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { exportBookNotesToPdf } from "@/lib/notes-pdf";
 import { useAuth } from "@/lib/auth";
+import { createBookNote } from "@/lib/notes";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
@@ -200,13 +200,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   const saveNote = useMutation({
     mutationFn: async (data: { content: string; kind: "nota" | "citacao"; page: string }) => {
       if (!user) throw new Error("Não autenticado");
-      return addNote({
-        user_book_id: id,
-        user_id: user.id,
-        content: data.content.slice(0, 2000),
-        kind: data.kind,
-        page: data.page ? Number(data.page) : null,
-      });
+      return createBookNote(id, user.id, data);
     },
     onSuccess: (savedNote) => {
       setNoteModalOpen(false);

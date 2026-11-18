@@ -18,7 +18,7 @@
 // Storage, trocando só a URL de cada item em SOUND_OPTIONS abaixo.
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   Church,
@@ -28,6 +28,7 @@ import {
   Music,
   Pause,
   Pencil,
+  PenLine,
   Piano,
   Play,
   Square,
@@ -39,6 +40,8 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BookCover } from "@/components/BookCover";
 import { MoodPicker } from "@/components/MoodPicker";
+import { NoteEditorModal } from "@/components/NoteEditorModal";
+import { Button } from "@/components/ui/button";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import {
   addReadingLog,
@@ -49,6 +52,7 @@ import {
   updateUserBook,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { createBookNote, type NewNoteData } from "@/lib/notes";
 
 export const Route = createFileRoute("/livro/$id_/sessao_/$sessionId")({
   head: () => ({
@@ -168,6 +172,21 @@ function ReadingSessionTimer() {
   const [somAtual, setSomAtual] = useState<string | null>(null);
   const [somCarregado, setSomCarregado] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [sessionNoteCount, setSessionNoteCount] = useState(0);
+  const saveNote = useMutation({
+    mutationFn: (data: NewNoteData) => {
+      if (!user || !subscriptionActive) throw new Error("Acesso indisponível");
+      return createBookNote(id, user.id, data);
+    },
+    onSuccess: () => {
+      setNoteModalOpen(false);
+      setSessionNoteCount((count) => count + 1);
+      void queryClient.invalidateQueries({ queryKey: ["notes", id] });
+      toast.success("Anotação guardada");
+    },
+    onError: () => toast.error("Não foi possível guardar a anotação. Tente de novo."),
+  });
 
   useEffect(() => {
     const t = setInterval(() => setTick((v) => v + 1), 1000);
@@ -422,7 +441,21 @@ function ReadingSessionTimer() {
       </div>
 
       {!encerrando ? (
-        <div className="mt-auto flex gap-3 pt-10">
+        <div className="mt-auto pt-10">
+          <Button
+            variant="outline"
+            onClick={() => setNoteModalOpen(true)}
+            className="h-auto w-full rounded-full border-border py-3 text-foreground"
+          >
+            <PenLine className="h-4 w-4" />
+            Anotar
+          </Button>
+          {sessionNoteCount > 0 && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              {sessionNoteCount} {sessionNoteCount === 1 ? "anotação nesta sessão" : "anotações nesta sessão"}
+            </p>
+          )}
+          <div className="mt-3 flex gap-3">
           <button
             onClick={togglePause}
             className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border py-4 text-sm font-medium text-foreground"
@@ -437,6 +470,7 @@ function ReadingSessionTimer() {
             <Square className="h-4 w-4" />
             Encerrar sessão
           </button>
+          </div>
         </div>
       ) : (
         <div className="panel-cream mt-auto rounded-2xl p-5">
@@ -472,6 +506,18 @@ function ReadingSessionTimer() {
           </div>
         </div>
       )}
+
+      <NoteEditorModal
+        open={noteModalOpen}
+        onOpenChange={setNoteModalOpen}
+        userBookId={id}
+        noteId={null}
+        initialContent=""
+        initialKind="citacao"
+        initialPage=""
+        saving={saveNote.isPending}
+        onSave={(data) => saveNote.mutate(data)}
+      />
 
       {somAberto && (
         <div

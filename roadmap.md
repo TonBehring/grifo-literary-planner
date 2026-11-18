@@ -1,5 +1,9 @@
 # Roadmap — Grifo
 
+## Anotações no cronômetro
+- [x] Integrar o editor existente e compartilhar regras de criação; 112 testes passaram e compilação automática aprovada, incluindo salvamento sem navegação, contagem contínua, som sem interrupção e preservação do texto em erro.
+- [ ] Validar salvamento em sessão real no site; bloqueador: não há conta autenticada autorizada disponível no banco externo deste ambiente.
+
 ## Instalação do app
 - [x] Adicionar captura antecipada de instalação, faixa coordenada com avisos e seção na conta, sem alterar os avisos existentes.
 - [x] Testar plataformas, modo instalado e intervalo de 7 dias: 90 testes passaram e compilação aprovada; instruções Android/iOS/inapp, cópia do link e dispensa conferidas no navegador com conta simulada.

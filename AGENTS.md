@@ -18,3 +18,5 @@
 - Share WhatsApp profile reads and RPC-only writes in `src/lib/whatsapp.ts` and the form between account and nudge, so both surfaces use identical validation and user-scoped cache; AppShell coordinates subscription priority and keys the WhatsApp nudge by navigation to defer conflicts to the next page.
 
 - Keep install-event capture and platform state in `src/lib/install.ts`, initialized by the root before mounting; share instructions between account and banner, and observe WhatsApp visibility in AppShell without modifying existing nudges.
+
+- Share new book-note field mapping in `src/lib/notes.ts` between book detail and reading timer so both save with identical rules without coupling note editing to timer controls.
