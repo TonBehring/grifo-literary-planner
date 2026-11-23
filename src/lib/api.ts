@@ -1567,6 +1567,8 @@ export type ClubPost = {
   // ids de quem curtiu — usado pra mostrar "fulano e mais 2 curtiram".
   curtido_por: string[];
   comments_count: number;
+  // preenchido quando o admin fixou o post no topo do mural
+  fixado_em: string | null;
 };
 
 export async function listClubPosts(clubId: string, userId: string): Promise<ClubPost[]> {
@@ -1599,8 +1601,68 @@ export async function listClubPosts(clubId: string, userId: string): Promise<Clu
       curtido_por_mim: curtidores.includes(userId),
       curtido_por: curtidores,
       comments_count: r.club_post_comments?.[0]?.count ?? 0,
+      fixado_em: null,
     };
   });
+}
+
+export const POSTS_POR_PAGINA = 10;
+export type OrdemMural = "recentes" | "em_alta" | "fixados";
+
+// Mural paginado (função do banco club_posts_page). "em_alta" ordena por
+// curtidas + comentários; "fixados" traz só os posts fixados pelo admin,
+// que não se repetem nas outras listas.
+export async function listClubPostsPage(
+  clubId: string,
+  userId: string,
+  ordem: OrdemMural,
+  offset: number,
+): Promise<ClubPost[]> {
+  const { data, error } = await supabase.rpc("club_posts_page", {
+    p_club_id: clubId,
+    p_ordem: ordem,
+    p_limit: POSTS_POR_PAGINA,
+    p_offset: offset,
+  });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as Array<{
+    id: string;
+    user_id: string;
+    conteudo: string;
+    pagina_referencia: number | null;
+    criado_em: string;
+    curtido_por: string[] | null;
+    comments_count: number;
+    fixado_em: string | null;
+  }>;
+  return rows.map((r) => {
+    const curtidores = r.curtido_por ?? [];
+    return {
+      id: r.id,
+      user_id: r.user_id,
+      conteudo: r.conteudo,
+      pagina_referencia: r.pagina_referencia,
+      criado_em: r.criado_em,
+      likes_count: curtidores.length,
+      curtido_por_mim: curtidores.includes(userId),
+      curtido_por: curtidores,
+      comments_count: r.comments_count ?? 0,
+      fixado_em: r.fixado_em,
+    };
+  });
+}
+
+// Fixar no topo do mural (só admin; no máximo 3 por clube, regra no banco).
+export async function pinClubPost(postId: string, clubId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("club_post_pins")
+    .insert({ post_id: postId, club_id: clubId, fixado_por: userId });
+  if (error) throw new Error(error.message);
+}
+
+export async function unpinClubPost(postId: string): Promise<void> {
+  const { error } = await supabase.from("club_post_pins").delete().eq("post_id", postId);
+  if (error) throw new Error(error.message);
 }
 
 export async function addClubPost(input: {
