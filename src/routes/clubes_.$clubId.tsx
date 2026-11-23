@@ -28,13 +28,20 @@ import {
   EyeOff,
   Eye,
   Users as UsersIcon,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ClubOptionsMenu } from "@/components/ClubOptionsMenu";
 import { ClubGoalsList } from "@/components/ClubGoalsList";
 import { ClubShelf } from "@/components/ClubShelf";
-import { ClubMyProgress } from "@/components/ClubMyProgress";
+import { ClubMyProgress, ProgressBar, progressPercent } from "@/components/ClubMyProgress";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
   AlertDialog,
@@ -706,10 +713,16 @@ function ClubPage() {
     return <p className="text-sm text-muted-foreground">Carregando…</p>;
   }
 
-  const { club, meuPapel, livroAtualTitulo, livroAtualAutor, livroAtualCapa } = detail.data;
+  const { club, meuPapel, livroAtualTitulo, livroAtualAutor, livroAtualCapa, livroAtualPaginas } =
+    detail.data;
   const souAdmin = meuPapel === "admin";
   const memberByUserId = new Map((members.data ?? []).map((m) => [m.user_id, m]));
   const meuMembro = user ? memberByUserId.get(user.id) : undefined;
+  const meuRanking = user ? ranking.data?.find((e) => e.user_id === user.id) : undefined;
+  const rankingVisivel = (ranking.data ?? []).filter((e) => !e.oculto);
+  const proximoEncontro = (events.data ?? [])
+    .filter((ev) => new Date(ev.data_hora).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())[0];
 
   return (
     <section className="pb-6">
@@ -784,7 +797,27 @@ function ClubPage() {
 
       {/* Livro atual */}
       <div className="card-teal mt-4 rounded-2xl p-4">
-        <p className="text-xs uppercase tracking-wide opacity-80">Livro atual</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide opacity-80">Livro atual</p>
+          {souAdmin && livroAtualTitulo && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Opções do livro do clube"
+                className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setBuscaLivroAberta(true)}>
+                  Trocar livro
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setConcluirAberto(true)}>
+                  Concluir leitura
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
         {livroAtualTitulo ? (
           <div className="mt-2 flex items-center gap-3">
             <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-white/10">
@@ -799,20 +832,23 @@ function ClubPage() {
           <p className="mt-2 text-sm opacity-80">Nenhum livro definido ainda.</p>
         )}
 
-        {souAdmin && (
+        {user && livroAtualTitulo && (
+          <ClubMyProgress
+            clubId={clubId}
+            userId={user.id}
+            totalPaginas={livroAtualPaginas}
+            minhasPaginas={meuRanking?.paginas_lidas ?? null}
+            onChanged={invalidarClube}
+          />
+        )}
+
+        {souAdmin && !livroAtualTitulo && (
           <button
             onClick={() => setBuscaLivroAberta((v) => !v)}
-            className="mt-3 text-xs font-medium underline underline-offset-4"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#052C2D]"
           >
-            {livroAtualTitulo ? "Trocar livro" : "Definir livro atual"}
-          </button>
-        )}
-        {souAdmin && livroAtualTitulo && (
-          <button
-            onClick={() => setConcluirAberto(true)}
-            className="ml-4 mt-3 text-xs font-medium underline underline-offset-4"
-          >
-            Concluir leitura
+            <Search className="h-4 w-4" />
+            {buscaLivroAberta ? "Fechar busca" : "Definir livro atual"}
           </button>
         )}
         <AlertDialog open={concluirAberto} onOpenChange={setConcluirAberto}>
@@ -883,6 +919,20 @@ function ClubPage() {
 
         {souAdmin && buscaLivroAberta && (
           <div className="mt-3 rounded-xl bg-white/10 p-3">
+            {livroAtualTitulo && (
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs opacity-80">Escolha o novo livro do clube</p>
+                <button
+                  onClick={() => {
+                    setBuscaLivroAberta(false);
+                    setResultadosBusca([]);
+                  }}
+                  className="text-xs underline underline-offset-4 opacity-80"
+                >
+                  Fechar
+                </button>
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 value={termoBusca}
@@ -922,392 +972,29 @@ function ClubPage() {
         )}
       </div>
 
-      <ClubShelf
-        clubId={clubId}
-        souAdmin={souAdmin}
-        livroAtualTitulo={livroAtualTitulo}
-        onChanged={invalidarClube}
-      />
-
-      {/* Metas do clube */}
-      <div className="panel-cream mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <Target className="h-4 w-4" />
-            Metas do clube
-          </p>
-          {souAdmin && (
-            <button
-              onClick={() => setNovaMetaAberta((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {novaMetaAberta ? "Fechar" : "Nova meta"}
-            </button>
-          )}
-        </div>
-
-        {souAdmin && novaMetaAberta && (
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
-            <input
-              value={tituloMeta}
-              onChange={(e) => setTituloMeta(e.target.value)}
-              placeholder="Título (ex.: Ler o livro em 30 dias)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <textarea
-              value={descricaoMeta}
-              onChange={(e) => setDescricaoMeta(e.target.value)}
-              rows={2}
-              placeholder="Descrição (ex.: comentar os capítulos 1, 2 e 3 até o prazo)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <div>
-              <label className="text-xs text-muted-foreground">Prazo (opcional)</label>
-              <input
-                type="date"
-                value={prazoMeta}
-                onChange={(e) => setPrazoMeta(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </div>
-            <button
-              onClick={criarMeta}
-              disabled={criandoMeta}
-              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {criandoMeta ? "Salvando…" : "Criar meta"}
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-col gap-2">
-          {goals.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-          {!goals.isLoading && goals.data && goals.data.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nenhuma meta definida ainda.</p>
-          )}
-
-          {goals.data && user && (
-            <ClubGoalsList
-              clubId={clubId}
-              goals={goals.data}
-              members={members.data ?? []}
-              userId={user.id}
-              souAdmin={souAdmin}
-              onDelete={apagarMeta}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Ranking de leitura (só existe enquanto houver um livro atual) */}
-      {livroAtualTitulo && (
-        <div className="panel-cream mt-4 rounded-2xl p-4">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-sm font-medium">
-              <Trophy className="h-4 w-4" />
-              Ranking de leitura
-            </p>
-            {meuMembro && (
-              <button
-                onClick={() => alternarMeuRanking(meuMembro.ranking_oculto)}
-                disabled={alterandoRanking}
-                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline underline-offset-4 disabled:opacity-60"
-              >
-                {meuMembro.ranking_oculto ? (
-                  <>
-                    <EyeOff className="h-3.5 w-3.5" />
-                    Você está oculto
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-3.5 w-3.5" />
-                    Não aparecer
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube. É só por
-            diversão, ninguém é obrigado a aparecer aqui.
-          </p>
-
-          {user && <ClubMyProgress clubId={clubId} userId={user.id} onChanged={invalidarClube} />}
-
-          <div className="mt-3 flex flex-col gap-1.5">
-            {ranking.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-            {ranking.data?.map((entry, i) => (
-              <div
-                key={entry.user_id}
-                className={
-                  "flex items-center gap-3 rounded-xl px-2 py-1.5 " +
-                  (i === 0 && entry.paginas_lidas > 0 ? "bg-primary/10" : "")
-                }
-              >
-                <span
-                  className={
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
-                    (i === 0 && entry.paginas_lidas > 0
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground")
-                  }
-                >
-                  {i + 1}
-                </span>
-                {entry.avatar_url ? (
-                  <img
-                    src={entry.avatar_url}
-                    alt=""
-                    className="h-7 w-7 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
-                    {entry.nome.slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-                <span className="min-w-0 flex-1 truncate text-sm">{entry.nome}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {entry.paginas_lidas > 0
-                    ? `${entry.paginas_lidas} pág.`
-                    : entry.tem_livro_na_estante
-                      ? "0 pág."
-                      : "sem progresso"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Eventos / encontros */}
-      <div className="panel-cream mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <CalendarDays className="h-4 w-4" />
-            Próximos encontros
-          </p>
-          {souAdmin && (
-            <button
-              onClick={() => setNovoEventoAberto((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {novoEventoAberto ? "Fechar" : "Marcar encontro"}
-            </button>
-          )}
-        </div>
-
-        {souAdmin && novoEventoAberto && (
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
-            <input
-              value={tituloEvento}
-              onChange={(e) => setTituloEvento(e.target.value)}
-              placeholder="Título (ex.: Discussão do capítulo 1)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              type="datetime-local"
-              value={dataHoraEvento}
-              onChange={(e) => setDataHoraEvento(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              value={localEvento}
-              onChange={(e) => setLocalEvento(e.target.value)}
-              placeholder="Local ou link (ex.: endereço, Zoom, Meet…)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <textarea
-              value={descricaoEvento}
-              onChange={(e) => setDescricaoEvento(e.target.value)}
-              rows={2}
-              placeholder="Descrição (opcional)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button
-              onClick={criarEvento}
-              disabled={criandoEvento}
-              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {criandoEvento ? "Salvando…" : "Marcar encontro"}
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-col gap-2">
-          {events.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-          {!events.isLoading && events.data && events.data.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nenhum encontro marcado ainda.</p>
-          )}
-
-          {events.data?.map((ev) => {
-            const passado = new Date(ev.data_hora).getTime() < Date.now();
-            const ehLink = ev.local_ou_link?.startsWith("http");
-            return (
-              <div
-                key={ev.id}
-                className={
-                  "rounded-xl border border-border p-3 " + (passado ? "opacity-50" : "")
-                }
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{ev.titulo}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(ev.data_hora).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                    {ev.local_ou_link &&
-                      (ehLink ? (
-                        <a
-                          href={ev.local_ou_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-primary underline underline-offset-4"
-                        >
-                          {ev.local_ou_link}
-                        </a>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">{ev.local_ou_link}</p>
-                      ))}
-                    {ev.descricao && (
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {ev.descricao}
-                      </p>
-                    )}
-                  </div>
-                  {souAdmin && (
-                    <button
-                      onClick={() => apagarEvento(ev.id)}
-                      aria-label="Apagar evento"
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Membros */}
-      <div className="panel-cream mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <UsersIcon className="h-4 w-4" />
-            {members.data?.length ?? 0} {(members.data?.length ?? 0) === 1 ? "membro" : "membros"}
-          </p>
-          {souAdmin && (
-            <button
-              onClick={verCodigo}
-              disabled={carregandoCodigo}
-              className="text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
-            >
-              {carregandoCodigo
-                ? "Buscando…"
-                : codigoVisivel
-                  ? "Ocultar código"
-                  : "Ver código de convite"}
-            </button>
-          )}
-        </div>
-
-        {codigoVisivel && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium tracking-[0.2em]">
-              {codigoVisivel}
-            </span>
-            <button
-              onClick={copiarCodigo}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Copiar
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(members.data ?? []).map((m) => (
-            <button
-              key={m.user_id}
-              onClick={() => setMembroSelecionado(m)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-            >
-              <MemberAvatar member={m} sizeClass="h-5 w-5" />
-              {clubMemberDisplayName(m)}
-              {m.papel === "admin" ? " · admin" : ""}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {membroSelecionado && (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center"
-          onClick={() => setMembroSelecionado(null)}
+      {/* Próximo encontro em destaque */}
+      {proximoEncontro && (
+        <a
+          href="#encontros"
+          className="panel-cream mt-4 flex items-center gap-3 rounded-2xl p-4"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-t-3xl bg-background p-6 sm:rounded-3xl"
-          >
-            <div className="flex flex-col items-center text-center">
-              <MemberAvatar member={membroSelecionado} sizeClass="h-16 w-16" />
-              <p className="font-display mt-3 text-lg">
-                {clubMemberDisplayName(membroSelecionado)}
-              </p>
-              {membroSelecionado.username && (
-                <p className="text-sm text-muted-foreground">@{membroSelecionado.username}</p>
-              )}
-              <p className="mt-2 text-xs text-muted-foreground">
-                {membroSelecionado.papel === "admin" ? "Administrador do clube" : "Membro"} ·
-                entrou em{" "}
-                {new Date(membroSelecionado.entrou_em).toLocaleDateString("pt-BR")}
-              </p>
-            </div>
-            {souAdmin && membroSelecionado.user_id !== user?.id && (
-              <button
-                onClick={() =>
-                  alterarPapelMembro(
-                    membroSelecionado.user_id,
-                    membroSelecionado.papel === "admin" ? "membro" : "admin",
-                  )
-                }
-                disabled={alterandoPapel}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-border py-2.5 text-sm font-medium disabled:opacity-60"
-              >
-                {membroSelecionado.papel === "admin" ? (
-                  <>
-                    <ShieldMinus className="h-4 w-4" />
-                    Rebaixar a membro
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="h-4 w-4" />
-                    Promover a admin
-                  </>
-                )}
-              </button>
-            )}
-            <button
-              onClick={() => setMembroSelecionado(null)}
-              className="mt-2 w-full rounded-full border border-border py-2.5 text-sm font-medium"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <CalendarDays className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-muted-foreground">Próximo encontro</span>
+            <span className="block truncate text-sm font-medium">{proximoEncontro.titulo}</span>
+            <span className="block text-xs text-muted-foreground">
+              {new Date(proximoEncontro.data_hora).toLocaleString("pt-BR", {
+                weekday: "short",
+                day: "2-digit",
+                month: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </span>
+        </a>
       )}
 
       {/* Mural */}
@@ -1442,6 +1129,409 @@ function ClubPage() {
           })}
         </div>
       </div>
+      {/* Ranking de leitura (só existe enquanto houver um livro atual) */}
+      {livroAtualTitulo && (
+        <div className="panel-cream mt-4 rounded-2xl p-4">
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <Trophy className="h-4 w-4" />
+              Ranking de leitura
+            </p>
+            {meuMembro && (
+              <button
+                onClick={() => alternarMeuRanking(meuMembro.ranking_oculto)}
+                disabled={alterandoRanking}
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline underline-offset-4 disabled:opacity-60"
+              >
+                {meuMembro.ranking_oculto ? (
+                  <>
+                    <EyeOff className="h-3.5 w-3.5" />
+                    Você está oculto
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-3.5 w-3.5" />
+                    Não aparecer
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube. É só por
+            diversão, ninguém é obrigado a aparecer aqui.
+          </p>
+          {!ranking.isLoading && rankingVisivel.length === 0 && (
+            <p className="mt-3 text-xs text-muted-foreground">Ninguém aparece no ranking ainda.</p>
+          )}
+
+          <div className="mt-3 flex flex-col gap-1.5">
+            {ranking.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+            {rankingVisivel.map((entry, i) => (
+              <div
+                key={entry.user_id}
+                className={
+                  "flex items-center gap-3 rounded-xl px-2 py-1.5 " +
+                  (i === 0 && entry.paginas_lidas > 0 ? "bg-primary/10" : "")
+                }
+              >
+                <span
+                  className={
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
+                    (i === 0 && entry.paginas_lidas > 0
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground")
+                  }
+                >
+                  {i + 1}
+                </span>
+                {entry.avatar_url ? (
+                  <img
+                    src={entry.avatar_url}
+                    alt=""
+                    className="h-7 w-7 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                    {entry.nome.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-sm">{entry.nome}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {entry.paginas_lidas > 0
+                        ? `${entry.paginas_lidas} pág.` +
+                          (progressPercent(entry.paginas_lidas, livroAtualPaginas) !== null
+                            ? ` · ${progressPercent(entry.paginas_lidas, livroAtualPaginas)}%`
+                            : "")
+                        : "ainda não começou"}
+                    </span>
+                  </span>
+                  {entry.paginas_lidas > 0 &&
+                    progressPercent(entry.paginas_lidas, livroAtualPaginas) !== null && (
+                      <span className="mt-1 block">
+                        <ProgressBar
+                          percent={progressPercent(entry.paginas_lidas, livroAtualPaginas) ?? 0}
+                          label={`Progresso de ${entry.nome}`}
+                        />
+                      </span>
+                    )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Metas do clube */}
+      <div className="panel-cream mt-4 rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Target className="h-4 w-4" />
+            Metas do clube
+          </p>
+          {souAdmin && (
+            <button
+              onClick={() => setNovaMetaAberta((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {novaMetaAberta ? "Fechar" : "Nova meta"}
+            </button>
+          )}
+        </div>
+
+        {souAdmin && novaMetaAberta && (
+          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
+            <input
+              value={tituloMeta}
+              onChange={(e) => setTituloMeta(e.target.value)}
+              placeholder="Título (ex.: Ler o livro em 30 dias)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <textarea
+              value={descricaoMeta}
+              onChange={(e) => setDescricaoMeta(e.target.value)}
+              rows={2}
+              placeholder="Descrição (ex.: comentar os capítulos 1, 2 e 3 até o prazo)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <div>
+              <label className="text-xs text-muted-foreground">Prazo (opcional)</label>
+              <input
+                type="date"
+                value={prazoMeta}
+                onChange={(e) => setPrazoMeta(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <button
+              onClick={criarMeta}
+              disabled={criandoMeta}
+              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {criandoMeta ? "Salvando…" : "Criar meta"}
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {goals.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+          {!goals.isLoading && goals.data && goals.data.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhuma meta definida ainda.</p>
+          )}
+
+          {goals.data && user && (
+            <ClubGoalsList
+              clubId={clubId}
+              goals={goals.data}
+              members={members.data ?? []}
+              userId={user.id}
+              souAdmin={souAdmin}
+              onDelete={apagarMeta}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Eventos / encontros */}
+      <div id="encontros" className="panel-cream mt-4 scroll-mt-4 rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <CalendarDays className="h-4 w-4" />
+            Encontros
+          </p>
+          {souAdmin && (
+            <button
+              onClick={() => setNovoEventoAberto((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {novoEventoAberto ? "Fechar" : "Marcar encontro"}
+            </button>
+          )}
+        </div>
+
+        {souAdmin && novoEventoAberto && (
+          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
+            <input
+              value={tituloEvento}
+              onChange={(e) => setTituloEvento(e.target.value)}
+              placeholder="Título (ex.: Discussão do capítulo 1)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <input
+              type="datetime-local"
+              value={dataHoraEvento}
+              onChange={(e) => setDataHoraEvento(e.target.value)}
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <input
+              value={localEvento}
+              onChange={(e) => setLocalEvento(e.target.value)}
+              placeholder="Local ou link (ex.: endereço, Zoom, Meet…)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <textarea
+              value={descricaoEvento}
+              onChange={(e) => setDescricaoEvento(e.target.value)}
+              rows={2}
+              placeholder="Descrição (opcional)"
+              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <button
+              onClick={criarEvento}
+              disabled={criandoEvento}
+              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {criandoEvento ? "Salvando…" : "Marcar encontro"}
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {events.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+          {!events.isLoading && events.data && events.data.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum encontro marcado ainda.</p>
+          )}
+
+          {events.data?.map((ev) => {
+            const passado = new Date(ev.data_hora).getTime() < Date.now();
+            const ehLink = ev.local_ou_link?.startsWith("http");
+            return (
+              <div
+                key={ev.id}
+                className={
+                  "rounded-xl border border-border p-3 " + (passado ? "opacity-50" : "")
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{ev.titulo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(ev.data_hora).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    {ev.local_ou_link &&
+                      (ehLink ? (
+                        <a
+                          href={ev.local_ou_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary underline underline-offset-4"
+                        >
+                          {ev.local_ou_link}
+                        </a>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{ev.local_ou_link}</p>
+                      ))}
+                    {ev.descricao && (
+                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                        {ev.descricao}
+                      </p>
+                    )}
+                  </div>
+                  {souAdmin && (
+                    <button
+                      onClick={() => apagarEvento(ev.id)}
+                      aria-label="Apagar evento"
+                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <ClubShelf
+        clubId={clubId}
+        souAdmin={souAdmin}
+        livroAtualTitulo={livroAtualTitulo}
+        onChanged={invalidarClube}
+      />
+
+      {/* Membros */}
+      <div className="panel-cream mt-4 rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <UsersIcon className="h-4 w-4" />
+            {members.data?.length ?? 0} {(members.data?.length ?? 0) === 1 ? "membro" : "membros"}
+          </p>
+          {souAdmin && (
+            <button
+              onClick={verCodigo}
+              disabled={carregandoCodigo}
+              className="text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
+            >
+              {carregandoCodigo
+                ? "Buscando…"
+                : codigoVisivel
+                  ? "Ocultar código"
+                  : "Ver código de convite"}
+            </button>
+          )}
+        </div>
+
+        {codigoVisivel && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium tracking-[0.2em]">
+              {codigoVisivel}
+            </span>
+            <button
+              onClick={copiarCodigo}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copiar
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(members.data ?? []).map((m) => (
+            <button
+              key={m.user_id}
+              onClick={() => setMembroSelecionado(m)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+            >
+              <MemberAvatar member={m} sizeClass="h-5 w-5" />
+              {clubMemberDisplayName(m)}
+              {m.papel === "admin" ? " · admin" : ""}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {membroSelecionado && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center"
+          onClick={() => setMembroSelecionado(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-t-3xl bg-background p-6 sm:rounded-3xl"
+          >
+            <div className="flex flex-col items-center text-center">
+              <MemberAvatar member={membroSelecionado} sizeClass="h-16 w-16" />
+              <p className="font-display mt-3 text-lg">
+                {clubMemberDisplayName(membroSelecionado)}
+              </p>
+              {membroSelecionado.username && (
+                <p className="text-sm text-muted-foreground">@{membroSelecionado.username}</p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                {membroSelecionado.papel === "admin" ? "Administrador do clube" : "Membro"} ·
+                entrou em{" "}
+                {new Date(membroSelecionado.entrou_em).toLocaleDateString("pt-BR")}
+              </p>
+            </div>
+            {souAdmin && membroSelecionado.user_id !== user?.id && (
+              <button
+                onClick={() =>
+                  alterarPapelMembro(
+                    membroSelecionado.user_id,
+                    membroSelecionado.papel === "admin" ? "membro" : "admin",
+                  )
+                }
+                disabled={alterandoPapel}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-border py-2.5 text-sm font-medium disabled:opacity-60"
+              >
+                {membroSelecionado.papel === "admin" ? (
+                  <>
+                    <ShieldMinus className="h-4 w-4" />
+                    Rebaixar a membro
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Promover a admin
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => setMembroSelecionado(null)}
+              className="mt-2 w-full rounded-full border border-border py-2.5 text-sm font-medium"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 }
