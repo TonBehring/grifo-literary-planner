@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
-import { reportMetaPurchase } from "@/lib/meta-pixel";
+import { getMySubscription, hasActiveAccess, isInTrial } from "@/lib/subscription";
+import { clearPendingCampaign } from "@/lib/trial-campaign";
+import { reportMetaPurchase, reportMetaStartTrial } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/assinatura/retorno")({
   head: () => ({ meta: [
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/assinatura/retorno")({
 function ReturnPage() {
   const [checking, setChecking] = useState(true);
   const [confirmed, setConfirmed] = useState(false);
+  const [testeAte, setTesteAte] = useState<string | null>(null);
 
   useEffect(() => {
     let attempts = 0;
@@ -34,7 +36,14 @@ function ReturnPage() {
         const sub = await getMySubscription();
         if (cancelled) return;
         if (sub && hasActiveAccess(sub)) {
-          void reportMetaPurchase(sub);
+          // Teste grátis: ainda não houve pagamento, então não conta como compra.
+          if (isInTrial(sub) && sub.trial_until) {
+            setTesteAte(sub.trial_until);
+            void reportMetaStartTrial(sub);
+          } else {
+            void reportMetaPurchase(sub);
+          }
+          clearPendingCampaign();
           setConfirmed(true);
           setChecking(false);
           clearInterval(interval);
@@ -61,7 +70,18 @@ function ReturnPage() {
           <p className="text-sm text-muted-foreground">Confirmando seu pagamento…</p>
         ) : confirmed ? (
           <>
-            <p className="text-sm">Assinatura confirmada! Já pode aproveitar o Grifo.</p>
+            {testeAte ? (
+              <>
+                <p className="text-sm">Teste grátis ativado! Aproveite o Grifo.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  A primeira cobrança no cartão será em{" "}
+                  {new Date(testeAte).toLocaleDateString("pt-BR")}. Se quiser, cancele antes em Minha
+                  conta.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm">Assinatura confirmada! Já pode aproveitar o Grifo.</p>
+            )}
             <Link
               to="/"
               className="mt-4 inline-block rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground"
@@ -72,10 +92,10 @@ function ReturnPage() {
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              Ainda não recebemos a confirmação do pagamento. Isso pode levar alguns minutos —
-              confira novamente daqui a pouco em "Minha conta".
+              Ainda não recebemos a confirmação do pagamento. Isso pode levar alguns minutos.
+              Confira novamente daqui a pouco em "Minha conta".
             </p>
-            <Link to="/conta" className="mt-4 inline-block text-sm text-primary underline underline-offset-4">
+            <Link to="/conta" className="mt-4 inline-block text-sm text-[#85651C] underline underline-offset-4">
               Ir para Minha conta
             </Link>
           </>
