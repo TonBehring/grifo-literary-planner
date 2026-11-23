@@ -43,6 +43,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { ClubEvents } from "@/components/ClubEvents";
+import { ClubInviteButton } from "@/components/ClubInviteButton";
+import { ClubStartChecklist } from "@/components/ClubStartChecklist";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -352,9 +355,6 @@ function ClubPage() {
   const [fotoAberta, setFotoAberta] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
 
-  const [codigoVisivel, setCodigoVisivel] = useState<string | null>(null);
-  const [carregandoCodigo, setCarregandoCodigo] = useState(false);
-
   const [novoPost, setNovoPost] = useState("");
   const [paginaPost, setPaginaPost] = useState("");
   const [publicando, setPublicando] = useState(false);
@@ -362,13 +362,6 @@ function ClubPage() {
   const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
   const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
   const [comentariosAbertos, setComentariosAbertos] = useState<Record<string, boolean>>({});
-
-  const [novoEventoAberto, setNovoEventoAberto] = useState(false);
-  const [tituloEvento, setTituloEvento] = useState("");
-  const [dataHoraEvento, setDataHoraEvento] = useState("");
-  const [localEvento, setLocalEvento] = useState("");
-  const [descricaoEvento, setDescricaoEvento] = useState("");
-  const [criandoEvento, setCriandoEvento] = useState(false);
 
   const [novaMetaAberta, setNovaMetaAberta] = useState(false);
   const [tituloMeta, setTituloMeta] = useState("");
@@ -479,45 +472,6 @@ function ClubPage() {
     }
   }
 
-  async function criarEvento() {
-    if (!user) return;
-    if (!tituloEvento.trim() || !dataHoraEvento) {
-      toast.error("Preencha pelo menos o título e a data/hora.");
-      return;
-    }
-    setCriandoEvento(true);
-    try {
-      await createClubEvent({
-        club_id: clubId,
-        titulo: tituloEvento.trim(),
-        descricao: descricaoEvento.trim() || null,
-        data_hora: new Date(dataHoraEvento).toISOString(),
-        local_ou_link: localEvento.trim() || null,
-        criado_por: user.id,
-      });
-      setTituloEvento("");
-      setDataHoraEvento("");
-      setLocalEvento("");
-      setDescricaoEvento("");
-      setNovoEventoAberto(false);
-      void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível criar o evento");
-    } finally {
-      setCriandoEvento(false);
-    }
-  }
-
-  async function apagarEvento(eventId: string) {
-    if (!(await confirm({ title: "Apagar encontro?" }))) return;
-    try {
-      await deleteClubEvent(eventId);
-      void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível apagar o evento");
-    }
-  }
-
   async function criarMeta() {
     if (!user) return;
     if (!tituloMeta.trim()) {
@@ -585,33 +539,6 @@ function ClubPage() {
       toast.error(err instanceof Error ? err.message : "Não foi possível alterar sua preferência");
     } finally {
       setAlterandoRanking(false);
-    }
-  }
-
-  async function verCodigo() {
-    if (!user) return;
-    if (codigoVisivel) {
-      setCodigoVisivel(null);
-      return;
-    }
-    setCarregandoCodigo(true);
-    try {
-      const codigo = await getOrCreateClubInviteCode(clubId, user.id);
-      setCodigoVisivel(codigo);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível buscar o código");
-    } finally {
-      setCarregandoCodigo(false);
-    }
-  }
-
-  async function copiarCodigo() {
-    if (!codigoVisivel) return;
-    try {
-      await navigator.clipboard.writeText(codigoVisivel);
-      toast.success("Código copiado!");
-    } catch {
-      toast.error("Não foi possível copiar. Copie manualmente.");
     }
   }
 
@@ -795,8 +722,30 @@ function ClubPage() {
         </div>
       )}
 
+      {souAdmin && (
+        <ClubStartChecklist
+          temLivro={Boolean(livroAtualTitulo)}
+          temEncontro={(events.data ?? []).length > 0}
+          temOutrosMembros={(members.data?.length ?? 0) > 1}
+          onDefinirLivro={() => {
+            setBuscaLivroAberta(true);
+            document.getElementById("livro-atual")?.scrollIntoView({ behavior: "smooth" });
+          }}
+          onMarcarEncontro={() =>
+            document.getElementById("encontros")?.scrollIntoView({ behavior: "smooth" })
+          }
+          botaoConvidar={
+            <ClubInviteButton
+              clubId={clubId}
+              clubNome={club.nome}
+              className="shrink-0 text-xs font-medium text-primary underline underline-offset-4"
+            />
+          }
+        />
+      )}
+
       {/* Livro atual */}
-      <div className="card-teal mt-4 rounded-2xl p-4">
+      <div id="livro-atual" className="card-teal mt-4 scroll-mt-4 rounded-2xl p-4">
         <div className="flex items-center justify-between">
           <p className="text-xs uppercase tracking-wide opacity-80">Livro atual</p>
           {souAdmin && livroAtualTitulo && (
@@ -1225,7 +1174,8 @@ function ClubPage() {
         </div>
       )}
 
-      {/* Metas do clube */}
+      {/* Metas do clube (para quem não é admin, só aparece se houver metas) */}
+      {(souAdmin || (goals.data?.length ?? 0) > 0) && (
       <div className="panel-cream mt-4 rounded-2xl p-4">
         <div className="flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-sm font-medium">
@@ -1296,131 +1246,26 @@ function ClubPage() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Eventos / encontros */}
-      <div id="encontros" className="panel-cream mt-4 scroll-mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <CalendarDays className="h-4 w-4" />
-            Encontros
-          </p>
-          {souAdmin && (
-            <button
-              onClick={() => setNovoEventoAberto((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {novoEventoAberto ? "Fechar" : "Marcar encontro"}
-            </button>
-          )}
-        </div>
-
-        {souAdmin && novoEventoAberto && (
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
-            <input
-              value={tituloEvento}
-              onChange={(e) => setTituloEvento(e.target.value)}
-              placeholder="Título (ex.: Discussão do capítulo 1)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              type="datetime-local"
-              value={dataHoraEvento}
-              onChange={(e) => setDataHoraEvento(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              value={localEvento}
-              onChange={(e) => setLocalEvento(e.target.value)}
-              placeholder="Local ou link (ex.: endereço, Zoom, Meet…)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <textarea
-              value={descricaoEvento}
-              onChange={(e) => setDescricaoEvento(e.target.value)}
-              rows={2}
-              placeholder="Descrição (opcional)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button
-              onClick={criarEvento}
-              disabled={criandoEvento}
-              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {criandoEvento ? "Salvando…" : "Marcar encontro"}
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-col gap-2">
-          {events.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-          {!events.isLoading && events.data && events.data.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nenhum encontro marcado ainda.</p>
-          )}
-
-          {events.data?.map((ev) => {
-            const passado = new Date(ev.data_hora).getTime() < Date.now();
-            const ehLink = ev.local_ou_link?.startsWith("http");
-            return (
-              <div
-                key={ev.id}
-                className={
-                  "rounded-xl border border-border p-3 " + (passado ? "opacity-50" : "")
-                }
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{ev.titulo}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(ev.data_hora).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                    {ev.local_ou_link &&
-                      (ehLink ? (
-                        <a
-                          href={ev.local_ou_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-primary underline underline-offset-4"
-                        >
-                          {ev.local_ou_link}
-                        </a>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">{ev.local_ou_link}</p>
-                      ))}
-                    {ev.descricao && (
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {ev.descricao}
-                      </p>
-                    )}
-                  </div>
-                  {souAdmin && (
-                    <button
-                      onClick={() => apagarEvento(ev.id)}
-                      aria-label="Apagar evento"
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Encontros */}
+      {user && (
+        <ClubEvents
+          clubId={clubId}
+          clubNome={club.nome}
+          userId={user.id}
+          souAdmin={souAdmin}
+          memberByUserId={memberByUserId}
+          confirm={confirm}
+        />
+      )}
 
       <ClubShelf
         clubId={clubId}
         souAdmin={souAdmin}
         livroAtualTitulo={livroAtualTitulo}
         onChanged={invalidarClube}
+        ocultarSeVazia={!souAdmin}
       />
 
       {/* Membros */}
@@ -1430,35 +1275,12 @@ function ClubPage() {
             <UsersIcon className="h-4 w-4" />
             {members.data?.length ?? 0} {(members.data?.length ?? 0) === 1 ? "membro" : "membros"}
           </p>
-          {souAdmin && (
-            <button
-              onClick={verCodigo}
-              disabled={carregandoCodigo}
-              className="text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
-            >
-              {carregandoCodigo
-                ? "Buscando…"
-                : codigoVisivel
-                  ? "Ocultar código"
-                  : "Ver código de convite"}
-            </button>
-          )}
+          <ClubInviteButton
+            clubId={clubId}
+            clubNome={club.nome}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
+          />
         </div>
-
-        {codigoVisivel && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium tracking-[0.2em]">
-              {codigoVisivel}
-            </span>
-            <button
-              onClick={copiarCodigo}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Copiar
-            </button>
-          </div>
-        )}
 
         <div className="mt-3 flex flex-wrap gap-2">
           {(members.data ?? []).map((m) => (
