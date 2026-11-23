@@ -17,6 +17,7 @@ import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { getUnreadCount } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
+import { peekPendingInvite, savePendingInviteFromUrl } from "@/lib/club-invite";
 import { SubscriptionNudge } from "@/components/SubscriptionNudge";
 import { WhatsAppNudge } from "@/components/WhatsAppNudge";
 import { InstallBanner } from "@/components/InstallBanner";
@@ -58,9 +59,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user && isSupabaseConfigured) {
+      // Se a pessoa abriu um link de convite de clube, guarda o código para
+      // depois do login ou do cadastro.
+      savePendingInviteFromUrl(window.location.pathname, window.location.search);
       navigate({ to: "/auth" });
     }
   }, [loading, user, navigate]);
+
+  // Depois de entrar (ou criar a conta), quem tinha um convite guardado vai
+  // direto para a tela de entrar no clube, com o código preenchido.
+  useEffect(() => {
+    if (
+      !loading &&
+      user &&
+      pathname !== "/clubes/entrar" &&
+      !pathname.startsWith("/assinatura") &&
+      peekPendingInvite()
+    ) {
+      navigate({ to: "/clubes/entrar" });
+    }
+  }, [loading, user, pathname, navigate]);
 
   if (!isSupabaseConfigured) {
     return (
@@ -132,8 +150,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-3xl px-5">
         {!subscription.isLoading && !hasActiveAccess(subscription.data) && pathname !== "/conta" && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs">
-            <span>Sua estante é gratuita. Assine para registrar progresso, anotações e muito mais.</span>
-            <Link to="/conta" className="font-medium text-primary underline underline-offset-4">
+            <span>Assine o Grifo para registrar progresso, anotações e muito mais.</span>
+            <Link to="/conta" className="font-medium text-[#85651C] underline underline-offset-4">
               Assinar
             </Link>
           </div>
