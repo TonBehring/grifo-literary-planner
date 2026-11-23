@@ -1342,10 +1342,14 @@ export async function getClubDetail(clubId: string, userId: string): Promise<Clu
 // Define (ou troca) o livro atual do clube, a partir de um resultado de
 // busca (mesmo GoogleVolume usado ao adicionar livro na estante). Encerra
 // o livro atual anterior (se houver) antes de marcar o novo.
+// "anterior" diz o que acontece com o livro atual, se houver:
+// - "concluido": o clube terminou de ler, ele vai para a estante do clube;
+// - "cancelado": foi escolhido por engano ou o clube desistiu, não vai para a estante.
 export async function setClubCurrentBook(
   clubId: string,
   volume: GoogleVolume,
   adicionadoPor: string,
+  anterior: "concluido" | "cancelado" = "cancelado",
 ): Promise<void> {
   let bookId: string | null = null;
 
@@ -1376,7 +1380,11 @@ export async function setClubCurrentBook(
 
   const { error: encerraError } = await supabase
     .from("club_books")
-    .update({ status: "concluido", data_fim_real: new Date().toISOString().slice(0, 10) })
+    .update(
+      anterior === "concluido"
+        ? { status: "concluido", data_fim_real: new Date().toISOString().slice(0, 10) }
+        : { status: "cancelado" },
+    )
     .eq("club_id", clubId)
     .eq("status", "atual");
   if (encerraError) throw new Error(encerraError.message);
