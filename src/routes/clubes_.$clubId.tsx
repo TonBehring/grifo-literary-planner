@@ -34,6 +34,7 @@ import { AppShell } from "@/components/AppShell";
 import { ClubOptionsMenu } from "@/components/ClubOptionsMenu";
 import { ClubGoalsList } from "@/components/ClubGoalsList";
 import { ClubShelf } from "@/components/ClubShelf";
+import { ClubMyProgress } from "@/components/ClubMyProgress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -916,10 +917,11 @@ function ClubPage() {
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube — só conta
-            quem tem esse mesmo livro na própria estante. É só por diversão, ninguém é obrigado a
-            aparecer aqui.
+            Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube. É só por
+            diversão, ninguém é obrigado a aparecer aqui.
           </p>
+
+          {user && <ClubMyProgress clubId={clubId} userId={user.id} onChanged={invalidarClube} />}
 
           <div className="mt-3 flex flex-col gap-1.5">
             {ranking.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
