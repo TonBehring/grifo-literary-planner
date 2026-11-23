@@ -13,6 +13,7 @@ import { AppShell } from "@/components/AppShell";
 import { joinClubByCode, listMyClubs } from "@/lib/api";
 import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { useAuth } from "@/lib/auth";
+import { clearPendingInvite, codigoDoLink, peekPendingInvite } from "@/lib/club-invite";
 
 export const Route = createFileRoute("/clubes_/entrar")({
   component: () => (
@@ -27,11 +28,17 @@ function EntrarClube() {
   const navigate = useNavigate();
   const [codigo, setCodigo] = useState("");
   const [entrando, setEntrando] = useState(false);
+  const [veioDeConvite, setVeioDeConvite] = useState(false);
 
-  // Link de convite: /clubes/entrar?codigo=ABC123 já preenche o código.
+  // Link de convite (/clubes/entrar?codigo=ABC123) ou código guardado antes
+  // do login/cadastro: já preenche o código.
   useEffect(() => {
-    const doLink = new URLSearchParams(window.location.search).get("codigo");
-    if (doLink) setCodigo(doLink.trim().toUpperCase().slice(0, 8));
+    const recebido = codigoDoLink(window.location.search) ?? peekPendingInvite();
+    clearPendingInvite();
+    if (recebido) {
+      setCodigo(recebido);
+      setVeioDeConvite(true);
+    }
   }, []);
 
   const subscription = useQuery({
@@ -94,9 +101,18 @@ function EntrarClube() {
       ) : (
         <>
           <div className="mt-8 flex flex-col items-center text-center">
-            <p className="text-sm text-muted-foreground">
-              Use o código ou o link de convite que alguém do clube te mandou.
-            </p>
+            {veioDeConvite ? (
+              <>
+                <p className="font-display text-lg">Você recebeu um convite</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  O código já está preenchido. Toque em Entrar para participar do clube.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Use o código ou o link de convite que alguém do clube te mandou.
+              </p>
+            )}
             <input
               value={codigo}
               onChange={(e) => setCodigo(e.target.value.toUpperCase())}
