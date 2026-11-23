@@ -57,6 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { BookCover } from "@/components/BookCover";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CoverPicker } from "@/components/CoverPicker";
 import { uploadCover } from "@/lib/cover-upload";
 import {
@@ -76,6 +77,7 @@ import {
   searchGoogleBooks,
   clubMemberDisplayName,
   getClubRanking,
+  getMyClubProgress,
   listClubEvents,
   createClubEvent,
   deleteClubEvent,
@@ -187,7 +189,7 @@ function CurtidoresResumo({
         })}
       </span>
       <span className="text-xs text-muted-foreground underline-offset-4 hover:underline">
-        {aberto ? "Ocultar curtidas" : legenda}
+        {aberto ? `Curtido por ${curtidoPor.map(nomeDe).join(", ")}` : legenda}
       </span>
     </button>
   );
@@ -224,6 +226,7 @@ function PostComments({
       });
       setTexto("");
       void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
+      void queryClient.invalidateQueries({ queryKey: ["club-posts"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível comentar");
     } finally {
@@ -236,6 +239,7 @@ function PostComments({
     try {
       await deleteClubPostComment(commentId);
       void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
+      void queryClient.invalidateQueries({ queryKey: ["club-posts"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível apagar");
     }
@@ -290,7 +294,7 @@ function PostComments({
         <button
           onClick={enviar}
           disabled={enviando || !texto.trim()}
-          className="shrink-0 text-xs font-medium text-primary disabled:opacity-50"
+          className="shrink-0 text-xs font-medium text-[#85651C] disabled:opacity-50"
         >
           Publicar
         </button>
@@ -338,6 +342,12 @@ function ClubPage() {
     enabled: Boolean(user),
   });
 
+  const meuProgresso = useQuery({
+    queryKey: ["club-my-progress", clubId, user?.id ?? ""],
+    queryFn: () => getMyClubProgress(clubId, user!.id),
+    enabled: Boolean(user),
+  });
+
   const goals = useQuery({
     queryKey: ["club-goals", clubId],
     queryFn: () => listClubGoals(clubId),
@@ -362,6 +372,7 @@ function ClubPage() {
   const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
   const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
   const [comentariosAbertos, setComentariosAbertos] = useState<Record<string, boolean>>({});
+  const [spoilersRevelados, setSpoilersRevelados] = useState<Record<string, boolean>>({});
 
   const [novaMetaAberta, setNovaMetaAberta] = useState(false);
   const [tituloMeta, setTituloMeta] = useState("");
@@ -640,13 +651,35 @@ function ClubPage() {
     return <p className="text-sm text-muted-foreground">Carregando…</p>;
   }
 
-  const { club, meuPapel, livroAtualTitulo, livroAtualAutor, livroAtualCapa, livroAtualPaginas } =
-    detail.data;
+  const {
+    club,
+    meuPapel,
+    livroAtualTitulo,
+    livroAtualAutor,
+    livroAtualCapa,
+    livroAtualPaginas,
+    livroAtualInicio,
+  } = detail.data;
   const souAdmin = meuPapel === "admin";
   const memberByUserId = new Map((members.data ?? []).map((m) => [m.user_id, m]));
   const meuMembro = user ? memberByUserId.get(user.id) : undefined;
   const meuRanking = user ? ranking.data?.find((e) => e.user_id === user.id) : undefined;
   const rankingVisivel = (ranking.data ?? []).filter((e) => !e.oculto);
+  // Página em que estou no livro do clube (estante, página informada no clube
+  // ou páginas lidas desde o início do clube, o que for maior).
+  const minhaPagina = Math.max(
+    meuProgresso.data?.paginaEstante ?? 0,
+    meuProgresso.data?.paginaManual ?? 0,
+    meuRanking?.paginas_lidas ?? 0,
+  );
+  // Post de outra pessoa, sobre o livro atual, de uma página que eu ainda não li.
+  const ehSpoiler = (post: { id: string; user_id: string; pagina_referencia: number | null; criado_em: string }) =>
+    Boolean(livroAtualInicio) &&
+    post.user_id !== user?.id &&
+    post.pagina_referencia != null &&
+    post.pagina_referencia > minhaPagina &&
+    post.criado_em.slice(0, 10) >= (livroAtualInicio ?? "") &&
+    !spoilersRevelados[post.id];
   const proximoEncontro = (events.data ?? [])
     .filter((ev) => new Date(ev.data_hora).getTime() >= Date.now())
     .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())[0];
@@ -703,7 +736,7 @@ function ClubPage() {
         <div className="mt-2">
           <button
             onClick={() => setFotoAberta((v) => !v)}
-            className="text-xs font-medium text-primary underline underline-offset-4"
+            className="text-xs font-medium text-[#85651C] underline underline-offset-4"
           >
             {fotoAberta ? "Fechar" : "Alterar foto do clube"}
           </button>
@@ -738,7 +771,7 @@ function ClubPage() {
             <ClubInviteButton
               clubId={clubId}
               clubNome={club.nome}
-              className="shrink-0 text-xs font-medium text-primary underline underline-offset-4"
+              className="shrink-0 text-xs font-medium text-[#85651C] underline underline-offset-4"
             />
           }
         />
@@ -964,6 +997,7 @@ function ClubPage() {
               value={paginaPost}
               onChange={(e) => setPaginaPost(e.target.value)}
               placeholder="Página (opcional)"
+              aria-describedby="dica-pagina-post"
               className="w-36 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <button
@@ -974,6 +1008,9 @@ function ClubPage() {
               {publicando ? "Publicando…" : "Publicar"}
             </button>
           </div>
+          <p id="dica-pagina-post" className="mt-2 text-xs text-muted-foreground">
+            Informe a página para que quem ainda não chegou lá não veja spoiler.
+          </p>
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
@@ -1005,7 +1042,24 @@ function ClubPage() {
                     <span>{timeAgo(post.criado_em)}</span>
                   </div>
                 </div>
-                <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
+                {ehSpoiler(post) ? (
+                  <button
+                    type="button"
+                    onClick={() => setSpoilersRevelados((prev) => ({ ...prev, [post.id]: true }))}
+                    className="mt-1.5 w-full rounded-xl border border-dashed border-border p-3 text-left text-sm text-muted-foreground"
+                  >
+                    <span className="block font-medium text-foreground">
+                      Spoiler da pág. {post.pagina_referencia}
+                    </span>
+                    <span className="block text-xs">
+                      {minhaPagina > 0
+                        ? `Você está na pág. ${minhaPagina}. Toque para ver mesmo assim.`
+                        : "Toque para ver mesmo assim."}
+                    </span>
+                  </button>
+                ) : (
+                  <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
+                )}
 
                 <div className="mt-2 flex items-center gap-4">
                   <button
@@ -1030,7 +1084,9 @@ function ClubPage() {
                     }
                   >
                     <MessageCircle className="h-4 w-4" />
-                    Comentar
+                    {post.comments_count > 0
+                      ? `${post.comments_count} ${post.comments_count === 1 ? "comentário" : "comentários"}`
+                      : "Comentar"}
                   </button>
                   {(post.user_id === user?.id || souAdmin) && (
                     <button
@@ -1052,18 +1108,6 @@ function ClubPage() {
                     setCurtidoresAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
                   }
                 />
-
-                {curtidoresAbertos[post.id] && post.likes_count > 0 && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {post.curtido_por
-                      .map((uid) => {
-                        if (uid === user?.id) return "você";
-                        const membro = memberByUserId.get(uid);
-                        return membro ? clubMemberDisplayName(membro) : "alguém";
-                      })
-                      .join(", ")}
-                  </p>
-                )}
 
                 {comentariosAbertos[post.id] && (
                   <PostComments
@@ -1185,7 +1229,7 @@ function ClubPage() {
           {souAdmin && (
             <button
               onClick={() => setNovaMetaAberta((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+              className="inline-flex items-center gap-1 text-xs font-medium text-[#85651C] underline underline-offset-4"
             >
               <Plus className="h-3.5 w-3.5" />
               {novaMetaAberta ? "Fechar" : "Nova meta"}
@@ -1278,7 +1322,7 @@ function ClubPage() {
           <ClubInviteButton
             clubId={clubId}
             clubNome={club.nome}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#85651C] underline underline-offset-4 disabled:opacity-60"
           />
         </div>
 
@@ -1297,15 +1341,15 @@ function ClubPage() {
         </div>
       </div>
 
-      {membroSelecionado && (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center"
-          onClick={() => setMembroSelecionado(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-t-3xl bg-background p-6 sm:rounded-3xl"
-          >
+      <Dialog
+        open={membroSelecionado !== null}
+        onOpenChange={(open) => !open && setMembroSelecionado(null)}
+      >
+        <DialogContent className="max-w-sm">
+          {membroSelecionado && (
+            <>
+              <DialogTitle className="sr-only">{clubMemberDisplayName(membroSelecionado)}</DialogTitle>
+              <DialogDescription className="sr-only">Perfil do membro no clube</DialogDescription>
             <div className="flex flex-col items-center text-center">
               <MemberAvatar member={membroSelecionado} sizeClass="h-16 w-16" />
               <p className="font-display mt-3 text-lg">
@@ -1350,9 +1394,10 @@ function ClubPage() {
             >
               Fechar
             </button>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
     </section>
   );
