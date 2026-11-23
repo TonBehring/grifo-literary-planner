@@ -1309,6 +1309,8 @@ export type ClubDetail = {
   livroAtualAutor: string | null;
   livroAtualCapa: string | null;
   livroAtualPaginas: number | null;
+  // data em que o livro atual virou a leitura do clube (AAAA-MM-DD)
+  livroAtualInicio: string | null;
 };
 
 export async function getClubDetail(clubId: string, userId: string): Promise<ClubDetail> {
@@ -1330,16 +1332,16 @@ export async function getClubDetail(clubId: string, userId: string): Promise<Clu
 
   const { data: bookRow, error: bookError } = await supabase
     .from("club_books")
-    .select("book:books(titulo, autor, capa_url, total_paginas)")
+    .select("data_inicio, book:books(titulo, autor, capa_url, total_paginas)")
     .eq("club_id", clubId)
     .eq("status", "atual")
     .maybeSingle();
   if (bookError) throw new Error(bookError.message);
-  const book = (
-    bookRow as {
-      book: { titulo: string; autor: string | null; capa_url: string | null; total_paginas: number | null } | null;
-    } | null
-  )?.book;
+  const bookTyped = bookRow as {
+    data_inicio: string | null;
+    book: { titulo: string; autor: string | null; capa_url: string | null; total_paginas: number | null } | null;
+  } | null;
+  const book = bookTyped?.book;
 
   return {
     club: clubRow as Club,
@@ -1348,6 +1350,7 @@ export async function getClubDetail(clubId: string, userId: string): Promise<Clu
     livroAtualAutor: book?.autor ?? null,
     livroAtualCapa: book?.capa_url ?? null,
     livroAtualPaginas: book?.total_paginas ?? null,
+    livroAtualInicio: book ? (bookTyped?.data_inicio ?? null) : null,
   };
 }
 
@@ -1563,12 +1566,15 @@ export type ClubPost = {
   curtido_por_mim: boolean;
   // ids de quem curtiu — usado pra mostrar "fulano e mais 2 curtiram".
   curtido_por: string[];
+  comments_count: number;
 };
 
 export async function listClubPosts(clubId: string, userId: string): Promise<ClubPost[]> {
   const { data, error } = await supabase
     .from("club_posts")
-    .select("id, user_id, conteudo, pagina_referencia, criado_em, club_post_likes(user_id)")
+    .select(
+      "id, user_id, conteudo, pagina_referencia, criado_em, club_post_likes(user_id), club_post_comments(count)",
+    )
     .eq("club_id", clubId)
     .order("criado_em", { ascending: false });
   if (error) throw new Error(error.message);
@@ -1579,6 +1585,7 @@ export async function listClubPosts(clubId: string, userId: string): Promise<Clu
     pagina_referencia: number | null;
     criado_em: string;
     club_post_likes: Array<{ user_id: string }> | null;
+    club_post_comments: Array<{ count: number }> | null;
   }>;
   return rows.map((r) => {
     const curtidores = (r.club_post_likes ?? []).map((l) => l.user_id);
@@ -1591,6 +1598,7 @@ export async function listClubPosts(clubId: string, userId: string): Promise<Clu
       likes_count: curtidores.length,
       curtido_por_mim: curtidores.includes(userId),
       curtido_por: curtidores,
+      comments_count: r.club_post_comments?.[0]?.count ?? 0,
     };
   });
 }
@@ -1790,6 +1798,8 @@ export type MyClubProgress = {
   bookId: string;
   totalPaginas: number | null;
   userBookId: string | null;
+  // página atual na estante pessoal (só livro físico; e-book guarda porcentagem)
+  paginaEstante: number | null;
   paginaManual: number | null;
 };
 
@@ -1805,7 +1815,12 @@ export async function getMyClubProgress(clubId: string, userId: string): Promise
   const cb = cbRow as { id: string; book_id: string; book: { total_paginas: number | null } | null };
 
   const [ub, pr] = await Promise.all([
-    supabase.from("user_books").select("id").eq("user_id", userId).eq("book_id", cb.book_id).maybeSingle(),
+    supabase
+      .from("user_books")
+      .select("id, pagina_atual, formato")
+      .eq("user_id", userId)
+      .eq("book_id", cb.book_id)
+      .maybeSingle(),
     supabase
       .from("club_reading_progress")
       .select("pagina")
@@ -1821,6 +1836,10 @@ export async function getMyClubProgress(clubId: string, userId: string): Promise
     bookId: cb.book_id,
     totalPaginas: cb.book?.total_paginas ?? null,
     userBookId: (ub.data as { id: string } | null)?.id ?? null,
+    paginaEstante:
+      (ub.data as { formato: string } | null)?.formato === "fisico"
+        ? ((ub.data as { pagina_atual: number | null }).pagina_atual ?? null)
+        : null,
     paginaManual: (pr.data as { pagina: number } | null)?.pagina ?? null,
   };
 }
