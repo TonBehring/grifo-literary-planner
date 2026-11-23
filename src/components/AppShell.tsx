@@ -18,6 +18,7 @@ import { getMySubscription, hasActiveAccess } from "@/lib/subscription";
 import { getUnreadCount } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { peekPendingInvite, savePendingInviteFromUrl } from "@/lib/club-invite";
+import { markRedirectedToAccount, shouldRedirectToAccount } from "@/lib/trial-campaign";
 import { SubscriptionNudge } from "@/components/SubscriptionNudge";
 import { WhatsAppNudge } from "@/components/WhatsAppNudge";
 import { InstallBanner } from "@/components/InstallBanner";
@@ -77,6 +78,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       peekPendingInvite()
     ) {
       navigate({ to: "/clubes/entrar" });
+    }
+  }, [loading, user, pathname, navigate]);
+
+  // Quem chegou por um convite de teste grátis (/convite/...) vai uma vez para
+  // "Minha conta" depois de entrar, onde o botão do cartão já vem com o teste.
+  useEffect(() => {
+    if (
+      !loading &&
+      user &&
+      pathname !== "/conta" &&
+      pathname !== "/clubes/entrar" &&
+      !pathname.startsWith("/assinatura") &&
+      shouldRedirectToAccount()
+    ) {
+      markRedirectedToAccount();
+      navigate({ to: "/conta" });
     }
   }, [loading, user, pathname, navigate]);
 
