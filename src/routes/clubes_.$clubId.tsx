@@ -808,7 +808,12 @@ function ClubPage() {
         )}
       </div>
 
-      <ClubShelf clubId={clubId} />
+      <ClubShelf
+        clubId={clubId}
+        souAdmin={souAdmin}
+        livroAtualTitulo={livroAtualTitulo}
+        onChanged={invalidarClube}
+      />
 
       {/* Metas do clube */}
       <div className="panel-cream mt-4 rounded-2xl p-4">
