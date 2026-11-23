@@ -218,7 +218,7 @@ export function ClubEvents({
                   href={ev.local_ou_link}
                   target="_blank"
                   rel="noreferrer"
-                  className="break-all text-xs text-primary underline underline-offset-4"
+                  className="break-all text-xs text-[#85651C] underline underline-offset-4"
                 >
                   {ev.local_ou_link}
                 </a>
@@ -283,7 +283,7 @@ export function ClubEvents({
         {souAdmin && (
           <button
             onClick={() => setNovoAberto((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#85651C] underline underline-offset-4"
           >
             <Plus className="h-3.5 w-3.5" />
             {novoAberto ? "Fechar" : "Marcar encontro"}
