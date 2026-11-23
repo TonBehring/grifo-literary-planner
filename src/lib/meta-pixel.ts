@@ -2,6 +2,7 @@ import { canTrackAds } from "./consent";
 
 export const META_PIXEL_ID = "1439881227703450";
 const PURCHASE_KEY_PREFIX = "grifo_meta_purchase_";
+const START_TRIAL_KEY_PREFIX = "grifo_meta_trial_";
 
 type MetaFbq = ((...args: unknown[]) => void) & {
   callMethod?: (...args: unknown[]) => void;
@@ -60,7 +61,7 @@ export function revokeMetaPixel(): void {
 }
 
 async function track(
-  event: "PageView" | "CompleteRegistration" | "Purchase",
+  event: "PageView" | "CompleteRegistration" | "Purchase" | "StartTrial",
   parameters?: Record<string, unknown>,
   eventId?: string,
 ): Promise<boolean> {
@@ -89,14 +90,19 @@ export function metaPurchaseValue(chargedValue: number | string | null | undefin
   return Number.isFinite(parsed) ? parsed : 43.92;
 }
 
-export async function reportMetaPurchase(subscription: {
-  id?: string | null;
-  current_period_end: string | null;
-  charged_value?: number | string | null;
-}): Promise<boolean> {
+// Envia um evento uma única vez por assinatura neste navegador.
+async function reportOnce(
+  prefix: string,
+  event: "Purchase" | "StartTrial",
+  subscription: {
+    id?: string | null;
+    current_period_end: string | null;
+    charged_value?: number | string | null;
+  },
+): Promise<boolean> {
   const subscriptionKey = subscription.id || subscription.current_period_end;
   if (!subscriptionKey) return false;
-  const storageKey = `${PURCHASE_KEY_PREFIX}${subscriptionKey}`;
+  const storageKey = `${prefix}${subscriptionKey}`;
   try {
     if (localStorage.getItem(storageKey)) return false;
   } catch {
@@ -104,9 +110,9 @@ export async function reportMetaPurchase(subscription: {
   }
 
   const sent = await track(
-    "Purchase",
+    event,
     { value: metaPurchaseValue(subscription.charged_value), currency: "BRL" },
-    `grifo-purchase-${subscriptionKey}`,
+    `grifo-${event === "Purchase" ? "purchase" : "trial"}-${subscriptionKey}`,
   );
   if (sent) {
     try {
@@ -116,4 +122,21 @@ export async function reportMetaPurchase(subscription: {
     }
   }
   return sent;
+}
+
+export async function reportMetaPurchase(subscription: {
+  id?: string | null;
+  current_period_end: string | null;
+  charged_value?: number | string | null;
+}): Promise<boolean> {
+  return reportOnce(PURCHASE_KEY_PREFIX, "Purchase", subscription);
+}
+
+// Início do teste grátis com cartão: ainda não é compra.
+export async function reportMetaStartTrial(subscription: {
+  id?: string | null;
+  current_period_end: string | null;
+  charged_value?: number | string | null;
+}): Promise<boolean> {
+  return reportOnce(START_TRIAL_KEY_PREFIX, "StartTrial", subscription);
 }
