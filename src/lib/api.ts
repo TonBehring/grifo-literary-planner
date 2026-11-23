@@ -1300,6 +1300,7 @@ export type ClubDetail = {
   livroAtualTitulo: string | null;
   livroAtualAutor: string | null;
   livroAtualCapa: string | null;
+  livroAtualPaginas: number | null;
 };
 
 export async function getClubDetail(clubId: string, userId: string): Promise<ClubDetail> {
@@ -1321,13 +1322,15 @@ export async function getClubDetail(clubId: string, userId: string): Promise<Clu
 
   const { data: bookRow, error: bookError } = await supabase
     .from("club_books")
-    .select("book:books(titulo, autor, capa_url)")
+    .select("book:books(titulo, autor, capa_url, total_paginas)")
     .eq("club_id", clubId)
     .eq("status", "atual")
     .maybeSingle();
   if (bookError) throw new Error(bookError.message);
   const book = (
-    bookRow as { book: { titulo: string; autor: string | null; capa_url: string | null } | null } | null
+    bookRow as {
+      book: { titulo: string; autor: string | null; capa_url: string | null; total_paginas: number | null } | null;
+    } | null
   )?.book;
 
   return {
@@ -1336,6 +1339,7 @@ export async function getClubDetail(clubId: string, userId: string): Promise<Clu
     livroAtualTitulo: book?.titulo ?? null,
     livroAtualAutor: book?.autor ?? null,
     livroAtualCapa: book?.capa_url ?? null,
+    livroAtualPaginas: book?.total_paginas ?? null,
   };
 }
 
@@ -1407,6 +1411,8 @@ export type ClubRankingEntry = {
   paginas_lidas: number;
   segundos_lidos: number;
   tem_livro_na_estante: boolean;
+  // true só na linha da própria pessoa, quando ela pediu para não aparecer no ranking
+  oculto: boolean;
 };
 
 // Ranking de leitura do clube, calculado no banco (função club_ranking_progress),
@@ -1419,7 +1425,7 @@ export type ClubRankingEntry = {
 export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]> {
   const [members, progresso] = await Promise.all([
     listClubMembers(clubId),
-    supabase.rpc("club_ranking_progress", { p_club_id: clubId }),
+    supabase.rpc("club_ranking_progress_v2", { p_club_id: clubId }),
   ]);
   if (progresso.error) throw new Error(progresso.error.message);
   const rows = (progresso.data ?? []) as Array<{
@@ -1428,6 +1434,7 @@ export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]
     segundos_lidos: number | null;
     tem_livro_na_estante: boolean;
     pagina_manual: number | null;
+    ranking_oculto: boolean;
   }>;
   const memberById = new Map(members.map((m) => [m.user_id, m]));
 
@@ -1444,6 +1451,7 @@ export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]
           paginas_lidas: Math.max(r.paginas_lidas ?? 0, r.pagina_manual ?? 0),
           segundos_lidos: r.segundos_lidos ?? 0,
           tem_livro_na_estante: r.tem_livro_na_estante || r.pagina_manual !== null,
+          oculto: r.ranking_oculto,
         },
       ];
     })
