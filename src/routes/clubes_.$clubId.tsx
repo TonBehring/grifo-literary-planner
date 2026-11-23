@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { ClubOptionsMenu } from "@/components/ClubOptionsMenu";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
 import { uploadCover } from "@/lib/cover-upload";
@@ -627,6 +628,32 @@ function ClubPage() {
           )}
         </div>
         <h1 className="font-display truncate text-xl">{club.nome}</h1>
+        {user && (
+          <ClubOptionsMenu
+            key={`${club.nome}|${club.descricao ?? ""}|${club.tipo}`}
+            club={club}
+            souAdmin={souAdmin}
+            userId={user.id}
+            members={members.data ?? []}
+            onUpdated={() => {
+              void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
+              void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+              void queryClient.invalidateQueries({ queryKey: ["public-clubs"] });
+            }}
+            onDeleted={() => {
+              queryClient.removeQueries({ queryKey: ["club-detail", clubId] });
+              void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+              void queryClient.invalidateQueries({ queryKey: ["public-clubs"] });
+              navigate({ to: "/clubes" });
+            }}
+            onLeft={() => {
+              queryClient.removeQueries({ queryKey: ["club-detail", clubId] });
+              void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+              void queryClient.invalidateQueries({ queryKey: ["public-clubs"] });
+              navigate({ to: "/clubes" });
+            }}
+          />
+        )}
       </div>
       {club.descricao && <p className="mt-2 text-sm text-muted-foreground">{club.descricao}</p>}
 

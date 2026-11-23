@@ -1657,3 +1657,36 @@ export async function toggleClubPostLike(
     if (error) throw new Error(error.message);
   }
 }
+
+// --- Clube: edição, exclusão e saída -----------------------------------------
+
+export async function updateClub(
+  clubId: string,
+  input: { nome: string; descricao: string | null; tipo: ClubType },
+): Promise<Club> {
+  const { data, error } = await supabase
+    .from("clubs")
+    .update({ nome: input.nome, descricao: input.descricao, tipo: input.tipo })
+    .eq("id", clubId)
+    .select("id, nome, descricao, imagem_url, tipo, criado_por, criado_em");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Não foi possível atualizar o clube.");
+  return data[0] as Club;
+}
+
+export async function deleteClub(clubId: string): Promise<void> {
+  const { data, error } = await supabase.from("clubs").delete().eq("id", clubId).select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Não foi possível excluir o clube.");
+}
+
+export async function leaveClub(clubId: string, userId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("club_members")
+    .delete()
+    .eq("club_id", clubId)
+    .eq("user_id", userId)
+    .select("user_id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Não foi possível sair do clube.");
+}
