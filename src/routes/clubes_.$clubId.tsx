@@ -10,7 +10,7 @@
 // de posts com avatar do autor (v1: sem threads, só posts + curtidas).
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -29,6 +29,8 @@ import {
   Eye,
   Users as UsersIcon,
   MoreHorizontal,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -78,6 +80,11 @@ import {
   clubMemberDisplayName,
   getClubRanking,
   getMyClubProgress,
+  listClubPostsPage,
+  pinClubPost,
+  unpinClubPost,
+  POSTS_POR_PAGINA,
+  type ClubPost,
   listClubEvents,
   createClubEvent,
   deleteClubEvent,
@@ -324,9 +331,20 @@ function ClubPage() {
     enabled: Boolean(user),
   });
 
-  const posts = useQuery({
-    queryKey: ["club-posts", clubId],
-    queryFn: () => listClubPosts(clubId, user!.id),
+  // Mural: 10 posts por vez ("Ver posts anteriores" carrega mais), em ordem
+  // de recentes ou "em alta" (curtidas + comentários). Os fixados vêm à parte.
+  const [ordemMural, setOrdemMural] = useState<"recentes" | "em_alta">("recentes");
+  const posts = useInfiniteQuery({
+    queryKey: ["club-posts", clubId, ordemMural],
+    queryFn: ({ pageParam }) => listClubPostsPage(clubId, user!.id, ordemMural, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (ultima, todas) =>
+      ultima.length === POSTS_POR_PAGINA ? todas.length * POSTS_POR_PAGINA : undefined,
+    enabled: Boolean(user),
+  });
+  const postsFixados = useQuery({
+    queryKey: ["club-posts", clubId, "fixados"],
+    queryFn: () => listClubPostsPage(clubId, user!.id, "fixados", 0),
     enabled: Boolean(user),
   });
 
@@ -580,24 +598,45 @@ function ClubPage() {
   async function curtir(postId: string, jaCurtido: boolean) {
     if (!user) return;
     // Otimista: atualiza a UI antes da resposta do banco, pra parecer instantâneo.
-    queryClient.setQueryData<typeof posts.data>(["club-posts", clubId], (old) =>
-      old?.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              curtido_por_mim: !jaCurtido,
-              likes_count: p.likes_count + (jaCurtido ? -1 : 1),
-              curtido_por: jaCurtido
-                ? p.curtido_por.filter((id) => id !== user.id)
-                : [...p.curtido_por, user.id],
-            }
-          : p,
-      ),
-    );
+    const atualizar = (p: ClubPost): ClubPost =>
+      p.id === postId
+        ? {
+            ...p,
+            curtido_por_mim: !jaCurtido,
+            likes_count: p.likes_count + (jaCurtido ? -1 : 1),
+            curtido_por: jaCurtido
+              ? p.curtido_por.filter((id) => id !== user.id)
+              : [...p.curtido_por, user.id],
+          }
+        : p;
+    queryClient.setQueriesData({ queryKey: ["club-posts", clubId] }, (old: unknown) => {
+      if (Array.isArray(old)) return (old as ClubPost[]).map(atualizar);
+      const infinito = old as { pages?: ClubPost[][] } | undefined;
+      if (infinito?.pages) {
+        return { ...infinito, pages: infinito.pages.map((pagina) => pagina.map(atualizar)) };
+      }
+      return old;
+    });
     try {
       await toggleClubPostLike(postId, user.id, jaCurtido);
     } catch {
       void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
+    }
+  }
+
+  async function alternarFixado(post: ClubPost) {
+    if (!user) return;
+    try {
+      if (post.fixado_em) {
+        await unpinClubPost(post.id);
+        toast.success("Post desafixado.");
+      } else {
+        await pinClubPost(post.id, clubId, user.id);
+        toast.success("Post fixado no topo do mural.");
+      }
+      void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível fixar o post");
     }
   }
 
@@ -665,6 +704,8 @@ function ClubPage() {
   const meuMembro = user ? memberByUserId.get(user.id) : undefined;
   const meuRanking = user ? ranking.data?.find((e) => e.user_id === user.id) : undefined;
   const rankingVisivel = (ranking.data ?? []).filter((e) => !e.oculto);
+  const fixados = postsFixados.data ?? [];
+  const listaPosts = posts.data?.pages.flat() ?? [];
   // Página em que estou no livro do clube (estante, página informada no clube
   // ou páginas lidas desde o início do clube, o que for maior).
   const minhaPagina = Math.max(
@@ -1014,18 +1055,55 @@ function ClubPage() {
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
+          {(posts.isLoading || fixados.length + listaPosts.length > 0) && (
+            <div className="flex gap-2" role="group" aria-label="Ordem do mural">
+              {(
+                [
+                  ["recentes", "Recentes"],
+                  ["em_alta", "Em alta"],
+                ] as const
+              ).map(([valor, rotulo]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  aria-pressed={ordemMural === valor}
+                  onClick={() => setOrdemMural(valor)}
+                  className={
+                    "rounded-full px-4 py-1.5 text-xs font-medium transition-colors " +
+                    (ordemMural === valor
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border text-muted-foreground")
+                  }
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
+          )}
+
           {posts.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
 
-          {!posts.isLoading && posts.data && posts.data.length === 0 && (
+          {!posts.isLoading && listaPosts.length === 0 && fixados.length === 0 && (
             <p className="text-sm text-muted-foreground">
               Ninguém postou ainda. Comece a conversa.
             </p>
           )}
 
-          {posts.data?.map((post) => {
+          {[...fixados, ...listaPosts].map((post) => {
             const autor = memberByUserId.get(post.user_id);
             return (
-              <div key={post.id} className="panel-cream rounded-2xl p-4">
+              <div
+                key={post.id}
+                className={
+                  "panel-cream rounded-2xl p-4 " + (post.fixado_em ? "border border-primary/40" : "")
+                }
+              >
+                {post.fixado_em && (
+                  <p className="mb-2 flex items-center gap-1 text-xs font-medium text-[#85651C]">
+                    <Pin className="h-3.5 w-3.5" />
+                    Fixado pelo admin
+                  </p>
+                )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {autor ? (
@@ -1088,10 +1166,31 @@ function ClubPage() {
                       ? `${post.comments_count} ${post.comments_count === 1 ? "comentário" : "comentários"}`
                       : "Comentar"}
                   </button>
+                  {souAdmin && (
+                    <button
+                      onClick={() => alternarFixado(post)}
+                      className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {post.fixado_em ? (
+                        <>
+                          <PinOff className="h-3.5 w-3.5" />
+                          Desafixar
+                        </>
+                      ) : (
+                        <>
+                          <Pin className="h-3.5 w-3.5" />
+                          Fixar
+                        </>
+                      )}
+                    </button>
+                  )}
                   {(post.user_id === user?.id || souAdmin) && (
                     <button
                       onClick={() => apagarPost(post.id)}
-                      className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                      className={
+                        (souAdmin ? "" : "ml-auto ") +
+                        "inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                      }
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Apagar
@@ -1120,8 +1219,24 @@ function ClubPage() {
               </div>
             );
           })}
+
+          {posts.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => void posts.fetchNextPage()}
+              disabled={posts.isFetchingNextPage}
+              className="self-center rounded-full border border-border px-5 py-2 text-sm font-medium text-muted-foreground disabled:opacity-60"
+            >
+              {posts.isFetchingNextPage
+                ? "Carregando…"
+                : ordemMural === "recentes"
+                  ? "Ver posts anteriores"
+                  : "Ver mais posts"}
+            </button>
+          )}
         </div>
       </div>
+
       {/* Ranking de leitura (só existe enquanto houver um livro atual) */}
       {livroAtualTitulo && (
         <div className="panel-cream mt-4 rounded-2xl p-4">
