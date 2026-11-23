@@ -1149,6 +1149,14 @@ export async function getOrCreateClubInviteCode(clubId: string, userId: string):
   return createClubInvite(clubId, userId);
 }
 
+// Código de convite que qualquer membro pode compartilhar (função do banco
+// club_invite_code: reaproveita o último código válido ou cria um novo).
+export async function getClubInviteCode(clubId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("club_invite_code", { p_club_id: clubId });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
 // Entra num clube usando um código de convite (chama a função do banco que
 // valida expiração/limite de usos e insere o membro numa só transação).
 export async function joinClubByCode(codigo: string): Promise<string> {
@@ -1502,6 +1510,46 @@ export async function createClubEvent(input: {
 
 export async function deleteClubEvent(eventId: string): Promise<void> {
   const { error } = await supabase.from("club_events").delete().eq("id", eventId);
+  if (error) throw new Error(error.message);
+}
+
+export type EventRsvp = {
+  event_id: string;
+  user_id: string;
+  resposta: "vou" | "nao_vou";
+};
+
+export async function listClubEventRsvps(eventIds: string[]): Promise<EventRsvp[]> {
+  if (eventIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("club_event_rsvps")
+    .select("event_id, user_id, resposta")
+    .in("event_id", eventIds);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as EventRsvp[];
+}
+
+// resposta null apaga a resposta (a pessoa desmarcou).
+export async function setEventRsvp(
+  eventId: string,
+  userId: string,
+  resposta: "vou" | "nao_vou" | null,
+): Promise<void> {
+  if (resposta === null) {
+    const { error } = await supabase
+      .from("club_event_rsvps")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await supabase
+    .from("club_event_rsvps")
+    .upsert(
+      { event_id: eventId, user_id: userId, resposta, atualizado_em: new Date().toISOString() },
+      { onConflict: "event_id,user_id" },
+    );
   if (error) throw new Error(error.message);
 }
 
