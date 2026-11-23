@@ -40,15 +40,19 @@ export function ClubShelf({
   souAdmin = false,
   livroAtualTitulo = null,
   onChanged,
+  ocultarSeVazia = false,
 }: {
   clubId: string;
   souAdmin?: boolean;
   livroAtualTitulo?: string | null;
   onChanged?: () => void;
+  ocultarSeVazia?: boolean;
 }) {
   const shelf = useQuery({ queryKey: ["club-shelf", clubId], queryFn: () => getClubShelf(clubId) });
   const [voltando, setVoltando] = useState<ClubShelfItem | null>(null);
   const [salvando, setSalvando] = useState(false);
+
+  if (ocultarSeVazia && shelf.data && shelf.data.length === 0) return null;
 
   async function voltarParaLendo() {
     if (!voltando) return;
