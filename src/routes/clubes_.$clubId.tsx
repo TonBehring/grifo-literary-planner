@@ -35,6 +35,7 @@ import { ClubOptionsMenu } from "@/components/ClubOptionsMenu";
 import { ClubGoalsList } from "@/components/ClubGoalsList";
 import { ClubShelf } from "@/components/ClubShelf";
 import { ClubMyProgress } from "@/components/ClubMyProgress";
+import { useConfirm } from "@/components/ConfirmDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -200,6 +201,7 @@ function PostComments({
   });
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   async function enviar() {
     if (!currentUserId || !texto.trim()) return;
@@ -220,6 +222,7 @@ function PostComments({
   }
 
   async function apagar(commentId: string) {
+    if (!(await confirm({ title: "Apagar comentário?" }))) return;
     try {
       await deleteClubPostComment(commentId);
       void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
@@ -230,6 +233,7 @@ function PostComments({
 
   return (
     <div className="mt-3 border-t border-border/50 pt-3">
+      {dialog}
       {comments.isLoading && (
         <p className="text-xs text-muted-foreground">Carregando comentários…</p>
       )}
@@ -290,11 +294,14 @@ function ClubPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   const detail = useQuery({
     queryKey: ["club-detail", clubId],
     queryFn: () => getClubDetail(clubId, user!.id),
     enabled: Boolean(user),
+    retry: (count, err) =>
+      !(err instanceof Error && err.message.includes("não é membro")) && count < 2,
   });
 
   const members = useQuery({
@@ -332,6 +339,8 @@ function ClubPage() {
   const [resultadosBusca, setResultadosBusca] = useState<GoogleVolume[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [definindoLivro, setDefinindoLivro] = useState(false);
+  // Livro escolhido na busca enquanto o admin decide o que fazer com o atual.
+  const [trocaPendente, setTrocaPendente] = useState<GoogleVolume | null>(null);
 
   const [fotoAberta, setFotoAberta] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
@@ -368,6 +377,7 @@ function ClubPage() {
     void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
     void queryClient.invalidateQueries({ queryKey: ["club-shelf", clubId] });
     void queryClient.invalidateQueries({ queryKey: ["club-ranking", clubId] });
+    void queryClient.invalidateQueries({ queryKey: ["club-my-progress", clubId] });
   }
 
   const [concluirAberto, setConcluirAberto] = useState(false);
@@ -399,12 +409,26 @@ function ClubPage() {
     }
   }
 
-  async function escolherLivro(volume: GoogleVolume) {
+  // Se já existe um livro atual, primeiro pergunta o que aconteceu com ele.
+  function escolherLivro(volume: GoogleVolume) {
+    if (detail.data?.livroAtualTitulo) {
+      setTrocaPendente(volume);
+      return;
+    }
+    void definirLivro(volume, "cancelado");
+  }
+
+  async function definirLivro(volume: GoogleVolume, anterior: "concluido" | "cancelado") {
     if (!user) return;
     setDefinindoLivro(true);
     try {
-      await setClubCurrentBook(clubId, volume, user.id);
-      toast.success("Livro do clube atualizado!");
+      await setClubCurrentBook(clubId, volume, user.id, anterior);
+      toast.success(
+        anterior === "concluido"
+          ? "Livro do clube atualizado. O anterior foi para a estante."
+          : "Livro do clube atualizado!",
+      );
+      setTrocaPendente(null);
       setBuscaLivroAberta(false);
       setTermoBusca("");
       setResultadosBusca([]);
@@ -478,6 +502,7 @@ function ClubPage() {
   }
 
   async function apagarEvento(eventId: string) {
+    if (!(await confirm({ title: "Apagar encontro?" }))) return;
     try {
       await deleteClubEvent(eventId);
       void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
@@ -514,6 +539,13 @@ function ClubPage() {
   }
 
   async function apagarMeta(goalId: string) {
+    if (
+      !(await confirm({
+        title: "Apagar meta?",
+        description: "As marcações de \"Cumpri\" dessa meta também serão apagadas.",
+      }))
+    )
+      return;
     try {
       await deleteClubGoal(goalId);
       void queryClient.invalidateQueries({ queryKey: ["club-goals", clubId] });
@@ -572,7 +604,7 @@ function ClubPage() {
       await navigator.clipboard.writeText(codigoVisivel);
       toast.success("Código copiado!");
     } catch {
-      toast.error("Não foi possível copiar — copie manualmente.");
+      toast.error("Não foi possível copiar. Copie manualmente.");
     }
   }
 
@@ -625,12 +657,49 @@ function ClubPage() {
   }
 
   async function apagarPost(postId: string) {
+    if (!(await confirm({ title: "Apagar post?", description: "O post e os comentários dele serão apagados. Essa ação não pode ser desfeita." }))) return;
     try {
       await deleteClubPost(postId);
       void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível apagar");
     }
+  }
+
+  // Erro ao abrir o clube (não é membro, clube apagado, sem internet):
+  // mostra uma mensagem em vez de ficar em "Carregando…" para sempre.
+  if (detail.isError) {
+    const naoMembro =
+      detail.error instanceof Error && detail.error.message.includes("não é membro");
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <UsersIcon className="h-8 w-8 text-muted-foreground" />
+        <p className="font-display text-lg">
+          {naoMembro ? "Você não participa deste clube" : "Não foi possível abrir o clube"}
+        </p>
+        <p className="max-w-xs text-sm text-muted-foreground">
+          {naoMembro
+            ? "Para ver o clube, entre com o código de convite ou pela lista de clubes públicos."
+            : "Verifique sua conexão e tente de novo."}
+        </p>
+        <div className="mt-2 flex gap-2">
+          {!naoMembro && (
+            <button
+              onClick={() => void detail.refetch()}
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium"
+            >
+              Tentar de novo
+            </button>
+          )}
+          <button
+            onClick={() => navigate({ to: "/clubes" })}
+            className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Ver clubes
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (detail.isLoading || !detail.data) {
@@ -644,6 +713,7 @@ function ClubPage() {
 
   return (
     <section className="pb-6">
+      {confirmDialog}
       <div className="flex items-center gap-2">
         <button
           onClick={() => navigate({ to: "/clubes" })}
@@ -764,6 +834,49 @@ function ClubPage() {
               >
                 {concluindo ? "Concluindo…" : "Concluir leitura"}
               </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Trocar livro: o que acontece com o livro atual? */}
+        <AlertDialog
+          open={trocaPendente !== null}
+          onOpenChange={(open) => !open && !definindoLivro && setTrocaPendente(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Trocar o livro do clube</AlertDialogTitle>
+              <AlertDialogDescription>
+                "{trocaPendente?.title}" vai virar a leitura do clube. O que aconteceu com "
+                {livroAtualTitulo}"?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={definindoLivro}
+                onClick={() => trocaPendente && void definirLivro(trocaPendente, "concluido")}
+                className="rounded-xl border border-border p-3 text-left disabled:opacity-60"
+              >
+                <span className="block text-sm font-medium">O clube terminou de ler</span>
+                <span className="block text-xs text-muted-foreground">
+                  Ele vai para a estante do clube.
+                </span>
+              </button>
+              <button
+                disabled={definindoLivro}
+                onClick={() => trocaPendente && void definirLivro(trocaPendente, "cancelado")}
+                className="rounded-xl border border-border p-3 text-left disabled:opacity-60"
+              >
+                <span className="block text-sm font-medium">
+                  Foi escolhido por engano ou o clube desistiu
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Ele não vai para a estante.
+                </span>
+              </button>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={definindoLivro}>Cancelar</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1232,7 +1345,7 @@ function ClubPage() {
 
           {!posts.isLoading && posts.data && posts.data.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Ninguém postou ainda — comece a conversa.
+              Ninguém postou ainda. Comece a conversa.
             </p>
           )}
 
