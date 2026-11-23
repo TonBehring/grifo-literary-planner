@@ -42,7 +42,7 @@ export function ClubStartChecklist({
     <button
       type="button"
       onClick={onClick}
-      className="shrink-0 text-xs font-medium text-primary underline underline-offset-4"
+      className="shrink-0 text-xs font-medium text-[#85651C] underline underline-offset-4"
     >
       {rotulo}
     </button>
