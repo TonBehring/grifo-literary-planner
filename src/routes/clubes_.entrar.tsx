@@ -6,7 +6,7 @@
 
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -27,6 +27,12 @@ function EntrarClube() {
   const navigate = useNavigate();
   const [codigo, setCodigo] = useState("");
   const [entrando, setEntrando] = useState(false);
+
+  // Link de convite: /clubes/entrar?codigo=ABC123 já preenche o código.
+  useEffect(() => {
+    const doLink = new URLSearchParams(window.location.search).get("codigo");
+    if (doLink) setCodigo(doLink.trim().toUpperCase().slice(0, 8));
+  }, []);
 
   const subscription = useQuery({
     queryKey: ["subscription", user?.id],
@@ -89,7 +95,7 @@ function EntrarClube() {
         <>
           <div className="mt-8 flex flex-col items-center text-center">
             <p className="text-sm text-muted-foreground">
-              Peça o código de convite para quem administra o clube.
+              Use o código ou o link de convite que alguém do clube te mandou.
             </p>
             <input
               value={codigo}
