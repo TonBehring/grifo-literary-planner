@@ -1,7 +1,19 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Library, Star } from "lucide-react";
+import { Library, RotateCcw, Star } from "lucide-react";
+import { toast } from "sonner";
 import { BookCover } from "@/components/BookCover";
-import { getClubShelf } from "@/lib/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { getClubShelf, reopenClubBook, type ClubShelfItem } from "@/lib/api";
 
 function ddmm(iso: string) {
   const [, m, d] = iso.slice(0, 10).split("-");
@@ -23,8 +35,37 @@ export function formatShelfRating(media: number | string | null, avaliacoes: num
   return `${n} · ${avaliacoes} ${avaliacoes === 1 ? "avaliação" : "avaliações"}`;
 }
 
-export function ClubShelf({ clubId }: { clubId: string }) {
+export function ClubShelf({
+  clubId,
+  souAdmin = false,
+  livroAtualTitulo = null,
+  onChanged,
+}: {
+  clubId: string;
+  souAdmin?: boolean;
+  livroAtualTitulo?: string | null;
+  onChanged?: () => void;
+}) {
   const shelf = useQuery({ queryKey: ["club-shelf", clubId], queryFn: () => getClubShelf(clubId) });
+  const [voltando, setVoltando] = useState<ClubShelfItem | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function voltarParaLendo() {
+    if (!voltando) return;
+    setSalvando(true);
+    try {
+      await reopenClubBook(voltando.club_book_id);
+      toast.success(`"${voltando.titulo}" voltou a ser a leitura do clube.`);
+      setVoltando(null);
+      onChanged?.();
+      void shelf.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível voltar para lendo");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   return (
     <div className="panel-cream mt-4 rounded-2xl p-4">
       <p className="flex items-center gap-1.5 text-sm font-medium">
@@ -60,11 +101,46 @@ export function ClubShelf({ clubId }: { clubId: string }) {
                 <p className="text-xs text-muted-foreground">
                   {b.membros_que_leram} {b.membros_que_leram === 1 ? "membro leu" : "membros leram"}
                 </p>
+                {souAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setVoltando(b)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline underline-offset-4"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Voltar para lendo
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
+
+      <AlertDialog open={voltando !== null} onOpenChange={(open) => !open && setVoltando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Voltar para lendo</AlertDialogTitle>
+            <AlertDialogDescription>
+              {livroAtualTitulo && livroAtualTitulo !== voltando?.titulo
+                ? `"${voltando?.titulo}" volta a ser a leitura do clube, e "${livroAtualTitulo}" vai para a estante.`
+                : `"${voltando?.titulo}" volta a ser a leitura atual do clube e sai da estante.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={salvando}
+              onClick={(e) => {
+                e.preventDefault();
+                void voltarParaLendo();
+              }}
+            >
+              {salvando ? "Voltando…" : "Voltar para lendo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
