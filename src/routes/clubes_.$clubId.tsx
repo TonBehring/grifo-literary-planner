@@ -32,6 +32,18 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ClubOptionsMenu } from "@/components/ClubOptionsMenu";
+import { ClubGoalsList } from "@/components/ClubGoalsList";
+import { ClubShelf } from "@/components/ClubShelf";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { BookCover } from "@/components/BookCover";
 import { CoverPicker } from "@/components/CoverPicker";
 import { uploadCover } from "@/lib/cover-upload";
@@ -46,6 +58,7 @@ import {
   addClubPostComment,
   deleteClubPostComment,
   setClubCurrentBook,
+  finishClubCurrentBook,
   getOrCreateClubInviteCode,
   updateClubImage,
   searchGoogleBooks,
@@ -352,6 +365,24 @@ function ClubPage() {
   function invalidarClube() {
     void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
     void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+    void queryClient.invalidateQueries({ queryKey: ["club-shelf", clubId] });
+    void queryClient.invalidateQueries({ queryKey: ["club-ranking", clubId] });
+  }
+
+  const [concluirAberto, setConcluirAberto] = useState(false);
+  const [concluindo, setConcluindo] = useState(false);
+  async function concluirLeitura() {
+    setConcluindo(true);
+    try {
+      await finishClubCurrentBook(clubId);
+      toast.success("Leitura concluída. O livro foi para a estante do clube.");
+      setConcluirAberto(false);
+      invalidarClube();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível concluir a leitura");
+    } finally {
+      setConcluindo(false);
+    }
   }
 
   async function buscarLivro() {
@@ -705,6 +736,36 @@ function ClubPage() {
             {livroAtualTitulo ? "Trocar livro" : "Definir livro atual"}
           </button>
         )}
+        {souAdmin && livroAtualTitulo && (
+          <button
+            onClick={() => setConcluirAberto(true)}
+            className="ml-4 mt-3 text-xs font-medium underline underline-offset-4"
+          >
+            Concluir leitura
+          </button>
+        )}
+        <AlertDialog open={concluirAberto} onOpenChange={setConcluirAberto}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Concluir leitura</AlertDialogTitle>
+              <AlertDialogDescription>
+                Marcar {livroAtualTitulo} como lido pelo clube? Ele vai para a estante do clube.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={concluindo}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void concluirLeitura();
+                }}
+              >
+                {concluindo ? "Concluindo…" : "Concluir leitura"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {souAdmin && buscaLivroAberta && (
           <div className="mt-3 rounded-xl bg-white/10 p-3">
@@ -746,6 +807,8 @@ function ClubPage() {
           </div>
         )}
       </div>
+
+      <ClubShelf clubId={clubId} />
 
       {/* Metas do clube */}
       <div className="panel-cream mt-4 rounded-2xl p-4">
@@ -806,40 +869,16 @@ function ClubPage() {
             <p className="text-xs text-muted-foreground">Nenhuma meta definida ainda.</p>
           )}
 
-          {goals.data?.map((goal) => {
-            const prazoVencido = goal.prazo ? new Date(goal.prazo).getTime() < Date.now() : false;
-            return (
-              <div
-                key={goal.id}
-                className={"rounded-xl border border-border p-3 " + (prazoVencido ? "opacity-60" : "")}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{goal.titulo}</p>
-                    {goal.prazo && (
-                      <p className="text-xs text-muted-foreground">
-                        Prazo: {new Date(goal.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
-                      </p>
-                    )}
-                    {goal.descricao && (
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {goal.descricao}
-                      </p>
-                    )}
-                  </div>
-                  {souAdmin && (
-                    <button
-                      onClick={() => apagarMeta(goal.id)}
-                      aria-label="Apagar meta"
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {goals.data && user && (
+            <ClubGoalsList
+              clubId={clubId}
+              goals={goals.data}
+              members={members.data ?? []}
+              userId={user.id}
+              souAdmin={souAdmin}
+              onDelete={apagarMeta}
+            />
+          )}
         </div>
       </div>
 

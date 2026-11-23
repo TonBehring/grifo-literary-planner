@@ -1690,3 +1690,69 @@ export async function leaveClub(clubId: string, userId: string): Promise<void> {
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("Não foi possível sair do clube.");
 }
+
+// --- Clube: marcações de metas e estante ------------------------------------
+
+export type GoalCompletion = { goal_id: string; user_id: string; concluida_em: string };
+
+export async function listGoalCompletions(clubId: string): Promise<GoalCompletion[]> {
+  const { data: goalRows, error: goalError } = await supabase
+    .from("club_goals")
+    .select("id")
+    .eq("club_id", clubId);
+  if (goalError) throw new Error(goalError.message);
+  const ids = ((goalRows ?? []) as Array<{ id: string }>).map((g) => g.id);
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("club_goal_completions")
+    .select("goal_id, user_id, concluida_em")
+    .in("goal_id", ids);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as GoalCompletion[];
+}
+
+export async function toggleGoalCompletion(goalId: string, userId: string, done: boolean): Promise<void> {
+  if (done) {
+    const { error } = await supabase
+      .from("club_goal_completions")
+      .insert({ goal_id: goalId, user_id: userId });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("club_goal_completions")
+      .delete()
+      .eq("goal_id", goalId)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export type ClubShelfItem = {
+  club_book_id: string;
+  book_id: string;
+  titulo: string;
+  autor: string | null;
+  capa_url: string | null;
+  data_inicio: string;
+  data_fim: string | null;
+  nota_media: number | string | null;
+  avaliacoes: number;
+  membros_que_leram: number;
+};
+
+export async function getClubShelf(clubId: string): Promise<ClubShelfItem[]> {
+  const { data, error } = await supabase.rpc("club_shelf", { p_club_id: clubId });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClubShelfItem[];
+}
+
+export async function finishClubCurrentBook(clubId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("club_books")
+    .update({ status: "concluido", data_fim_real: new Date().toISOString().slice(0, 10) })
+    .eq("club_id", clubId)
+    .eq("status", "atual")
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Não foi possível concluir a leitura.");
+}
