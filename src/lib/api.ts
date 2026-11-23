@@ -1755,4 +1755,16 @@ export async function finishClubCurrentBook(clubId: string): Promise<void> {
     .select("id");
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("Não foi possível concluir a leitura.");
+  // Desfaz a conclusão: o livro da estante volta a ser a leitura atual do clube.
+// Se o clube já tiver outro livro atual, o banco manda esse outro para a estante
+// automaticamente (trigger club_books_single_current).
+export async function reopenClubBook(clubBookId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("club_books")
+    .update({ status: "atual", data_fim_real: null })
+    .eq("id", clubBookId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Não foi possível voltar para lendo.");
+}
 }
