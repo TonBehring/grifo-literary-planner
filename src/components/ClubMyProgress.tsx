@@ -1,1537 +1,211 @@
-// src/routes/clubes_.$clubId.tsx
-//
-// IMPORTANTE: o nome do arquivo tem um "_" logo depois de "clubes"
-// (clubes_.$clubId.tsx, não clubes.$clubId.tsx) — mesma convenção usada em
-// livro.$id_.sessao.tsx e clubes_.novo.tsx, pra essa tela não ficar
-// aninhada (e invisível) dentro de clubes.tsx, que não tem <Outlet />.
-//
-// Página de um clube: foto do clube, livro atual (com busca pra
-// definir/trocar, só pra admin), lista de membros (com avatar) e o mural
-// de posts com avatar do autor (v1: sem threads, só posts + curtidas).
-
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  ArrowLeft,
-  Search,
-  Heart,
-  MessageCircle,
-  Trash2,
-  Copy,
-  Trophy,
-  CalendarDays,
-  Plus,
-  Target,
-  ShieldCheck,
-  ShieldMinus,
-  EyeOff,
-  Eye,
-  Users as UsersIcon,
-  MoreHorizontal,
-} from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
-import { ClubOptionsMenu } from "@/components/ClubOptionsMenu";
-import { ClubGoalsList } from "@/components/ClubGoalsList";
-import { ClubShelf } from "@/components/ClubShelf";
-import { ClubMyProgress, ProgressBar, progressPercent } from "@/components/ClubMyProgress";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useConfirm } from "@/components/ConfirmDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { BookCover } from "@/components/BookCover";
-import { CoverPicker } from "@/components/CoverPicker";
-import { uploadCover } from "@/lib/cover-upload";
-import {
-  getClubDetail,
-  listClubMembers,
-  listClubPosts,
-  addClubPost,
-  deleteClubPost,
-  toggleClubPostLike,
-  listClubPostComments,
-  addClubPostComment,
-  deleteClubPostComment,
-  setClubCurrentBook,
-  finishClubCurrentBook,
-  getOrCreateClubInviteCode,
-  updateClubImage,
-  searchGoogleBooks,
-  clubMemberDisplayName,
-  getClubRanking,
-  listClubEvents,
-  createClubEvent,
-  deleteClubEvent,
-  listClubGoals,
-  createClubGoal,
-  deleteClubGoal,
-  setClubMemberRole,
-  setMeuRankingOculto,
-  type GoogleVolume,
-  type ClubMember,
-} from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useHasActiveSubscription } from "@/components/SubscriptionGate";
+import { addClubBookToMyShelf, getMyClubProgress, saveClubManualProgress } from "@/lib/api";
 
-export const Route = createFileRoute("/clubes_/$clubId")({
-  component: () => (
-    <AppShell>
-      <ClubPage />
-    </AppShell>
-  ),
-});
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "agora";
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  return `${d}d`;
+export function progressPercent(paginas: number, total: number | null): number | null {
+  if (!total || total <= 0) return null;
+  return Math.min(100, Math.round((paginas / total) * 100));
 }
 
-// Avatar pequeno e reutilizável: mostra a foto do membro, ou a inicial do
-// nome dele como fallback, quando ele nunca trocou a foto em "Minha conta".
-function MemberAvatar({ member, sizeClass = "h-6 w-6" }: { member: ClubMember; sizeClass?: string }) {
-  const nome = clubMemberDisplayName(member);
-  if (member.avatar_url) {
-    return (
-      <img
-        src={member.avatar_url}
-        alt=""
-        className={`${sizeClass} shrink-0 rounded-full object-cover`}
-      />
-    );
-  }
+// Barra de progresso fina, usada no cartão do livro e no ranking.
+export function ProgressBar({
+  percent,
+  tone = "light",
+  label,
+}: {
+  percent: number;
+  tone?: "light" | "dark";
+  label: string;
+}) {
   return (
-    <span
-      className={`${sizeClass} inline-flex shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground`}
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuenow={percent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      className={"h-1.5 w-full overflow-hidden rounded-full " + (tone === "dark" ? "bg-white/20" : "bg-muted")}
     >
-      {nome.slice(0, 1).toUpperCase()}
-    </span>
-  );
-}
-
-// Pilha de avatares sobrepostos (estilo Instagram) + legenda de quem curtiu.
-function CurtidoresResumo({
-  curtidoPor,
-  currentUserId,
-  memberByUserId,
-  aberto,
-  onToggle,
-}: {
-  curtidoPor: string[];
-  currentUserId: string | undefined;
-  memberByUserId: Map<string, ClubMember>;
-  aberto: boolean;
-  onToggle: () => void;
-}) {
-  if (curtidoPor.length === 0) return null;
-
-  const nomeDe = (uid: string) => {
-    if (uid === currentUserId) return "você";
-    const m = memberByUserId.get(uid);
-    return m ? clubMemberDisplayName(m) : "alguém";
-  };
-
-  const primeiros = curtidoPor.slice(0, 3);
-  const restantes = curtidoPor.length - primeiros.length;
-
-  let legenda: string;
-  if (curtidoPor.length === 1) {
-    legenda = `Curtido por ${nomeDe(primeiros[0] ?? "")}`;
-  } else if (restantes > 0) {
-    legenda = `Curtido por ${nomeDe(primeiros[0] ?? "")} e mais ${curtidoPor.length - 1} ${
-      curtidoPor.length - 1 === 1 ? "pessoa" : "pessoas"
-    }`;
-  } else {
-    legenda = `Curtido por ${curtidoPor.map(nomeDe).join(", ")}`;
-  }
-
-  return (
-    <button onClick={onToggle} className="mt-1.5 flex items-center gap-1.5">
-      <span className="flex items-center">
-        {primeiros.map((uid, i) => {
-          const m = memberByUserId.get(uid);
-          return (
-            <span
-              key={uid}
-              className="-ml-1.5 first:ml-0 rounded-full ring-2 ring-background"
-              style={{ zIndex: primeiros.length - i }}
-            >
-              {m ? (
-                <MemberAvatar member={m} sizeClass="h-4 w-4" />
-              ) : (
-                <span className="h-4 w-4 rounded-full bg-muted" />
-              )}
-            </span>
-          );
-        })}
-      </span>
-      <span className="text-xs text-muted-foreground underline-offset-4 hover:underline">
-        {aberto ? "Ocultar curtidas" : legenda}
-      </span>
-    </button>
-  );
-}
-
-function PostComments({
-  postId,
-  memberByUserId,
-  currentUserId,
-  souAdmin,
-}: {
-  postId: string;
-  memberByUserId: Map<string, ClubMember>;
-  currentUserId: string | undefined;
-  souAdmin: boolean;
-}) {
-  const queryClient = useQueryClient();
-  const comments = useQuery({
-    queryKey: ["club-post-comments", postId],
-    queryFn: () => listClubPostComments(postId),
-  });
-  const [texto, setTexto] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const { confirm, dialog } = useConfirm();
-
-  async function enviar() {
-    if (!currentUserId || !texto.trim()) return;
-    setEnviando(true);
-    try {
-      await addClubPostComment({
-        post_id: postId,
-        user_id: currentUserId,
-        conteudo: texto.trim(),
-      });
-      setTexto("");
-      void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível comentar");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  async function apagar(commentId: string) {
-    if (!(await confirm({ title: "Apagar comentário?" }))) return;
-    try {
-      await deleteClubPostComment(commentId);
-      void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível apagar");
-    }
-  }
-
-  return (
-    <div className="mt-3 border-t border-border/50 pt-3">
-      {dialog}
-      {comments.isLoading && (
-        <p className="text-xs text-muted-foreground">Carregando comentários…</p>
-      )}
-      {!comments.isLoading && comments.data?.length === 0 && (
-        <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
-      )}
-      <div className="flex flex-col gap-2">
-        {comments.data?.map((c) => {
-          const autor = memberByUserId.get(c.user_id);
-          return (
-            <div key={c.id} className="flex items-start gap-2">
-              {autor ? (
-                <MemberAvatar member={autor} sizeClass="h-6 w-6" />
-              ) : (
-                <span className="h-6 w-6 shrink-0 rounded-full bg-muted" />
-              )}
-              <p className="min-w-0 flex-1 text-xs">
-                <span className="font-medium">
-                  {autor ? clubMemberDisplayName(autor) : "Leitor do Grifo"}
-                </span>{" "}
-                <span className="text-muted-foreground">{c.conteudo}</span>
-              </p>
-              {(c.user_id === currentUserId || souAdmin) && (
-                <button
-                  onClick={() => apagar(c.id)}
-                  aria-label="Apagar comentário"
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && enviar()}
-          placeholder="Adicione um comentário…"
-          className="min-w-0 flex-1 rounded-full border border-border px-3 py-1.5 text-xs outline-none focus:border-primary"
-        />
-        <button
-          onClick={enviar}
-          disabled={enviando || !texto.trim()}
-          className="shrink-0 text-xs font-medium text-primary disabled:opacity-50"
-        >
-          Publicar
-        </button>
-      </div>
+      <div
+        className={"h-full rounded-full " + (tone === "dark" ? "bg-white" : "bg-primary")}
+        style={{ width: `${percent}%` }}
+      />
     </div>
   );
 }
 
-function ClubPage() {
-  const { clubId } = Route.useParams();
-  const { user } = useAuth();
-  const navigate = useNavigate();
+// "Meu progresso", dentro do cartão do livro atual (fundo verde escuro).
+// - Quem assina: o progresso vem da estante pessoal (botão para adicionar o
+//   livro do clube à estante, ou atalho para abrir o livro lá).
+// - Quem não assina: informa a página em que está direto no clube.
+export function ClubMyProgress({
+  clubId,
+  userId,
+  totalPaginas,
+  minhasPaginas,
+  onChanged,
+}: {
+  clubId: string;
+  userId: string;
+  totalPaginas: number | null;
+  minhasPaginas: number | null;
+  onChanged?: () => void;
+}) {
   const queryClient = useQueryClient();
-  const { confirm, dialog: confirmDialog } = useConfirm();
-
-  const detail = useQuery({
-    queryKey: ["club-detail", clubId],
-    queryFn: () => getClubDetail(clubId, user!.id),
-    enabled: Boolean(user),
-    retry: (count, err) =>
-      !(err instanceof Error && err.message.includes("não é membro")) && count < 2,
+  const { active, loading } = useHasActiveSubscription();
+  const progress = useQuery({
+    queryKey: ["club-my-progress", clubId, userId],
+    queryFn: () => getMyClubProgress(clubId, userId),
   });
+  const [editando, setEditando] = useState(false);
+  const [pagina, setPagina] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
-  const members = useQuery({
-    queryKey: ["club-members", clubId],
-    queryFn: () => listClubMembers(clubId),
-    enabled: Boolean(user),
-  });
+  if (loading || progress.isLoading || !progress.data) return null;
+  const p = progress.data;
+  const total = totalPaginas ?? p.totalPaginas;
+  const lidas = minhasPaginas ?? 0;
+  const pct = progressPercent(lidas, total);
 
-  const posts = useQuery({
-    queryKey: ["club-posts", clubId],
-    queryFn: () => listClubPosts(clubId, user!.id),
-    enabled: Boolean(user),
-  });
-
-  const ranking = useQuery({
-    queryKey: ["club-ranking", clubId],
-    queryFn: () => getClubRanking(clubId),
-    enabled: Boolean(user) && Boolean(detail.data?.livroAtualTitulo),
-  });
-
-  const events = useQuery({
-    queryKey: ["club-events", clubId],
-    queryFn: () => listClubEvents(clubId),
-    enabled: Boolean(user),
-  });
-
-  const goals = useQuery({
-    queryKey: ["club-goals", clubId],
-    queryFn: () => listClubGoals(clubId),
-    enabled: Boolean(user),
-  });
-
-  const [buscaLivroAberta, setBuscaLivroAberta] = useState(false);
-  const [termoBusca, setTermoBusca] = useState("");
-  const [resultadosBusca, setResultadosBusca] = useState<GoogleVolume[]>([]);
-  const [buscando, setBuscando] = useState(false);
-  const [definindoLivro, setDefinindoLivro] = useState(false);
-  // Livro escolhido na busca enquanto o admin decide o que fazer com o atual.
-  const [trocaPendente, setTrocaPendente] = useState<GoogleVolume | null>(null);
-
-  const [fotoAberta, setFotoAberta] = useState(false);
-  const [enviandoFoto, setEnviandoFoto] = useState(false);
-
-  const [codigoVisivel, setCodigoVisivel] = useState<string | null>(null);
-  const [carregandoCodigo, setCarregandoCodigo] = useState(false);
-
-  const [novoPost, setNovoPost] = useState("");
-  const [paginaPost, setPaginaPost] = useState("");
-  const [publicando, setPublicando] = useState(false);
-
-  const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
-  const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
-  const [comentariosAbertos, setComentariosAbertos] = useState<Record<string, boolean>>({});
-
-  const [novoEventoAberto, setNovoEventoAberto] = useState(false);
-  const [tituloEvento, setTituloEvento] = useState("");
-  const [dataHoraEvento, setDataHoraEvento] = useState("");
-  const [localEvento, setLocalEvento] = useState("");
-  const [descricaoEvento, setDescricaoEvento] = useState("");
-  const [criandoEvento, setCriandoEvento] = useState(false);
-
-  const [novaMetaAberta, setNovaMetaAberta] = useState(false);
-  const [tituloMeta, setTituloMeta] = useState("");
-  const [descricaoMeta, setDescricaoMeta] = useState("");
-  const [prazoMeta, setPrazoMeta] = useState("");
-  const [criandoMeta, setCriandoMeta] = useState(false);
-
-  const [alterandoPapel, setAlterandoPapel] = useState(false);
-  const [alterandoRanking, setAlterandoRanking] = useState(false);
-
-  function invalidarClube() {
-    void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
-    void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
-    void queryClient.invalidateQueries({ queryKey: ["club-shelf", clubId] });
-    void queryClient.invalidateQueries({ queryKey: ["club-ranking", clubId] });
-    void queryClient.invalidateQueries({ queryKey: ["club-my-progress", clubId] });
+  function atualizar() {
+    void queryClient.invalidateQueries({ queryKey: ["club-my-progress", clubId, userId] });
+    onChanged?.();
   }
 
-  const [concluirAberto, setConcluirAberto] = useState(false);
-  const [concluindo, setConcluindo] = useState(false);
-  async function concluirLeitura() {
-    setConcluindo(true);
+  async function adicionar() {
+    setSalvando(true);
     try {
-      await finishClubCurrentBook(clubId);
-      toast.success("Leitura concluída. O livro foi para a estante do clube.");
-      setConcluirAberto(false);
-      invalidarClube();
+      await addClubBookToMyShelf(p.bookId, userId);
+      toast.success("Livro adicionado à sua estante como Lendo.");
+      atualizar();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível concluir a leitura");
+      toast.error(err instanceof Error ? err.message : "Não foi possível adicionar à estante");
     } finally {
-      setConcluindo(false);
+      setSalvando(false);
     }
   }
 
-  async function buscarLivro() {
-    if (!termoBusca.trim()) return;
-    setBuscando(true);
-    try {
-      const resultados = await searchGoogleBooks(termoBusca.trim());
-      setResultadosBusca(resultados);
-    } catch {
-      toast.error("Não foi possível buscar agora.");
-    } finally {
-      setBuscando(false);
-    }
-  }
-
-  // Se já existe um livro atual, primeiro pergunta o que aconteceu com ele.
-  function escolherLivro(volume: GoogleVolume) {
-    if (detail.data?.livroAtualTitulo) {
-      setTrocaPendente(volume);
+  async function salvar() {
+    const n = Number(pagina);
+    if (!pagina.trim() || !Number.isInteger(n) || n < 0) {
+      toast.error("Informe um número de página válido.");
       return;
     }
-    void definirLivro(volume, "cancelado");
-  }
-
-  async function definirLivro(volume: GoogleVolume, anterior: "concluido" | "cancelado") {
-    if (!user) return;
-    setDefinindoLivro(true);
-    try {
-      await setClubCurrentBook(clubId, volume, user.id, anterior);
-      toast.success(
-        anterior === "concluido"
-          ? "Livro do clube atualizado. O anterior foi para a estante."
-          : "Livro do clube atualizado!",
-      );
-      setTrocaPendente(null);
-      setBuscaLivroAberta(false);
-      setTermoBusca("");
-      setResultadosBusca([]);
-      invalidarClube();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível definir o livro");
-    } finally {
-      setDefinindoLivro(false);
-    }
-  }
-
-  async function handleUploadFotoClube(file: File) {
-    if (!user) return;
-    setEnviandoFoto(true);
-    try {
-      const url = await uploadCover(file, user.id);
-      await updateClubImage(clubId, url);
-      invalidarClube();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível enviar a foto");
-    } finally {
-      setEnviandoFoto(false);
-    }
-  }
-
-  async function handleUsarUrlFotoClube(url: string) {
-    try {
-      await updateClubImage(clubId, url);
-      invalidarClube();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível atualizar a foto");
-    }
-  }
-
-  async function handleRemoverFotoClube() {
-    try {
-      await updateClubImage(clubId, null);
-      invalidarClube();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível remover a foto");
-    }
-  }
-
-  async function criarEvento() {
-    if (!user) return;
-    if (!tituloEvento.trim() || !dataHoraEvento) {
-      toast.error("Preencha pelo menos o título e a data/hora.");
+    if (total && n > total) {
+      toast.error(`Esse livro tem ${total} páginas.`);
       return;
     }
-    setCriandoEvento(true);
+    setSalvando(true);
     try {
-      await createClubEvent({
-        club_id: clubId,
-        titulo: tituloEvento.trim(),
-        descricao: descricaoEvento.trim() || null,
-        data_hora: new Date(dataHoraEvento).toISOString(),
-        local_ou_link: localEvento.trim() || null,
-        criado_por: user.id,
-      });
-      setTituloEvento("");
-      setDataHoraEvento("");
-      setLocalEvento("");
-      setDescricaoEvento("");
-      setNovoEventoAberto(false);
-      void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
+      await saveClubManualProgress(p.clubBookId, userId, n);
+      toast.success("Progresso atualizado.");
+      setPagina("");
+      setEditando(false);
+      atualizar();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível criar o evento");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o progresso");
     } finally {
-      setCriandoEvento(false);
+      setSalvando(false);
     }
   }
 
-  async function apagarEvento(eventId: string) {
-    if (!(await confirm({ title: "Apagar encontro?" }))) return;
-    try {
-      await deleteClubEvent(eventId);
-      void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível apagar o evento");
-    }
-  }
+  const resumo =
+    lidas > 0
+      ? total
+        ? `Você leu ${lidas} de ${total} páginas`
+        : `Você leu ${lidas} páginas`
+      : "Você ainda não começou";
 
-  async function criarMeta() {
-    if (!user) return;
-    if (!tituloMeta.trim()) {
-      toast.error("Dê um título à meta.");
-      return;
-    }
-    setCriandoMeta(true);
-    try {
-      await createClubGoal({
-        club_id: clubId,
-        titulo: tituloMeta.trim(),
-        descricao: descricaoMeta.trim() || null,
-        prazo: prazoMeta || null,
-        criado_por: user.id,
-      });
-      setTituloMeta("");
-      setDescricaoMeta("");
-      setPrazoMeta("");
-      setNovaMetaAberta(false);
-      void queryClient.invalidateQueries({ queryKey: ["club-goals", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível criar a meta");
-    } finally {
-      setCriandoMeta(false);
-    }
-  }
-
-  async function apagarMeta(goalId: string) {
-    if (
-      !(await confirm({
-        title: "Apagar meta?",
-        description: "As marcações de \"Cumpri\" dessa meta também serão apagadas.",
-      }))
-    )
-      return;
-    try {
-      await deleteClubGoal(goalId);
-      void queryClient.invalidateQueries({ queryKey: ["club-goals", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível apagar a meta");
-    }
-  }
-
-  async function alterarPapelMembro(userId: string, papel: "admin" | "membro") {
-    setAlterandoPapel(true);
-    try {
-      await setClubMemberRole(clubId, userId, papel);
-      toast.success(papel === "admin" ? "Agora é admin do clube." : "Virou membro comum.");
-      setMembroSelecionado(null);
-      void queryClient.invalidateQueries({ queryKey: ["club-members", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o papel");
-    } finally {
-      setAlterandoPapel(false);
-    }
-  }
-
-  async function alternarMeuRanking(ocultoAtual: boolean) {
-    setAlterandoRanking(true);
-    try {
-      await setMeuRankingOculto(clubId, !ocultoAtual);
-      void queryClient.invalidateQueries({ queryKey: ["club-members", clubId] });
-      void queryClient.invalidateQueries({ queryKey: ["club-ranking", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível alterar sua preferência");
-    } finally {
-      setAlterandoRanking(false);
-    }
-  }
-
-  async function verCodigo() {
-    if (!user) return;
-    if (codigoVisivel) {
-      setCodigoVisivel(null);
-      return;
-    }
-    setCarregandoCodigo(true);
-    try {
-      const codigo = await getOrCreateClubInviteCode(clubId, user.id);
-      setCodigoVisivel(codigo);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível buscar o código");
-    } finally {
-      setCarregandoCodigo(false);
-    }
-  }
-
-  async function copiarCodigo() {
-    if (!codigoVisivel) return;
-    try {
-      await navigator.clipboard.writeText(codigoVisivel);
-      toast.success("Código copiado!");
-    } catch {
-      toast.error("Não foi possível copiar. Copie manualmente.");
-    }
-  }
-
-  async function publicarPost() {
-    if (!user) return;
-    if (!novoPost.trim()) {
-      toast.error("Escreva algo antes de publicar.");
-      return;
-    }
-    setPublicando(true);
-    try {
-      await addClubPost({
-        club_id: clubId,
-        user_id: user.id,
-        conteudo: novoPost.trim(),
-        pagina_referencia: paginaPost.trim() ? Number(paginaPost) : null,
-      });
-      setNovoPost("");
-      setPaginaPost("");
-      void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível publicar");
-    } finally {
-      setPublicando(false);
-    }
-  }
-
-  async function curtir(postId: string, jaCurtido: boolean) {
-    if (!user) return;
-    // Otimista: atualiza a UI antes da resposta do banco, pra parecer instantâneo.
-    queryClient.setQueryData<typeof posts.data>(["club-posts", clubId], (old) =>
-      old?.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              curtido_por_mim: !jaCurtido,
-              likes_count: p.likes_count + (jaCurtido ? -1 : 1),
-              curtido_por: jaCurtido
-                ? p.curtido_por.filter((id) => id !== user.id)
-                : [...p.curtido_por, user.id],
-            }
-          : p,
-      ),
-    );
-    try {
-      await toggleClubPostLike(postId, user.id, jaCurtido);
-    } catch {
-      void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
-    }
-  }
-
-  async function apagarPost(postId: string) {
-    if (!(await confirm({ title: "Apagar post?", description: "O post e os comentários dele serão apagados. Essa ação não pode ser desfeita." }))) return;
-    try {
-      await deleteClubPost(postId);
-      void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível apagar");
-    }
-  }
-
-  // Erro ao abrir o clube (não é membro, clube apagado, sem internet):
-  // mostra uma mensagem em vez de ficar em "Carregando…" para sempre.
-  if (detail.isError) {
-    const naoMembro =
-      detail.error instanceof Error && detail.error.message.includes("não é membro");
-    return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <UsersIcon className="h-8 w-8 text-muted-foreground" />
-        <p className="font-display text-lg">
-          {naoMembro ? "Você não participa deste clube" : "Não foi possível abrir o clube"}
-        </p>
-        <p className="max-w-xs text-sm text-muted-foreground">
-          {naoMembro
-            ? "Para ver o clube, entre com o código de convite ou pela lista de clubes públicos."
-            : "Verifique sua conexão e tente de novo."}
-        </p>
-        <div className="mt-2 flex gap-2">
-          {!naoMembro && (
-            <button
-              onClick={() => void detail.refetch()}
-              className="rounded-full border border-border px-4 py-2 text-sm font-medium"
-            >
-              Tentar de novo
-            </button>
-          )}
-          <button
-            onClick={() => navigate({ to: "/clubes" })}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-          >
-            Ver clubes
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (detail.isLoading || !detail.data) {
-    return <p className="text-sm text-muted-foreground">Carregando…</p>;
-  }
-
-  const { club, meuPapel, livroAtualTitulo, livroAtualAutor, livroAtualCapa, livroAtualPaginas } =
-    detail.data;
-  const souAdmin = meuPapel === "admin";
-  const memberByUserId = new Map((members.data ?? []).map((m) => [m.user_id, m]));
-  const meuMembro = user ? memberByUserId.get(user.id) : undefined;
-  const meuRanking = user ? ranking.data?.find((e) => e.user_id === user.id) : undefined;
-  const rankingVisivel = (ranking.data ?? []).filter((e) => !e.oculto);
-  const proximoEncontro = (events.data ?? [])
-    .filter((ev) => new Date(ev.data_hora).getTime() >= Date.now())
-    .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())[0];
+  const botao =
+    "inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#052C2D] disabled:opacity-60";
 
   return (
-    <section className="pb-6">
-      {confirmDialog}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => navigate({ to: "/clubes" })}
-          aria-label="Voltar"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
-          {club.imagem_url ? (
-            <img src={club.imagem_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <UsersIcon className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-        <h1 className="font-display truncate text-xl">{club.nome}</h1>
-        {user && (
-          <ClubOptionsMenu
-            key={`${club.nome}|${club.descricao ?? ""}|${club.tipo}`}
-            club={club}
-            souAdmin={souAdmin}
-            userId={user.id}
-            members={members.data ?? []}
-            onUpdated={() => {
-              void queryClient.invalidateQueries({ queryKey: ["club-detail", clubId] });
-              void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
-              void queryClient.invalidateQueries({ queryKey: ["public-clubs"] });
-            }}
-            onDeleted={() => {
-              queryClient.removeQueries({ queryKey: ["club-detail", clubId] });
-              void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
-              void queryClient.invalidateQueries({ queryKey: ["public-clubs"] });
-              navigate({ to: "/clubes" });
-            }}
-            onLeft={() => {
-              queryClient.removeQueries({ queryKey: ["club-detail", clubId] });
-              void queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
-              void queryClient.invalidateQueries({ queryKey: ["public-clubs"] });
-              navigate({ to: "/clubes" });
-            }}
-          />
-        )}
+    <div className="mt-4 border-t border-white/15 pt-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm">{resumo}</p>
+        {pct !== null && lidas > 0 && <p className="text-sm font-semibold">{pct}%</p>}
       </div>
-      {club.descricao && <p className="mt-2 text-sm text-muted-foreground">{club.descricao}</p>}
-
-      {souAdmin && (
+      {pct !== null && (
         <div className="mt-2">
-          <button
-            onClick={() => setFotoAberta((v) => !v)}
-            className="text-xs font-medium text-primary underline underline-offset-4"
-          >
-            {fotoAberta ? "Fechar" : "Alterar foto do clube"}
-          </button>
-          {fotoAberta && (
-            <div className="mt-2">
-              <CoverPicker
-                cover={club.imagem_url}
-                title={club.nome}
-                onUpload={handleUploadFotoClube}
-                onUseUrl={handleUsarUrlFotoClube}
-                onRemove={handleRemoverFotoClube}
-                uploading={enviandoFoto}
-              />
-            </div>
-          )}
+          <ProgressBar percent={pct} tone="dark" label="Meu progresso no livro do clube" />
         </div>
       )}
 
-      {/* Livro atual */}
-      <div className="card-teal mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-wide opacity-80">Livro atual</p>
-          {souAdmin && livroAtualTitulo && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label="Opções do livro do clube"
-                className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setBuscaLivroAberta(true)}>
-                  Trocar livro
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setConcluirAberto(true)}>
-                  Concluir leitura
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-        {livroAtualTitulo ? (
-          <div className="mt-2 flex items-center gap-3">
-            <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-white/10">
-              <BookCover src={livroAtualCapa} title={livroAtualTitulo} />
-            </div>
-            <div className="min-w-0">
-              <p className="font-display truncate text-base">{livroAtualTitulo}</p>
-              {livroAtualAutor && <p className="truncate text-sm opacity-80">{livroAtualAutor}</p>}
-            </div>
-          </div>
+      {active ? (
+        p.userBookId ? (
+          <>
+            <p className="mt-3 text-xs opacity-80">
+              Seu progresso vem da sua estante. Registre suas leituras por lá e o clube atualiza
+              sozinho.
+            </p>
+            <Link to="/livro/$id" params={{ id: p.userBookId }} className={botao + " mt-2"}>
+              <BookOpen className="h-4 w-4" />
+              Registrar leitura
+            </Link>
+          </>
         ) : (
-          <p className="mt-2 text-sm opacity-80">Nenhum livro definido ainda.</p>
-        )}
-
-        {user && livroAtualTitulo && (
-          <ClubMyProgress
-            clubId={clubId}
-            userId={user.id}
-            totalPaginas={livroAtualPaginas}
-            minhasPaginas={meuRanking?.paginas_lidas ?? null}
-            onChanged={invalidarClube}
-          />
-        )}
-
-        {souAdmin && !livroAtualTitulo && (
-          <button
-            onClick={() => setBuscaLivroAberta((v) => !v)}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#052C2D]"
-          >
-            <Search className="h-4 w-4" />
-            {buscaLivroAberta ? "Fechar busca" : "Definir livro atual"}
-          </button>
-        )}
-        <AlertDialog open={concluirAberto} onOpenChange={setConcluirAberto}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Concluir leitura</AlertDialogTitle>
-              <AlertDialogDescription>
-                Marcar {livroAtualTitulo} como lido pelo clube? Ele vai para a estante do clube.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={concluindo}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void concluirLeitura();
-                }}
-              >
-                {concluindo ? "Concluindo…" : "Concluir leitura"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Trocar livro: o que acontece com o livro atual? */}
-        <AlertDialog
-          open={trocaPendente !== null}
-          onOpenChange={(open) => !open && !definindoLivro && setTrocaPendente(null)}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Trocar o livro do clube</AlertDialogTitle>
-              <AlertDialogDescription>
-                "{trocaPendente?.title}" vai virar a leitura do clube. O que aconteceu com "
-                {livroAtualTitulo}"?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="flex flex-col gap-2">
-              <button
-                disabled={definindoLivro}
-                onClick={() => trocaPendente && void definirLivro(trocaPendente, "concluido")}
-                className="rounded-xl border border-border p-3 text-left disabled:opacity-60"
-              >
-                <span className="block text-sm font-medium">O clube terminou de ler</span>
-                <span className="block text-xs text-muted-foreground">
-                  Ele vai para a estante do clube.
-                </span>
-              </button>
-              <button
-                disabled={definindoLivro}
-                onClick={() => trocaPendente && void definirLivro(trocaPendente, "cancelado")}
-                className="rounded-xl border border-border p-3 text-left disabled:opacity-60"
-              >
-                <span className="block text-sm font-medium">
-                  Foi escolhido por engano ou o clube desistiu
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  Ele não vai para a estante.
-                </span>
-              </button>
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={definindoLivro}>Cancelar</AlertDialogCancel>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {souAdmin && buscaLivroAberta && (
-          <div className="mt-3 rounded-xl bg-white/10 p-3">
-            {livroAtualTitulo && (
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs opacity-80">Escolha o novo livro do clube</p>
-                <button
-                  onClick={() => {
-                    setBuscaLivroAberta(false);
-                    setResultadosBusca([]);
-                  }}
-                  className="text-xs underline underline-offset-4 opacity-80"
-                >
-                  Fechar
-                </button>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                value={termoBusca}
-                onChange={(e) => setTermoBusca(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && buscarLivro()}
-                placeholder="Título, autor ou ISBN"
-                className="min-w-0 flex-1 rounded-lg border border-white/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-white/60"
-              />
-              <button
-                onClick={buscarLivro}
-                disabled={buscando}
-                aria-label="Buscar"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mt-2 flex max-h-64 flex-col gap-2 overflow-y-auto">
-              {resultadosBusca.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => escolherLivro(v)}
-                  disabled={definindoLivro}
-                  className="flex items-center gap-2 rounded-lg bg-white/10 p-2 text-left disabled:opacity-60"
-                >
-                  <div className="h-12 w-9 shrink-0 overflow-hidden rounded bg-white/10">
-                    <BookCover src={v.cover_url} title={v.title} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm">{v.title}</p>
-                    {v.author && <p className="truncate text-xs opacity-70">{v.author}</p>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Próximo encontro em destaque */}
-      {proximoEncontro && (
-        <a
-          href="#encontros"
-          className="panel-cream mt-4 flex items-center gap-3 rounded-2xl p-4"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <CalendarDays className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs text-muted-foreground">Próximo encontro</span>
-            <span className="block truncate text-sm font-medium">{proximoEncontro.titulo}</span>
-            <span className="block text-xs text-muted-foreground">
-              {new Date(proximoEncontro.data_hora).toLocaleString("pt-BR", {
-                weekday: "short",
-                day: "2-digit",
-                month: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          </span>
-        </a>
-      )}
-
-      {/* Mural */}
-      <div className="mt-4">
-        <p className="text-sm font-medium">Mural do clube</p>
-
-        <div className="panel-cream mt-2 rounded-2xl p-4">
-          <textarea
-            value={novoPost}
-            onChange={(e) => setNovoPost(e.target.value)}
-            rows={3}
-            placeholder="Compartilhe uma impressão, uma dúvida, uma citação…"
-            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary"
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <input
-              type="number"
-              value={paginaPost}
-              onChange={(e) => setPaginaPost(e.target.value)}
-              placeholder="Página (opcional)"
-              className="w-36 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button
-              onClick={publicarPost}
-              disabled={publicando}
-              className="ml-auto rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {publicando ? "Publicando…" : "Publicar"}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-col gap-3">
-          {posts.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-
-          {!posts.isLoading && posts.data && posts.data.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Ninguém postou ainda. Comece a conversa.
+          <>
+            <p className="mt-3 text-xs opacity-80">
+              Adicione este livro à sua estante e registre suas leituras por lá. O clube atualiza
+              sozinho.
             </p>
-          )}
-
-          {posts.data?.map((post) => {
-            const autor = memberByUserId.get(post.user_id);
-            return (
-              <div key={post.id} className="panel-cream rounded-2xl p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {autor ? (
-                      <MemberAvatar member={autor} sizeClass="h-7 w-7" />
-                    ) : (
-                      <span className="h-7 w-7 shrink-0 rounded-full bg-muted" />
-                    )}
-                    <p className="text-sm font-medium">
-                      {autor ? clubMemberDisplayName(autor) : "Leitor do Grifo"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {post.pagina_referencia != null && <span>pág. {post.pagina_referencia}</span>}
-                    <span>{timeAgo(post.criado_em)}</span>
-                  </div>
-                </div>
-                <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
-
-                <div className="mt-2 flex items-center gap-4">
-                  <button
-                    onClick={() => curtir(post.id, post.curtido_por_mim)}
-                    className={
-                      "inline-flex items-center gap-1 text-xs transition-colors " +
-                      (post.curtido_por_mim ? "text-primary" : "text-muted-foreground")
-                    }
-                  >
-                    <Heart
-                      className={"h-4 w-4 " + (post.curtido_por_mim ? "fill-current" : "")}
-                    />
-                    Curtir
-                  </button>
-                  <button
-                    onClick={() =>
-                      setComentariosAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
-                    }
-                    className={
-                      "inline-flex items-center gap-1 text-xs transition-colors " +
-                      (comentariosAbertos[post.id] ? "text-foreground" : "text-muted-foreground")
-                    }
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Comentar
-                  </button>
-                  {(post.user_id === user?.id || souAdmin) && (
-                    <button
-                      onClick={() => apagarPost(post.id)}
-                      className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Apagar
-                    </button>
-                  )}
-                </div>
-
-                <CurtidoresResumo
-                  curtidoPor={post.curtido_por}
-                  currentUserId={user?.id}
-                  memberByUserId={memberByUserId}
-                  aberto={Boolean(curtidoresAbertos[post.id])}
-                  onToggle={() =>
-                    setCurtidoresAbertos((prev) => ({ ...prev, [post.id]: !prev[post.id] }))
-                  }
-                />
-
-                {curtidoresAbertos[post.id] && post.likes_count > 0 && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {post.curtido_por
-                      .map((uid) => {
-                        if (uid === user?.id) return "você";
-                        const membro = memberByUserId.get(uid);
-                        return membro ? clubMemberDisplayName(membro) : "alguém";
-                      })
-                      .join(", ")}
-                  </p>
-                )}
-
-                {comentariosAbertos[post.id] && (
-                  <PostComments
-                    postId={post.id}
-                    memberByUserId={memberByUserId}
-                    currentUserId={user?.id}
-                    souAdmin={souAdmin}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      {/* Ranking de leitura (só existe enquanto houver um livro atual) */}
-      {livroAtualTitulo && (
-        <div className="panel-cream mt-4 rounded-2xl p-4">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-sm font-medium">
-              <Trophy className="h-4 w-4" />
-              Ranking de leitura
-            </p>
-            {meuMembro && (
-              <button
-                onClick={() => alternarMeuRanking(meuMembro.ranking_oculto)}
-                disabled={alterandoRanking}
-                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline underline-offset-4 disabled:opacity-60"
-              >
-                {meuMembro.ranking_oculto ? (
-                  <>
-                    <EyeOff className="h-3.5 w-3.5" />
-                    Você está oculto
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-3.5 w-3.5" />
-                    Não aparecer
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Páginas lidas de "{livroAtualTitulo}" desde que virou o livro do clube. É só por
-            diversão, ninguém é obrigado a aparecer aqui.
-          </p>
-          {!ranking.isLoading && rankingVisivel.length === 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">Ninguém aparece no ranking ainda.</p>
-          )}
-
-          <div className="mt-3 flex flex-col gap-1.5">
-            {ranking.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-            {rankingVisivel.map((entry, i) => (
-              <div
-                key={entry.user_id}
-                className={
-                  "flex items-center gap-3 rounded-xl px-2 py-1.5 " +
-                  (i === 0 && entry.paginas_lidas > 0 ? "bg-primary/10" : "")
-                }
-              >
-                <span
-                  className={
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
-                    (i === 0 && entry.paginas_lidas > 0
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground")
-                  }
-                >
-                  {i + 1}
-                </span>
-                {entry.avatar_url ? (
-                  <img
-                    src={entry.avatar_url}
-                    alt=""
-                    className="h-7 w-7 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
-                    {entry.nome.slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-sm">{entry.nome}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {entry.paginas_lidas > 0
-                        ? `${entry.paginas_lidas} pág.` +
-                          (progressPercent(entry.paginas_lidas, livroAtualPaginas) !== null
-                            ? ` · ${progressPercent(entry.paginas_lidas, livroAtualPaginas)}%`
-                            : "")
-                        : "ainda não começou"}
-                    </span>
-                  </span>
-                  {entry.paginas_lidas > 0 &&
-                    progressPercent(entry.paginas_lidas, livroAtualPaginas) !== null && (
-                      <span className="mt-1 block">
-                        <ProgressBar
-                          percent={progressPercent(entry.paginas_lidas, livroAtualPaginas) ?? 0}
-                          label={`Progresso de ${entry.nome}`}
-                        />
-                      </span>
-                    )}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Metas do clube */}
-      <div className="panel-cream mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <Target className="h-4 w-4" />
-            Metas do clube
-          </p>
-          {souAdmin && (
-            <button
-              onClick={() => setNovaMetaAberta((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {novaMetaAberta ? "Fechar" : "Nova meta"}
+            <button type="button" onClick={adicionar} disabled={salvando} className={botao + " mt-2"}>
+              <Plus className="h-4 w-4" />
+              {salvando ? "Adicionando…" : "Adicionar à minha estante"}
             </button>
-          )}
-        </div>
-
-        {souAdmin && novaMetaAberta && (
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
-            <input
-              value={tituloMeta}
-              onChange={(e) => setTituloMeta(e.target.value)}
-              placeholder="Título (ex.: Ler o livro em 30 dias)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <textarea
-              value={descricaoMeta}
-              onChange={(e) => setDescricaoMeta(e.target.value)}
-              rows={2}
-              placeholder="Descrição (ex.: comentar os capítulos 1, 2 e 3 até o prazo)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <div>
-              <label className="text-xs text-muted-foreground">Prazo (opcional)</label>
+          </>
+        )
+      ) : (
+        <>
+          {editando ? (
+            <div className="mt-3 flex items-center gap-2">
+              <label htmlFor="club-my-page" className="sr-only">
+                Em que página você está?
+              </label>
               <input
-                type="date"
-                value={prazoMeta}
-                onChange={(e) => setPrazoMeta(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+                id="club-my-page"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={total ?? undefined}
+                autoFocus
+                value={pagina}
+                onChange={(e) => setPagina(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && salvar()}
+                placeholder={p.paginaManual !== null ? String(p.paginaManual) : "Página"}
+                className="w-28 rounded-lg border border-white/30 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-white/60"
               />
-            </div>
-            <button
-              onClick={criarMeta}
-              disabled={criandoMeta}
-              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {criandoMeta ? "Salvando…" : "Criar meta"}
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-col gap-2">
-          {goals.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-          {!goals.isLoading && goals.data && goals.data.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nenhuma meta definida ainda.</p>
-          )}
-
-          {goals.data && user && (
-            <ClubGoalsList
-              clubId={clubId}
-              goals={goals.data}
-              members={members.data ?? []}
-              userId={user.id}
-              souAdmin={souAdmin}
-              onDelete={apagarMeta}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Eventos / encontros */}
-      <div id="encontros" className="panel-cream mt-4 scroll-mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <CalendarDays className="h-4 w-4" />
-            Encontros
-          </p>
-          {souAdmin && (
-            <button
-              onClick={() => setNovoEventoAberto((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {novoEventoAberto ? "Fechar" : "Marcar encontro"}
-            </button>
-          )}
-        </div>
-
-        {souAdmin && novoEventoAberto && (
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
-            <input
-              value={tituloEvento}
-              onChange={(e) => setTituloEvento(e.target.value)}
-              placeholder="Título (ex.: Discussão do capítulo 1)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              type="datetime-local"
-              value={dataHoraEvento}
-              onChange={(e) => setDataHoraEvento(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <input
-              value={localEvento}
-              onChange={(e) => setLocalEvento(e.target.value)}
-              placeholder="Local ou link (ex.: endereço, Zoom, Meet…)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <textarea
-              value={descricaoEvento}
-              onChange={(e) => setDescricaoEvento(e.target.value)}
-              rows={2}
-              placeholder="Descrição (opcional)"
-              className="rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <button
-              onClick={criarEvento}
-              disabled={criandoEvento}
-              className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {criandoEvento ? "Salvando…" : "Marcar encontro"}
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-col gap-2">
-          {events.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-
-          {!events.isLoading && events.data && events.data.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nenhum encontro marcado ainda.</p>
-          )}
-
-          {events.data?.map((ev) => {
-            const passado = new Date(ev.data_hora).getTime() < Date.now();
-            const ehLink = ev.local_ou_link?.startsWith("http");
-            return (
-              <div
-                key={ev.id}
-                className={
-                  "rounded-xl border border-border p-3 " + (passado ? "opacity-50" : "")
-                }
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{ev.titulo}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(ev.data_hora).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                    {ev.local_ou_link &&
-                      (ehLink ? (
-                        <a
-                          href={ev.local_ou_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-primary underline underline-offset-4"
-                        >
-                          {ev.local_ou_link}
-                        </a>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">{ev.local_ou_link}</p>
-                      ))}
-                    {ev.descricao && (
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                        {ev.descricao}
-                      </p>
-                    )}
-                  </div>
-                  {souAdmin && (
-                    <button
-                      onClick={() => apagarEvento(ev.id)}
-                      aria-label="Apagar evento"
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <ClubShelf
-        clubId={clubId}
-        souAdmin={souAdmin}
-        livroAtualTitulo={livroAtualTitulo}
-        onChanged={invalidarClube}
-      />
-
-      {/* Membros */}
-      <div className="panel-cream mt-4 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <UsersIcon className="h-4 w-4" />
-            {members.data?.length ?? 0} {(members.data?.length ?? 0) === 1 ? "membro" : "membros"}
-          </p>
-          {souAdmin && (
-            <button
-              onClick={verCodigo}
-              disabled={carregandoCodigo}
-              className="text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
-            >
-              {carregandoCodigo
-                ? "Buscando…"
-                : codigoVisivel
-                  ? "Ocultar código"
-                  : "Ver código de convite"}
-            </button>
-          )}
-        </div>
-
-        {codigoVisivel && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium tracking-[0.2em]">
-              {codigoVisivel}
-            </span>
-            <button
-              onClick={copiarCodigo}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Copiar
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(members.data ?? []).map((m) => (
-            <button
-              key={m.user_id}
-              onClick={() => setMembroSelecionado(m)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border py-1 pl-1 pr-3 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-            >
-              <MemberAvatar member={m} sizeClass="h-5 w-5" />
-              {clubMemberDisplayName(m)}
-              {m.papel === "admin" ? " · admin" : ""}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {membroSelecionado && (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center"
-          onClick={() => setMembroSelecionado(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-t-3xl bg-background p-6 sm:rounded-3xl"
-          >
-            <div className="flex flex-col items-center text-center">
-              <MemberAvatar member={membroSelecionado} sizeClass="h-16 w-16" />
-              <p className="font-display mt-3 text-lg">
-                {clubMemberDisplayName(membroSelecionado)}
-              </p>
-              {membroSelecionado.username && (
-                <p className="text-sm text-muted-foreground">@{membroSelecionado.username}</p>
-              )}
-              <p className="mt-2 text-xs text-muted-foreground">
-                {membroSelecionado.papel === "admin" ? "Administrador do clube" : "Membro"} ·
-                entrou em{" "}
-                {new Date(membroSelecionado.entrou_em).toLocaleDateString("pt-BR")}
-              </p>
-            </div>
-            {souAdmin && membroSelecionado.user_id !== user?.id && (
-              <button
-                onClick={() =>
-                  alterarPapelMembro(
-                    membroSelecionado.user_id,
-                    membroSelecionado.papel === "admin" ? "membro" : "admin",
-                  )
-                }
-                disabled={alterandoPapel}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-border py-2.5 text-sm font-medium disabled:opacity-60"
-              >
-                {membroSelecionado.papel === "admin" ? (
-                  <>
-                    <ShieldMinus className="h-4 w-4" />
-                    Rebaixar a membro
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="h-4 w-4" />
-                    Promover a admin
-                  </>
-                )}
+              <button type="button" onClick={salvar} disabled={salvando} className={botao}>
+                {salvando ? "Salvando…" : "Salvar"}
               </button>
-            )}
-            <button
-              onClick={() => setMembroSelecionado(null)}
-              className="mt-2 w-full rounded-full border border-border py-2.5 text-sm font-medium"
-            >
-              Fechar
+              <button
+                type="button"
+                onClick={() => setEditando(false)}
+                className="text-xs underline underline-offset-4 opacity-80"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setEditando(true)} className={botao + " mt-3"}>
+              <BookOpen className="h-4 w-4" />
+              Atualizar minha página
             </button>
-          </div>
-        </div>
+          )}
+          <p className="mt-3 text-xs opacity-80">
+            Quer acompanhar este e outros livros na sua estante pessoal, com cronômetro e
+            histórico?{" "}
+            <Link to="/conta" className="font-medium underline underline-offset-4">
+              Assine o Grifo
+            </Link>
+            .
+          </p>
+        </>
       )}
-
-    </section>
+    </div>
   );
 }
