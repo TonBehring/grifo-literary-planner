@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { ContatosPanel } from "@/components/ContatosPanel";
 import { WhatsAppSection } from "@/components/WhatsAppSection";
 import { InstallSection } from "@/components/InstallSection";
+import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadCover } from "@/lib/cover-upload";
 import { getMyFounderStatus } from "@/lib/founders";
@@ -148,7 +149,7 @@ function AccountPage() {
 
       <FounderBadge />
 
-      <SubscriptionSection />
+      <SubscriptionCard />
 
       <NotificationsSection />
 
