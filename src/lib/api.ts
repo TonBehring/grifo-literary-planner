@@ -1401,94 +1401,43 @@ export type ClubRankingEntry = {
   tem_livro_na_estante: boolean;
 };
 
-// Ranking de leitura do clube: quem mais avançou no livro atual, contando
-// só as sessões de leitura (cronômetro/livre) registradas depois que esse
-// livro virou o "atual" do clube. Só conta quem tem o mesmo livro (mesmo
-// book_id — por isso o match por ISBN em setClubCurrentBook importa) na
-// própria estante, já que é de lá que vem o progresso real da pessoa.
+// Ranking de leitura do clube, calculado no banco (função club_ranking_progress),
+// porque cada pessoa só enxerga as próprias sessões de leitura.
+// O progresso de cada membro vem de dois lugares:
+// - quem assina: páginas das sessões de leitura do livro na própria estante,
+//   registradas depois que ele virou o livro do clube;
+// - quem não assina: a página informada à mão no próprio clube.
+// Vale o maior dos dois.
 export async function getClubRanking(clubId: string): Promise<ClubRankingEntry[]> {
-  const todosOsMembros = await listClubMembers(clubId);
-  // Quem pediu pra não aparecer no ranking ("sem cobrança, sem julgamento")
-  // simplesmente não entra na lista.
-  const members = todosOsMembros.filter((m) => !m.ranking_oculto);
-  if (members.length === 0) return [];
+  const [members, progresso] = await Promise.all([
+    listClubMembers(clubId),
+    supabase.rpc("club_ranking_progress", { p_club_id: clubId }),
+  ]);
+  if (progresso.error) throw new Error(progresso.error.message);
+  const rows = (progresso.data ?? []) as Array<{
+    user_id: string;
+    paginas_lidas: number | null;
+    segundos_lidos: number | null;
+    tem_livro_na_estante: boolean;
+    pagina_manual: number | null;
+  }>;
+  const memberById = new Map(members.map((m) => [m.user_id, m]));
 
-  const { data: clubBookRow, error: clubBookError } = await supabase
-    .from("club_books")
-    .select("book_id, data_inicio")
-    .eq("club_id", clubId)
-    .eq("status", "atual")
-    .maybeSingle();
-  if (clubBookError) throw new Error(clubBookError.message);
-  const clubBook = clubBookRow as { book_id: string; data_inicio: string | null } | null;
-
-  const base: ClubRankingEntry[] = members.map((m) => ({
-    user_id: m.user_id,
-    nome: clubMemberDisplayName(m),
-    avatar_url: m.avatar_url,
-    papel: m.papel,
-    paginas_lidas: 0,
-    segundos_lidos: 0,
-    tem_livro_na_estante: false,
-  }));
-
-  if (!clubBook) return base;
-
-  const memberIds = members.map((m) => m.user_id);
-  const { data: userBookRows, error: userBooksError } = await supabase
-    .from("user_books")
-    .select("id, user_id")
-    .eq("book_id", clubBook.book_id)
-    .in("user_id", memberIds);
-  if (userBooksError) throw new Error(userBooksError.message);
-  const rows = (userBookRows ?? []) as Array<{ id: string; user_id: string }>;
-  if (rows.length === 0) return base;
-
-  const userIdByUserBookId = new Map(rows.map((r) => [r.id, r.user_id]));
-  const userBookIds = rows.map((r) => r.id);
-
-  let sessionsQuery = supabase
-    .from("reading_sessions")
-    .select("user_book_id, pagina_inicio, pagina_fim, duracao_real_segundos")
-    .in("user_book_id", userBookIds)
-    .not("finalizado_em", "is", null);
-  if (clubBook.data_inicio) {
-    sessionsQuery = sessionsQuery.gte("iniciado_em", clubBook.data_inicio);
-  }
-  const { data: sessionRows, error: sessionsError } = await sessionsQuery;
-  if (sessionsError) throw new Error(sessionsError.message);
-
-  const porUsuario = new Map<string, { paginas: number; segundos: number }>();
-  for (const s of (sessionRows ?? []) as Array<{
-    user_book_id: string;
-    pagina_inicio: number | null;
-    pagina_fim: number | null;
-    duracao_real_segundos: number | null;
-  }>) {
-    const userId = userIdByUserBookId.get(s.user_book_id);
-    if (!userId) continue;
-    const paginas =
-      s.pagina_inicio != null && s.pagina_fim != null
-        ? Math.max(0, s.pagina_fim - s.pagina_inicio)
-        : 0;
-    const atual = porUsuario.get(userId) ?? { paginas: 0, segundos: 0 };
-    porUsuario.set(userId, {
-      paginas: atual.paginas + paginas,
-      segundos: atual.segundos + (s.duracao_real_segundos ?? 0),
-    });
-  }
-
-  const temLivroSet = new Set(rows.map((r) => r.user_id));
-
-  return base
-    .map((entry) => {
-      const agregado = porUsuario.get(entry.user_id);
-      return {
-        ...entry,
-        paginas_lidas: agregado?.paginas ?? 0,
-        segundos_lidos: agregado?.segundos ?? 0,
-        tem_livro_na_estante: temLivroSet.has(entry.user_id),
-      };
+  return rows
+    .flatMap((r) => {
+      const m = memberById.get(r.user_id);
+      if (!m) return [];
+      return [
+        {
+          user_id: r.user_id,
+          nome: clubMemberDisplayName(m),
+          avatar_url: m.avatar_url,
+          papel: m.papel,
+          paginas_lidas: Math.max(r.paginas_lidas ?? 0, r.pagina_manual ?? 0),
+          segundos_lidos: r.segundos_lidos ?? 0,
+          tem_livro_na_estante: r.tem_livro_na_estante || r.pagina_manual !== null,
+        },
+      ];
     })
     .sort((a, b) => b.paginas_lidas - a.paginas_lidas || b.segundos_lidos - a.segundos_lidos);
 }
@@ -1768,4 +1717,86 @@ export async function reopenClubBook(clubBookId: string): Promise<void> {
     .select("id");
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("Não foi possível voltar para lendo.");
+}
+
+// --- Clube: meu progresso no livro atual ------------------------------------
+
+export type MyClubProgress = {
+  clubBookId: string;
+  bookId: string;
+  totalPaginas: number | null;
+  userBookId: string | null;
+  paginaManual: number | null;
+};
+
+export async function getMyClubProgress(clubId: string, userId: string): Promise<MyClubProgress | null> {
+  const { data: cbRow, error: cbError } = await supabase
+    .from("club_books")
+    .select("id, book_id, book:books(total_paginas)")
+    .eq("club_id", clubId)
+    .eq("status", "atual")
+    .maybeSingle();
+  if (cbError) throw new Error(cbError.message);
+  if (!cbRow) return null;
+  const cb = cbRow as { id: string; book_id: string; book: { total_paginas: number | null } | null };
+
+  const [ub, pr] = await Promise.all([
+    supabase.from("user_books").select("id").eq("user_id", userId).eq("book_id", cb.book_id).maybeSingle(),
+    supabase
+      .from("club_reading_progress")
+      .select("pagina")
+      .eq("club_book_id", cb.id)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+  if (ub.error) throw new Error(ub.error.message);
+  if (pr.error) throw new Error(pr.error.message);
+
+  return {
+    clubBookId: cb.id,
+    bookId: cb.book_id,
+    totalPaginas: cb.book?.total_paginas ?? null,
+    userBookId: (ub.data as { id: string } | null)?.id ?? null,
+    paginaManual: (pr.data as { pagina: number } | null)?.pagina ?? null,
+  };
+}
+
+// Quem não assina informa a página em que está direto no clube.
+export async function saveClubManualProgress(clubBookId: string, userId: string, pagina: number): Promise<void> {
+  const { error } = await supabase
+    .from("club_reading_progress")
+    .upsert(
+      { club_book_id: clubBookId, user_id: userId, pagina, atualizado_em: new Date().toISOString() },
+      { onConflict: "club_book_id,user_id" },
+    );
+  if (error) throw new Error(error.message);
+}
+
+// Quem assina adiciona o livro do clube à própria estante (como "Lendo"),
+// usando o mesmo livro do clube, para o progresso aparecer no ranking.
+export async function addClubBookToMyShelf(bookId: string, userId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from("user_books")
+    .insert({
+      user_id: userId,
+      book_id: bookId,
+      status: "lendo",
+      pagina_atual: 0,
+      data_inicio: new Date().toISOString().slice(0, 10),
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505") {
+      const { data: existing } = await supabase
+        .from("user_books")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("book_id", bookId)
+        .maybeSingle();
+      if (existing) return (existing as { id: string }).id;
+    }
+    throw new Error(error.message);
+  }
+  return (data as { id: string }).id;
 }
