@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 
+// Mesmo visual para os três botões da lista: pílula de largura fixa, alinhada
+// à direita. O ícone do botão "Convidar" fica escondido aqui.
+export const CHECKLIST_BOTAO =
+  "inline-flex w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-[#85651C]/40 py-1.5 text-xs font-medium text-[#85651C] disabled:opacity-60 [&_svg]:hidden";
+
 // Primeiros passos para o admin de um clube novo. Some quando tudo estiver feito.
 export function ClubStartChecklist({
   temLivro,
@@ -42,7 +47,7 @@ export function ClubStartChecklist({
     <button
       type="button"
       onClick={onClick}
-      className="shrink-0 text-xs font-medium text-[#85651C] underline underline-offset-4"
+      className={CHECKLIST_BOTAO}
     >
       {rotulo}
     </button>
