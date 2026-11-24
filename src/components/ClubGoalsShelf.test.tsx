@@ -17,6 +17,14 @@ const m = vi.hoisted(() => {
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: m.from, rpc: vi.fn() } }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/BookCover", () => ({ BookCover: () => null }));
+vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
+vi.mock("@/components/SubscriptionGate", () => ({
+  useHasActiveSubscription: () => ({ active: true, loading: false }),
+}));
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => vi.fn(),
+  Link: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 import { toggleGoalCompletion, type ClubMember } from "@/lib/api";
 import { ClubGoalsList, goalProgress } from "./ClubGoalsList";
@@ -80,6 +88,7 @@ describe("estante", () => {
       club_book_id: "cb1", book_id: "b1", titulo: "Dom Casmurro", autor: "Machado", capa_url: null,
       data_inicio: "2026-11-21", data_fim: "2026-12-05", nota_media: 4.3, avaliacoes: 6, membros_que_leram: 5,
     }]);
+    client.setQueryData(["club-shelf-mine", "c2", "u1", "b1"], {});
     await show(<ClubShelf clubId="c2" />);
     const t = document.body.textContent ?? "";
     expect(document.querySelectorAll("[data-testid='shelf-item']").length).toBe(1);
