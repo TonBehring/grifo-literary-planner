@@ -62,18 +62,13 @@ function ClubesPage() {
       await navigator.clipboard.writeText(codigo);
       toast.success("Código copiado!");
     } catch {
-      toast.error("Não foi possível copiar — copie manualmente.");
+      toast.error("Não foi possível copiar. Copie manualmente.");
     }
   }
 
   return (
     <section>
-      <h1 className="font-display text-2xl">
-        Clubes de leitura{" "}
-        <span className="ml-1 align-middle rounded-full border border-destructive/40 px-2 py-0.5 font-sans text-[10px] font-semibold uppercase tracking-wider text-destructive">
-          Beta
-        </span>
-      </h1>
+      <h1 className="font-display text-2xl">Clubes de leitura</h1>
 
       <div className="mt-4 flex gap-2">
         <Link
@@ -147,7 +142,7 @@ function ClubesPage() {
                 <button
                   onClick={() => alternarCodigo(club.id)}
                   disabled={carregandoCodigo === club.id}
-                  className="text-xs font-medium text-primary underline underline-offset-4 disabled:opacity-60"
+                  className="text-xs font-medium text-[#85651C] underline underline-offset-4 disabled:opacity-60"
                 >
                   {carregandoCodigo === club.id
                     ? "Buscando código…"
