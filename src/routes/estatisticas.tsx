@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getReadingStatsOverall, listAllMyNotes } from "@/lib/api";
 import { exportAllNotesToPdf } from "@/lib/notes-pdf";
+import { listArchivedReadingsForStats } from "@/lib/readings";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/estatisticas")({
@@ -70,7 +71,16 @@ type LogRow = {
   livro_titulo: string | null;
 };
 
-async function fetchFinished(userId: string) {
+type FinishedRow = {
+  id: string;
+  data_inicio: string | null;
+  data_conclusao: string | null;
+  nota: number | null;
+  resenha: string | null;
+  book: { titulo: string | null; total_paginas: number | null; genero: string | null } | null;
+};
+
+async function fetchFinished(userId: string): Promise<FinishedRow[]> {
   const { data, error } = await supabase
     .from("user_books")
     .select("id, data_inicio, data_conclusao, nota, resenha, book:books(titulo, total_paginas, genero)")
@@ -79,31 +89,20 @@ async function fetchFinished(userId: string) {
     .gte("data_conclusao", `${YEAR}-01-01`)
     .lte("data_conclusao", `${YEAR}-12-31T23:59:59`);
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as Array<{
-    id: string;
-    data_inicio: string | null;
-    data_conclusao: string | null;
-    nota: number | null;
-    resenha: string | null;
-    book: { titulo: string | null; total_paginas: number | null; genero: string | null } | null;
-  }>;
+  // Releituras: leituras anteriores concluídas neste ano também contam.
+  const anteriores = await listArchivedReadingsForStats(userId, YEAR);
+  return [...((data ?? []) as unknown as FinishedRow[]), ...anteriores];
 }
 
-async function fetchAllFinished(userId: string) {
+async function fetchAllFinished(userId: string): Promise<FinishedRow[]> {
   const { data, error } = await supabase
     .from("user_books")
     .select("id, data_inicio, data_conclusao, nota, resenha, book:books(titulo, total_paginas, genero)")
     .eq("user_id", userId)
     .eq("status", "lido");
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as Array<{
-    id: string;
-    data_inicio: string | null;
-    data_conclusao: string | null;
-    nota: number | null;
-    resenha: string | null;
-    book: { titulo: string | null; total_paginas: number | null; genero: string | null } | null;
-  }>;
+  const anteriores = await listArchivedReadingsForStats(userId);
+  return [...((data ?? []) as unknown as FinishedRow[]), ...anteriores];
 }
 
 function formatDate(iso: string) {
@@ -311,7 +310,7 @@ function StatsPage() {
         <h2 className="font-display text-xl">Histórico de leitura</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           Todos os livros que você já marcou como lidos, inclusive os cadastrados antes de usar o
-          Grifo — independente do ano.
+          Grifo, de qualquer ano. Releituras aparecem uma vez para cada leitura.
         </p>
         {allFinished.isLoading ? (
           <p className="mt-3 text-sm text-muted-foreground">Carregando...</p>
