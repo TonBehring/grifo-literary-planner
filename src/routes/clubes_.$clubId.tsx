@@ -47,7 +47,7 @@ import {
 import { useConfirm } from "@/components/ConfirmDialog";
 import { ClubEvents } from "@/components/ClubEvents";
 import { ClubInviteButton } from "@/components/ClubInviteButton";
-import { ClubStartChecklist } from "@/components/ClubStartChecklist";
+import { CHECKLIST_BOTAO, ClubStartChecklist } from "@/components/ClubStartChecklist";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -812,7 +812,7 @@ function ClubPage() {
             <ClubInviteButton
               clubId={clubId}
               clubNome={club.nome}
-              className="shrink-0 text-xs font-medium text-[#85651C] underline underline-offset-4"
+              className={CHECKLIST_BOTAO}
             />
           }
         />
