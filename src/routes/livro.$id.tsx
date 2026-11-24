@@ -9,6 +9,7 @@ import { BookEditPanel } from "@/components/BookEditPanel";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { NoteEditorModal } from "@/components/NoteEditorModal";
 import { StarRating } from "@/components/StarRating";
+import { RereadSection } from "@/components/RereadSection";
 import { SubscriptionRequiredNotice, useHasActiveSubscription } from "@/components/SubscriptionGate";
 import { renderFormattedText } from "@/lib/note-format";
 import {
@@ -422,7 +423,14 @@ const [confirmDelete, setConfirmDelete] = useState(false);
           )}
         </div>
       </div>
-
+      <RereadSection
+        userBookId={id}
+        status={ub.status}
+        startedAt={ub.started_at}
+        finishedAt={ub.finished_at}
+        subscriptionActive={subscriptionActive}
+        onChanged={refresh}
+      />
       {editing && (
         <BookEditPanel
           ub={ub}
