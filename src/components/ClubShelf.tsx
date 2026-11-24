@@ -46,7 +46,9 @@ export function formatShelfPeriod(inicio: string, fim: string | null): string {
 }
 
 export function formatShelfRating(media: number | string | null, avaliacoes: number): string {
-  if (!avaliacoes || media === null) return "Sem avaliações ainda";
+  if (!avaliacoes) return "Sem avaliações ainda";
+  // Avaliação do clube ainda aberta e eu não avaliei: a nota fica escondida.
+  if (media === null) return `${avaliacoes} ${avaliacoes === 1 ? "avaliação" : "avaliações"} · avalie para ver`;
   const n = Number(media).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return `${n} · ${avaliacoes} ${avaliacoes === 1 ? "avaliação" : "avaliações"}`;
 }
@@ -162,7 +164,7 @@ export function ClubShelf({
                 </button>
                 <p className="text-xs text-muted-foreground">{formatShelfPeriod(b.data_inicio, b.data_fim)}</p>
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                  {b.avaliacoes > 0 && (
+                  {b.avaliacoes > 0 && b.nota_media !== null && (
                     <span className="flex" aria-hidden>
                       {[1, 2, 3, 4, 5].map((i) => (
                         <Star key={i} className={"h-3 w-3 " + (i <= Math.round(media) ? "fill-primary text-primary" : "text-muted-foreground")} />
