@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { ClubEvents } from "@/components/ClubEvents";
+import { ClubRatingCard } from "@/components/ClubRatingCard";
 import { ClubInviteButton } from "@/components/ClubInviteButton";
 import { CHECKLIST_BOTAO, ClubStartChecklist } from "@/components/ClubStartChecklist";
 import {
@@ -407,6 +408,8 @@ function ClubPage() {
     void queryClient.invalidateQueries({ queryKey: ["club-shelf", clubId] });
     void queryClient.invalidateQueries({ queryKey: ["club-ranking", clubId] });
     void queryClient.invalidateQueries({ queryKey: ["club-my-progress", clubId] });
+    void queryClient.invalidateQueries({ queryKey: ["club-rating-open", clubId] });
+    void queryClient.invalidateQueries({ queryKey: ["club-rating"] });
   }
 
   const [concluirAberto, setConcluirAberto] = useState(false);
@@ -817,6 +820,9 @@ function ClubPage() {
           }
         />
       )}
+
+      {/* Avaliação da leitura que o clube acabou de concluir */}
+      <ClubRatingCard clubId={clubId} />
 
       {/* Livro atual */}
       <div id="livro-atual" className="card-teal mt-4 scroll-mt-4 rounded-2xl p-4">
