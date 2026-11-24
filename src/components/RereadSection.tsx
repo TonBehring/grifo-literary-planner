@@ -19,6 +19,15 @@ function data(iso: string | null): string {
   return iso ? new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "?";
 }
 
+// Período de uma leitura, sem "?" quando faltam datas (ex.: livro cadastrado
+// como lido sem informar quando foi lido).
+function periodo(inicio: string | null, fim: string | null): string {
+  if (inicio && fim) return `${data(inicio)} a ${data(fim)}`;
+  if (fim) return `concluída em ${data(fim)}`;
+  if (inicio) return `iniciada em ${data(inicio)}`;
+  return "datas não registradas";
+}
+
 function vezes(n: number): string {
   return n === 1 ? "1 vez" : `${n} vezes`;
 }
@@ -81,14 +90,16 @@ export function RereadSection({
         {anteriores.map((r, i) => (
           <li key={r.id} className="text-muted-foreground">
             <span className="font-medium text-foreground">{i + 1}ª leitura:</span>{" "}
-            {data(r.data_inicio)} a {data(r.data_conclusao)}
+            {periodo(r.data_inicio, r.data_conclusao)}
           </li>
         ))}
         <li className="text-muted-foreground">
           <span className="font-medium text-foreground">{anteriores.length + 1}ª leitura:</span>{" "}
           {lido
-            ? `${data(startedAt)} a ${data(finishedAt)}`
-            : `desde ${data(startedAt)} (em andamento)`}
+            ? periodo(startedAt, finishedAt)
+            : startedAt
+              ? `desde ${data(startedAt)} (em andamento)`
+              : "em andamento"}
         </li>
       </ol>
 
