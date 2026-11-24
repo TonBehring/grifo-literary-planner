@@ -1810,6 +1810,20 @@ export async function toggleGoalCompletion(goalId: string, userId: string, done:
   }
 }
 
+// Quais livros da lista já estão na estante da pessoa: book_id -> user_book id.
+export async function getMyUserBookIds(userId: string, bookIds: string[]): Promise<Record<string, string>> {
+  if (bookIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("user_books")
+    .select("id, book_id")
+    .eq("user_id", userId)
+    .in("book_id", bookIds);
+  if (error) throw new Error(error.message);
+  const mapa: Record<string, string> = {};
+  for (const r of (data ?? []) as Array<{ id: string; book_id: string }>) mapa[r.book_id] = r.id;
+  return mapa;
+}
+
 export type ClubShelfItem = {
   club_book_id: string;
   book_id: string;
@@ -1919,15 +1933,19 @@ export async function saveClubManualProgress(clubBookId: string, userId: string,
 
 // Quem assina adiciona o livro do clube à própria estante (como "Lendo"),
 // usando o mesmo livro do clube, para o progresso aparecer no ranking.
-export async function addClubBookToMyShelf(bookId: string, userId: string): Promise<string> {
+export async function addClubBookToMyShelf(
+  bookId: string,
+  userId: string,
+  status: ShelfStatus = "lendo",
+): Promise<string> {
   const { data, error } = await supabase
     .from("user_books")
     .insert({
       user_id: userId,
       book_id: bookId,
-      status: "lendo",
+      status,
       pagina_atual: 0,
-      data_inicio: new Date().toISOString().slice(0, 10),
+      data_inicio: status === "lendo" ? new Date().toISOString().slice(0, 10) : null,
     })
     .select("id")
     .single();
