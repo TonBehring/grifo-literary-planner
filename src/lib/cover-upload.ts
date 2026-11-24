@@ -15,7 +15,8 @@ export async function compressToDataUrl(file: File, maxWidth = 500): Promise<str
   return canvas.toDataURL("image/jpeg", 0.8);
 }
 
-const READ_ERROR = "Não conseguimos ler essa foto. Tente outra imagem.";
+const READ_ERROR =
+  "Não conseguimos ler essa imagem. Tente tirar um print da capa e enviar o print, ou use outra foto.";
 
 type Loaded = { src: CanvasImageSource; w: number; h: number; done: () => void };
 
@@ -39,18 +40,24 @@ async function loadAsImg(file: File): Promise<Loaded> {
   return { src: img, w: img.naturalWidth, h: img.naturalHeight, done: () => URL.revokeObjectURL(url) };
 }
 
-// Canvas que saiu todo preto (ou vazio) = a foto não foi desenhada.
+// Canvas de uma cor só (todo preto, todo branco ou vazio) = a foto não foi
+// desenhada. Uma capa de verdade sempre tem variação de cor.
 function isBlank(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): boolean {
   try {
     const w = canvas.width;
     const h = canvas.height;
     const pontos = 9;
+    let min = 255;
+    let max = 0;
     for (let i = 1; i <= pontos; i++) {
       for (let j = 1; j <= pontos; j++) {
         const x = Math.floor((w * i) / (pontos + 1));
         const y = Math.floor((h * j) / (pontos + 1));
-        const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(x, y, 1, 1).data;
-        if (a > 0 && (r > 10 || g > 10 || b > 10)) return false;
+        const [r = 0, g = 0, b = 0] = ctx.getImageData(x, y, 1, 1).data;
+        const luz = Math.round((r + g + b) / 3);
+        if (luz < min) min = luz;
+        if (luz > max) max = luz;
+        if (max - min > 12) return false;
       }
     }
     return true;
