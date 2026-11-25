@@ -126,13 +126,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link to="/" className="inline-flex items-center">
           <img src="/brand/logo-grifo.png" alt="Grifo" className="h-8 w-auto" />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {(pathname === "/" || pathname.startsWith("/biblioteca")) && (
             <Link
               to="/adicionar"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              aria-label="Adicionar livro"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary p-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-4"
             >
-              <Plus className="h-4 w-4" /> Livro
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Livro</span>
             </Link>
           )}
           <Link
