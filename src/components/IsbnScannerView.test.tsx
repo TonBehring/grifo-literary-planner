@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import IsbnScannerView from "./IsbnScannerView";
+import IsbnScannerView, { isbnFromBarcode } from "./IsbnScannerView";
 
 const { detect, construct } = vi.hoisted(() => ({ detect: vi.fn(), construct: vi.fn() }));
 vi.mock("barcode-detector/ponyfill", () => ({
@@ -53,6 +53,15 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
+it("accepts only book barcodes (978/979) with a valid check digit", () => {
+  expect(isbnFromBarcode("9786587408491")).toBe("9786587408491");
+  expect(isbnFromBarcode("9788501012531")).toBe("9788501012531");
+  // Leitura errada real: passa no dígito verificador, mas não é ISBN.
+  expect(isbnFromBarcode("6766659408461")).toBeNull();
+  expect(isbnFromBarcode("9786587408492")).toBeNull();
+  expect(isbnFromBarcode("12345670")).toBeNull();
+});
+
 it("offers manual entry only after eight seconds without a read", async () => {
   await render();
   await act(async () => { vi.advanceTimersByTime(7999); });
@@ -79,14 +88,37 @@ it("applies continuous focus only when supported and tolerates rejection", async
   await render();
   expect(applyConstraints).toHaveBeenCalledWith({ advanced: [{ focusMode: "continuous" }] });
   detect.mockResolvedValue([{ rawValue: "9788501012531" }]);
-  await act(async () => { await frame?.(200); });
+  await act(async () => { await frame?.(200); await frame?.(400); });
   expect(onResult).toHaveBeenCalledWith("9788501012531");
+});
+
+it("waits for two equal reads before accepting a code", async () => {
+  await render();
+  detect.mockResolvedValueOnce([{ rawValue: "9788501012531" }]);
+  await act(async () => { await frame?.(200); });
+  expect(onResult).not.toHaveBeenCalled();
+  detect.mockResolvedValueOnce([{ rawValue: "9786587408491" }]);
+  await act(async () => { await frame?.(400); });
+  expect(onResult).not.toHaveBeenCalled();
+  detect.mockResolvedValueOnce([{ rawValue: "9786587408491" }]);
+  await act(async () => { await frame?.(600); });
+  expect(onResult).toHaveBeenCalledWith("9786587408491");
+});
+
+it("ignores codes that are not ISBNs", async () => {
+  await render();
+  detect.mockResolvedValue([{ rawValue: "6766659408461" }]);
+  await act(async () => { await frame?.(200); await frame?.(400); await frame?.(600); });
+  expect(onResult).not.toHaveBeenCalled();
+  expect(stop).not.toHaveBeenCalled();
 });
 
 it("emits once and stops the camera and timeout after a successful read", async () => {
   await render();
   detect.mockResolvedValue([{ rawValue: "9788501012531" }]);
-  await act(async () => { await frame?.(200); await frame?.(400); vi.advanceTimersByTime(8000); });
+  await act(async () => {
+    await frame?.(200); await frame?.(400); await frame?.(600); vi.advanceTimersByTime(8000);
+  });
   expect(onResult).toHaveBeenCalledTimes(1);
   expect(stop).toHaveBeenCalled();
   expect(container.querySelector("button")).toBeNull();
