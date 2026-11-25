@@ -62,7 +62,7 @@ export const GUIAS: Guia[] = [
       "Em \"Atualizar progresso\", digite a página em que você parou (ou a porcentagem) e toque em Registrar.",
       "Se quiser cronometrar, toque em \"Iniciar leitura\" antes de começar. No fim, informe a página e o Grifo calcula o tempo e o seu ritmo.",
     ],
-    dica: "O Grifo não aceita uma página menor que a última registrada, para evitar erro de digitação.",
+    dica: "Digitou uma página a mais? Registre a página certa e toque em \"Corrigir\" quando o Grifo perguntar.",
   },
   {
     id: "anotacoes",
@@ -193,10 +193,10 @@ export const CATEGORIAS: Categoria[] = [
       },
       {
         id: "pagina-menor",
-        pergunta: "Por que não consigo registrar uma página menor?",
+        pergunta: "Registrei uma página a mais por engano. Como corrijo?",
         resposta: [
-          "Para evitar erro de digitação, o Grifo não aceita uma página menor que a última registrada. Se vai ler de novo, termine o livro e use \"Reler este livro\".",
-          `Registrou uma página maior por engano? Escreva para ${CONTATO_AJUDA} que a gente corrige.`,
+          "Abra o livro, digite a página certa em \"Atualizar progresso\" e toque em Registrar. O Grifo pergunta se você quer corrigir: toque em \"Corrigir\". As páginas a mais saem das suas estatísticas.",
+          "A correção vale para livros na estante Lendo. Se vai ler de novo um livro que já terminou, use \"Reler este livro\".",
         ],
       },
       {
