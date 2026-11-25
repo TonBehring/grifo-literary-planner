@@ -9,7 +9,8 @@ import {
   useRouterState,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -21,6 +22,7 @@ import { captureSignupOrigin } from "../lib/origin";
 import { onAdConsentChange } from "../lib/consent";
 import { revokeMetaPixel, trackMetaPageView } from "../lib/meta-pixel";
 import { initializeInstallCapture } from "../lib/install";
+import { observarVersaoNova, recarregarParaVersaoNova } from "../lib/app-update";
 
 initializeInstallCapture();
 
@@ -157,6 +159,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const versaoNova = useRef(false);
 
   // Registra o service worker (PWA + notificações push). Só roda no navegador
   // (o TanStack Start também executa esse componente no servidor, onde
@@ -168,6 +171,25 @@ function RootComponent() {
       });
     }
   }, []);
+
+  // Atualização automática: quando sai uma versão nova, o Grifo avisa e
+  // recarrega sozinho na próxima troca de tela (nunca no meio de algo que a
+  // pessoa está fazendo). O botão do aviso atualiza na hora.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    return observarVersaoNova(() => {
+      versaoNova.current = true;
+      toast("Tem uma versão nova do Grifo", {
+        description: "Ela entra quando você mudar de tela.",
+        duration: Infinity,
+        action: { label: "Atualizar agora", onClick: () => recarregarParaVersaoNova() },
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (versaoNova.current) recarregarParaVersaoNova();
+  }, [pathname]);
 
   // Carrega a tag do Google Ads respeitando o consentimento (só no navegador).
   useEffect(() => {
