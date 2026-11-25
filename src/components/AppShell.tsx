@@ -9,6 +9,7 @@ import {
   UserRound,
   Users,
   Bell,
+  CircleHelp,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -145,6 +146,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </Link>
           <Link
+            to="/ajuda"
+            aria-label="Ajuda"
+            className="inline-flex items-center justify-center rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <CircleHelp className="h-4 w-4" />
+          </Link>
+          <Link
             to="/conta"
             aria-label="Minha conta"
             className="inline-flex items-center justify-center rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
@@ -159,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Sair
+            <span className="hidden sm:inline">Sair</span>
           </button>
         </div>
       </header>
