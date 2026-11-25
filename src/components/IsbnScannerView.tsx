@@ -29,9 +29,12 @@ export function isbnFromBarcode(raw: string): string | null {
   return verificador === Number(digits[12]) ? digits : null;
 }
 
-export default function IsbnScannerView({ onResult, onManualEntry }: {
+export default function IsbnScannerView({ onResult, onManualEntry, continuous = false }: {
   onResult: (text: string) => void;
-  onManualEntry: () => void;
+  onManualEntry?: () => void;
+  // Modo lote: a câmera continua aberta depois de cada leitura e ignora
+  // códigos que já foram lidos nesta sessão.
+  continuous?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const resultRef = useRef(onResult);
@@ -90,6 +93,7 @@ export default function IsbnScannerView({ onResult, onManualEntry }: {
         let last = 0;
         let candidato: string | null = null;
         let repeticoes = 0;
+        const vistos = new Set<string>();
         const tick = async (time: number) => {
           if (stopped) return;
           raf = requestAnimationFrame(tick);
@@ -105,11 +109,24 @@ export default function IsbnScannerView({ onResult, onManualEntry }: {
                 // perder uma leitura boa por causa de um quadro borrado.
                 return;
               }
+              if (vistos.has(isbn)) return;
               if (isbn === candidato) {
                 repeticoes += 1;
               } else {
                 candidato = isbn;
                 repeticoes = 1;
+              }
+              if (!stopped && repeticoes >= LEITURAS_CONFIRMACAO && continuous) {
+                vistos.add(isbn);
+                candidato = null;
+                repeticoes = 0;
+                try {
+                  navigator.vibrate?.(60);
+                } catch {
+                  // Vibração é opcional.
+                }
+                resultRef.current(isbn);
+                return;
               }
               if (!stopped && repeticoes >= LEITURAS_CONFIRMACAO) {
                 stopped = true;
@@ -137,6 +154,7 @@ export default function IsbnScannerView({ onResult, onManualEntry }: {
       stopped = true;
       stopCamera();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -147,10 +165,12 @@ export default function IsbnScannerView({ onResult, onManualEntry }: {
           <div className="h-28 w-[80%] rounded-xl border-2 border-gold" />
         </div>
         <p className="pointer-events-none absolute bottom-3 inset-x-3 rounded-md bg-foreground/80 px-2 py-2 text-center text-xs text-background">
-          Afaste um pouco o livro (uns 15 cm), deixe o código reto e dentro do quadro
+          {continuous
+            ? "Passe um livro de cada vez, com o código reto e dentro do quadro"
+            : "Afaste um pouco o livro (uns 15 cm), deixe o código reto e dentro do quadro"}
         </p>
       </div>
-      {showManualEntry && (
+      {showManualEntry && onManualEntry && (
         <Button type="button" variant="outline" className="w-full" onClick={onManualEntry}>
           <Keyboard /> Digitar o ISBN
         </Button>
