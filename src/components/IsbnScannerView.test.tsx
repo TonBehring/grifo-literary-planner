@@ -132,3 +132,15 @@ it("stops a camera that opens after the scanner was closed", async () => {
   await act(async () => { resolveStream?.({ getTracks: () => [{ stop }] }); });
   expect(stop).toHaveBeenCalledTimes(1);
 });
+
+it("keeps scanning in continuous mode and skips codes already read", async () => {
+  await act(async () => root.render(<IsbnScannerView onResult={onResult} continuous />));
+  detect.mockResolvedValue([{ rawValue: "9788501012531" }]);
+  await act(async () => { await frame?.(200); await frame?.(400); await frame?.(600); await frame?.(800); });
+  expect(onResult).toHaveBeenCalledTimes(1);
+  expect(stop).not.toHaveBeenCalled();
+  detect.mockResolvedValue([{ rawValue: "9786587408491" }]);
+  await act(async () => { await frame?.(1000); await frame?.(1200); });
+  expect(onResult).toHaveBeenCalledTimes(2);
+  expect(onResult).toHaveBeenLastCalledWith("9786587408491");
+});
