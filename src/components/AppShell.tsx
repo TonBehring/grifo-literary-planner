@@ -130,11 +130,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           {(pathname === "/" || pathname.startsWith("/biblioteca")) && (
             <Link
               to="/adicionar"
-              aria-label="Adicionar livro"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary p-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-4"
+              className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:gap-1.5 sm:px-4"
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Livro</span>
+              <Plus className="h-4 w-4" /> Livro
             </Link>
           )}
           <Link
@@ -166,10 +164,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => {
               void signOut().then(() => navigate({ to: "/auth" }));
             }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+            className="hidden items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive sm:inline-flex"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Sair</span>
+            Sair
           </button>
         </div>
       </header>
@@ -184,6 +182,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
         {children}
+        {pathname === "/conta" && (
+          <button
+            type="button"
+            onClick={() => {
+              void signOut().then(() => navigate({ to: "/auth" }));
+            }}
+            className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive sm:hidden"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair da conta
+          </button>
+        )}
       </main>
 
       <SubscriptionNudge
