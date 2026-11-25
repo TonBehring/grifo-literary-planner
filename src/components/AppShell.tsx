@@ -182,18 +182,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
         {children}
-        {pathname === "/conta" && (
-          <button
-            type="button"
-            onClick={() => {
-              void signOut().then(() => navigate({ to: "/auth" }));
-            }}
-            className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive sm:hidden"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair da conta
-          </button>
-        )}
       </main>
 
       <SubscriptionNudge
