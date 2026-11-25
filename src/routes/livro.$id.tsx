@@ -28,6 +28,7 @@ import { generateQuoteImage, shareOrDownloadImage } from "@/lib/quote-image";
 import { exportBookNotesToPdf } from "@/lib/notes-pdf";
 import { useAuth } from "@/lib/auth";
 import { createBookNote } from "@/lib/notes";
+import { corrigirProgresso } from "@/lib/progress-fix";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
@@ -84,17 +85,18 @@ function BookDetail() {
   const { active: subscriptionActive } = useHasActiveSubscription();
 
   const [progressInput, setProgressInput] = useState("");
+  const [correcao, setCorrecao] = useState<number | null>(null);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<BookNote | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [editing, setEditing] = useState(false);
-const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [acquireFormat, setAcquireFormat] = useState<BookFormat>("fisico");
   const [acquireStatus, setAcquireStatus] = useState<ShelfStatus>("quero_ler");
- const [abandoning, setAbandoning] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
   const [abandonReason, setAbandonReason] = useState("");
- const [sharingId, setSharingId] = useState<string | null>(null);
+  const [sharingId, setSharingId] = useState<string | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const { data: ub, isLoading } = useQuery({
@@ -118,7 +120,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     enabled: Boolean(user),
   });
 
-   async function shareQuote(note: BookNote) {
+  async function shareQuote(note: BookNote) {
     setSharingId(note.id);
     try {
       const blob = await generateQuoteImage({
@@ -198,6 +200,38 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Valor menor que o registrado, num livro que está sendo lido: em vez de
+  // dar erro, pergunta se a pessoa quer corrigir (digitou a mais antes).
+  function registrar() {
+    if (!ub) return;
+    const value = Math.round(Number(progressInput));
+    const atual = ub.format === "fisico" ? ub.current_page : ub.progress_percent;
+    if (
+      ub.status === "lendo" &&
+      Number.isFinite(value) &&
+      value >= 1 &&
+      atual != null &&
+      (ub.format === "fisico" ? value : Math.min(100, value)) < atual
+    ) {
+      setCorrecao(ub.format === "fisico" ? value : Math.min(100, value));
+      return;
+    }
+    setCorrecao(null);
+    saveProgress.mutate();
+  }
+
+  const corrigir = useMutation({
+    mutationFn: async (valor: number) => corrigirProgresso(id, valor),
+    onSuccess: () => {
+      setCorrecao(null);
+      setProgressInput("");
+      refresh();
+      void queryClient.invalidateQueries({ queryKey: ["reading-stats", id] });
+      toast.success("Progresso corrigido");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const saveNote = useMutation({
     mutationFn: async (data: { content: string; kind: "nota" | "citacao"; page: string }) => {
       if (!user) throw new Error("Não autenticado");
@@ -218,7 +252,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         toast.success("Anotação guardada");
       }
     },
-   onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const editNote = useMutation({
@@ -263,7 +297,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
     onError: (e: Error) => toast.error(e.message),
   });
 
- const abandon = useMutation({
+  const abandon = useMutation({
     mutationFn: async () => {
       await updateUserBook(id, {
         status: "abandonado",
@@ -297,6 +331,8 @@ const [confirmDelete, setConfirmDelete] = useState(false);
   }
 
   const pct = progressOf(ub);
+  const unidade = (n: number) => (ub.format === "fisico" ? `página ${n}` : `${n}%`);
+  const valorAtual = ub.format === "fisico" ? ub.current_page : ub.progress_percent;
 
   return (
     <section className="space-y-7">
@@ -379,13 +415,13 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               </button>
             )}
             {!activeLoan && subscriptionActive && (
-                <button
-                  onClick={() => setCelebrate(true)}
-                  className="w-full rounded-full border border-primary/60 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/20"
-                >
-                  Terminei este livro
-                </button>
-              )}
+              <button
+                onClick={() => setCelebrate(true)}
+                className="w-full rounded-full border border-primary/60 py-3 text-sm font-medium text-cream transition-colors hover:bg-primary/20"
+              >
+                Terminei este livro
+              </button>
+            )}
           </div>
         )}
 
@@ -495,7 +531,7 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         </div>
       )}
 
-   {(ub.status === "desejo_compra" || ub.status === "abandonado") && (
+      {(ub.status === "desejo_compra" || ub.status === "abandonado") && (
         <div className="panel-cream rounded-2xl p-5">
           <h2 className="font-display text-xl">
             {ub.status === "abandonado" ? "Retomar leitura" : "Adquiri este livro"}
@@ -578,144 +614,179 @@ const [confirmDelete, setConfirmDelete] = useState(false);
               <div className="mt-3 flex items-center gap-2">
                 <input
                   value={progressInput}
-                  onChange={(e) => setProgressInput(e.target.value)}
+                  onChange={(e) => {
+                    setProgressInput(e.target.value);
+                    setCorrecao(null);
+                  }}
                   inputMode="numeric"
                   placeholder={ub.format === "fisico" ? "Página atual" : "% concluído"}
                   className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
                 />
                 <button
-                  onClick={() => saveProgress.mutate()}
-                  className="shrink-0 whitespace-nowrap rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                  onClick={registrar}
+                  disabled={saveProgress.isPending}
+                  className="shrink-0 whitespace-nowrap rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
                 >
                   Registrar
                 </button>
               </div>
+              {correcao != null && valorAtual != null && (
+                <div className="mt-3 rounded-xl border border-[#85651C]/40 p-4 text-sm">
+                  <p>
+                    Você tinha registrado <strong>{unidade(valorAtual)}</strong>. Quer corrigir para{" "}
+                    <strong>{unidade(correcao)}</strong>?
+                  </p>
+                  {ub.format === "fisico" && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      As {valorAtual - correcao} páginas a mais saem das suas estatísticas.
+                    </p>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => corrigir.mutate(correcao)}
+                      disabled={corrigir.isPending}
+                      className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                    >
+                      {corrigir.isPending ? "Corrigindo…" : "Corrigir"}
+                    </button>
+                    <button
+                      onClick={() => setCorrecao(null)}
+                      className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
       )}
 
-     {ub.status !== "desejo_compra" && (
-      <div className="panel-cream rounded-2xl p-5">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-xl">Anotações e citações</h2>
-          {notes && notes.length > 0 && (
+      {ub.status !== "desejo_compra" && (
+        <div className="panel-cream rounded-2xl p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-display text-xl">Anotações e citações</h2>
+            {notes && notes.length > 0 && (
+              <button
+                onClick={() => exportBookNotesToPdf(ub.book?.title ?? "Livro", notes)}
+                className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary underline underline-offset-4"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Baixar PDF
+              </button>
+            )}
+          </div>
+          {activeLoan ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Novas anotações ficam bloqueadas enquanto o livro está emprestado.
+            </p>
+          ) : !subscriptionActive ? (
+            <div className="mt-3">
+              <SubscriptionRequiredNotice action="guardar uma nova nota ou citação" />
+            </div>
+          ) : (
             <button
-              onClick={() => exportBookNotesToPdf(ub.book?.title ?? "Livro", notes)}
-              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary underline underline-offset-4"
+              onClick={() => {
+                setEditingNote(null);
+                setNoteModalOpen(true);
+              }}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/50 py-4 text-sm text-primary transition-colors hover:bg-primary/10"
             >
-              <Download className="h-3.5 w-3.5" />
-              Baixar PDF
+              <StickyNote className="h-4 w-4" />
+              Escrever nova anotação ou citação
             </button>
           )}
-        </div>
-        {activeLoan ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Novas anotações ficam bloqueadas enquanto o livro está emprestado.
-          </p>
-        ) : !subscriptionActive ? (
-          <div className="mt-3">
-            <SubscriptionRequiredNotice action="guardar uma nova nota ou citação" />
+
+          <div className="mt-6 space-y-3">
+            {notes?.map((n) => (
+              <blockquote
+                key={n.id}
+                className={
+                  "rounded-xl border-l-2 border-primary bg-secondary/50 p-4 text-sm " +
+                  (n.kind === "citacao" ? "font-display text-base italic" : "")
+                }
+              >
+                <span className="mb-2 flex items-center justify-between gap-1.5 text-[10px] font-sans not-italic uppercase tracking-[0.14em] text-primary">
+                  <span className="flex items-center gap-1.5">
+                    {n.kind === "citacao" ? (
+                      <Quote className="h-3 w-3" />
+                    ) : (
+                      <StickyNote className="h-3 w-3" />
+                    )}
+                    {n.kind === "citacao" ? "Citação" : "Nota"}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {subscriptionActive && (
+                      <button
+                        type="button"
+                        aria-label="Editar"
+                        onClick={() => {
+                          setEditingNote(n);
+                          setNoteModalOpen(true);
+                        }}
+                        className="not-italic text-primary"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Excluir"
+                      onClick={() => setDeletingNoteId(n.id)}
+                      className="not-italic text-primary"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+
+                    {n.kind === "citacao" && (
+                      <button
+                        type="button"
+                        aria-label="Compartilhar citação"
+                        disabled={sharingId === n.id}
+                        onClick={() => void shareQuote(n)}
+                        className="not-italic text-primary disabled:opacity-50"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </span>
+                </span>
+                {deletingNoteId === n.id ? (
+                  <div className="not-italic font-sans">
+                    <p className="text-sm text-foreground">Excluir esta {n.kind === "citacao" ? "citação" : "nota"}?</p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => removeNote.mutate(n.id)}
+                        disabled={removeNote.isPending}
+                        className="rounded-xl bg-destructive px-4 py-2 text-xs font-medium text-destructive-foreground disabled:opacity-60"
+                      >
+                        {removeNote.isPending ? "Excluindo…" : "Sim, excluir"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingNoteId(null)}
+                        className="rounded-xl border border-border px-4 py-2 text-xs"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {renderFormattedText(n.content)}
+                    {n.page != null && (
+                      <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
+                        p. {n.page}
+                      </span>
+                    )}
+                  </>
+                )}
+              </blockquote>
+            ))}
           </div>
-        ) : (
-          <button
-            onClick={() => {
-              setEditingNote(null);
-              setNoteModalOpen(true);
-            }}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/50 py-4 text-sm text-primary transition-colors hover:bg-primary/10"
-          >
-            <StickyNote className="h-4 w-4" />
-            Escrever nova anotação ou citação
-          </button>
-        )}
-
-       <div className="mt-6 space-y-3">
-        {notes?.map((n) => (
-           <blockquote
-             key={n.id}
-             className={
-               "rounded-xl border-l-2 border-primary bg-secondary/50 p-4 text-sm " +
-               (n.kind === "citacao" ? "font-display text-base italic" : "")
-             }
-           >
-             <span className="mb-2 flex items-center justify-between gap-1.5 text-[10px] font-sans not-italic uppercase tracking-[0.14em] text-primary">
-               <span className="flex items-center gap-1.5">
-                 {n.kind === "citacao" ? (
-                   <Quote className="h-3 w-3" />
-                 ) : (
-                   <StickyNote className="h-3 w-3" />
-                 )}
-                 {n.kind === "citacao" ? "Citação" : "Nota"}
-               </span>
-               <span className="flex items-center gap-2">
-                {subscriptionActive && (
-                  <button
-                    type="button"
-                    aria-label="Editar"
-                    onClick={() => {
-                      setEditingNote(n);
-                      setNoteModalOpen(true);
-                    }}
-                    className="not-italic text-primary"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  aria-label="Excluir"
-                  onClick={() => setDeletingNoteId(n.id)}
-                  className="not-italic text-primary"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-
-                 {n.kind === "citacao" && (
-                  <button
-                    type="button"
-                    aria-label="Compartilhar citação"
-                    disabled={sharingId === n.id}
-                    onClick={() => void shareQuote(n)}
-                    className="not-italic text-primary disabled:opacity-50"
-                  >
-                    <Share2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </span>             </span>
-             {deletingNoteId === n.id ? (
-               <div className="not-italic font-sans">
-                 <p className="text-sm text-foreground">Excluir esta {n.kind === "citacao" ? "citação" : "nota"}?</p>
-                 <div className="mt-3 flex gap-2">
-                   <button
-                     type="button"
-                     onClick={() => removeNote.mutate(n.id)}
-                     disabled={removeNote.isPending}
-                     className="rounded-xl bg-destructive px-4 py-2 text-xs font-medium text-destructive-foreground disabled:opacity-60"
-                   >
-                     {removeNote.isPending ? "Excluindo…" : "Sim, excluir"}
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => setDeletingNoteId(null)}
-                     className="rounded-xl border border-border px-4 py-2 text-xs"
-                   >
-                     Cancelar
-                   </button>
-                 </div>
-               </div>
-             ) : (
-               <>
-                 {renderFormattedText(n.content)}
-                 {n.page != null && (
-                   <span className="mt-2 block text-xs not-italic font-sans text-muted-foreground">
-                     p. {n.page}
-                   </span>
-                 )}
-               </>
-             )}
-           </blockquote>
-         ))}        </div>      </div>
+        </div>
       )}
       <NoteEditorModal
         open={noteModalOpen}
@@ -738,20 +809,21 @@ const [confirmDelete, setConfirmDelete] = useState(false);
         }}
       />
 
-      <CelebrationModal        open={celebrate}
+      <CelebrationModal
+        open={celebrate}
         bookTitle={ub.book?.title ?? "Livro"}
         onOpenChange={setCelebrate}
         onSave={async ({ rating, review, favorite }) => {
-  try {
-    await updateUserBook(id, {
-      status: "lido",
-      progress_percent: 100,
-      current_page: ub.format === "fisico" ? ub.total_pages : ub.current_page,
-      rating,
-      review,
-      is_favorite: favorite,
-      finished_at: new Date().toISOString(),
-    });
+          try {
+            await updateUserBook(id, {
+              status: "lido",
+              progress_percent: 100,
+              current_page: ub.format === "fisico" ? ub.total_pages : ub.current_page,
+              rating,
+              review,
+              is_favorite: favorite,
+              finished_at: new Date().toISOString(),
+            });
             setCelebrate(false);
             refresh();
             toast.success("Leitura concluída 🎉");
