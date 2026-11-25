@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listContacts } from "./contatos";
 import type { BookFormat, BookNote, Loan, ShelfStatus, UserBook } from "./types";
 
-const GOOGLE_BOOKS_KEY = "AIzaSyAKLIS-JsGIcKYrX3CTGdBYWPfwtoId2Rw";
+export const GOOGLE_BOOKS_KEY = "AIzaSyAKLIS-JsGIcKYrX3CTGdBYWPfwtoId2Rw";
 
 const USER_BOOK_SELECT =
   "id, user_id, book_id, status, formato, pagina_atual, nota, resenha, favoritado, motivo_abandono, titulo_override, autor_override, capa_url_override, genero_override, total_paginas_override, data_inicio, data_conclusao, origem_emprestimo_id, book:books(id, titulo, autor, capa_url, isbn, total_paginas, genero)";
