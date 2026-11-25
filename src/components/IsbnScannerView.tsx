@@ -1,131 +1,134 @@
-import { useEffect, useRef, useState } from "react";
-import { BarcodeDetector } from "barcode-detector/ponyfill";
-import { Keyboard } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import IsbnScannerView, { isbnFromBarcode } from "./IsbnScannerView";
 
-type BarcodeDetectorLike = {
-  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
-};
-type BarcodeDetectorCtor = new (options?: {
-  formats?: Array<"ean_13" | "ean_8" | "upc_a" | "upc_e">;
-}) => BarcodeDetectorLike;
+const { detect, construct } = vi.hoisted(() => ({ detect: vi.fn(), construct: vi.fn() }));
+vi.mock("barcode-detector/ponyfill", () => ({
+  BarcodeDetector: class {
+    constructor(options: unknown) { construct(options); }
+    detect = detect;
+  },
+}));
 
-const CAMERA_ERROR = "Não foi possível acessar a câmera. Você pode digitar o ISBN manualmente.";
+let root: Root;
+let container: HTMLDivElement;
+let frame: FrameRequestCallback | undefined;
+const stop = vi.fn();
+const applyConstraints = vi.fn();
+const getCapabilities = vi.fn();
+const getUserMedia = vi.fn();
+const onResult = vi.fn();
+const onManualEntry = vi.fn();
 
-export default function IsbnScannerView({ onResult, onManualEntry }: {
-  onResult: (text: string) => void;
-  onManualEntry: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const resultRef = useRef(onResult);
-  resultRef.current = onResult;
-  const [showManualEntry, setShowManualEntry] = useState(false);
+beforeEach(async () => {
+  vi.useFakeTimers();
+  vi.clearAllMocks();
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.stubGlobal("requestAnimationFrame", vi.fn((callback) => { frame = callback; return 1; }));
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  Object.defineProperty(window, "BarcodeDetector", { value: undefined, configurable: true });
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(2);
+  getCapabilities.mockReturnValue({});
+  applyConstraints.mockResolvedValue(undefined);
+  const track = { stop, getCapabilities, applyConstraints };
+  getUserMedia.mockResolvedValue({ getTracks: () => [track], getVideoTracks: () => [track] });
+  Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia }, configurable: true });
+  detect.mockResolvedValue([]);
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+});
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let raf = 0;
-    let stopped = false;
-    const video = videoRef.current;
-    const timeout = window.setTimeout(() => setShowManualEntry(true), 8000);
-
-    function stopCamera() {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(timeout);
-      stream?.getTracks().forEach((track) => track.stop());
-      if (video) video.srcObject = null;
-    }
-
-    async function start() {
-      try {
-        const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor })
-          .BarcodeDetector ?? BarcodeDetector;
-        const detector = new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-        if (stopped || !video) {
-          stopCamera();
-          return;
-        }
-        video.srcObject = stream;
-        await video.play();
-        const track = stream.getVideoTracks()[0];
-        if (track && !stopped) {
-          try {
-            const capabilities = track.getCapabilities?.() as
-              (MediaTrackCapabilities & { focusMode?: string[] }) | undefined;
-            if (capabilities?.focusMode?.includes("continuous")) {
-              await track.applyConstraints({
-                advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
-              });
-            }
-          } catch {
-            // Focus is optional; unsupported controls must not stop scanning.
-          }
-        }
-        if (stopped) return;
-        let busy = false;
-        let last = 0;
-        const tick = async (time: number) => {
-          if (stopped) return;
-          raf = requestAnimationFrame(tick);
-          if (busy || time - last < 200) return;
-          last = time;
-          busy = true;
-          try {
-            if (video.readyState >= 2) {
-              const codes = await detector.detect(video);
-              const value = codes[0]?.rawValue;
-              if (!stopped && value) {
-                stopped = true;
-                stopCamera();
-                resultRef.current(value);
-              }
-            }
-          } catch {
-            // Ignore transient failures while the camera is adjusting.
-          } finally {
-            busy = false;
-          }
-        };
-        raf = requestAnimationFrame(tick);
-      } catch {
-        stopCamera();
-        if (!stopped) {
-          setShowManualEntry(true);
-          toast.error(CAMERA_ERROR);
-        }
-      }
-    }
-    void start();
-    return () => {
-      stopped = true;
-      stopCamera();
-    };
-  }, []);
-
-  return (
-    <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-xl bg-foreground">
-        <video ref={videoRef} playsInline muted autoPlay className="h-[320px] w-full object-cover" />
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-28 w-[80%] rounded-xl border-2 border-gold" />
-        </div>
-        <p className="pointer-events-none absolute bottom-3 inset-x-3 rounded-md bg-foreground/80 px-2 py-2 text-center text-xs text-background">
-          Afaste um pouco o livro (uns 15 cm) e mantenha o código dentro do quadro
-        </p>
-      </div>
-      {showManualEntry && (
-        <Button type="button" variant="outline" className="w-full" onClick={onManualEntry}>
-          <Keyboard /> Digitar o ISBN
-        </Button>
-      )}
-    </div>
-  );
+async function render() {
+  await act(async () => root.render(<IsbnScannerView onResult={onResult} onManualEntry={onManualEntry} />));
 }
+
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+it("accepts only book barcodes (978/979) with a valid check digit", () => {
+  expect(isbnFromBarcode("9786587408491")).toBe("9786587408491");
+  expect(isbnFromBarcode("9788501012531")).toBe("9788501012531");
+  // Leitura errada real: passa no dígito verificador, mas não é ISBN.
+  expect(isbnFromBarcode("6766659408461")).toBeNull();
+  expect(isbnFromBarcode("9786587408492")).toBeNull();
+  expect(isbnFromBarcode("12345670")).toBeNull();
+});
+
+it("offers manual entry only after eight seconds without a read", async () => {
+  await render();
+  await act(async () => { vi.advanceTimersByTime(7999); });
+  expect(container.querySelector("button")).toBeNull();
+  await act(async () => { vi.advanceTimersByTime(1); });
+  const button = container.querySelector("button");
+  expect(button).not.toBeNull();
+  await act(async () => button?.click());
+  expect(onManualEntry).toHaveBeenCalledTimes(1);
+});
+
+it("uses the ponyfill with the four formats and a 1280x720 rear camera", async () => {
+  await render();
+  expect(construct).toHaveBeenCalledWith({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+  expect(getUserMedia).toHaveBeenCalledWith({ video: {
+    facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 },
+  }, audio: false });
+  expect(applyConstraints).not.toHaveBeenCalled();
+});
+
+it("applies continuous focus only when supported and tolerates rejection", async () => {
+  getCapabilities.mockReturnValue({ focusMode: ["continuous"] });
+  applyConstraints.mockRejectedValue(new Error("unsupported"));
+  await render();
+  expect(applyConstraints).toHaveBeenCalledWith({ advanced: [{ focusMode: "continuous" }] });
+  detect.mockResolvedValue([{ rawValue: "9788501012531" }]);
+  await act(async () => { await frame?.(200); await frame?.(400); });
+  expect(onResult).toHaveBeenCalledWith("9788501012531");
+});
+
+it("waits for two equal reads before accepting a code", async () => {
+  await render();
+  detect.mockResolvedValueOnce([{ rawValue: "9788501012531" }]);
+  await act(async () => { await frame?.(200); });
+  expect(onResult).not.toHaveBeenCalled();
+  detect.mockResolvedValueOnce([{ rawValue: "9786587408491" }]);
+  await act(async () => { await frame?.(400); });
+  expect(onResult).not.toHaveBeenCalled();
+  detect.mockResolvedValueOnce([{ rawValue: "9786587408491" }]);
+  await act(async () => { await frame?.(600); });
+  expect(onResult).toHaveBeenCalledWith("9786587408491");
+});
+
+it("ignores codes that are not ISBNs", async () => {
+  await render();
+  detect.mockResolvedValue([{ rawValue: "6766659408461" }]);
+  await act(async () => { await frame?.(200); await frame?.(400); await frame?.(600); });
+  expect(onResult).not.toHaveBeenCalled();
+  expect(stop).not.toHaveBeenCalled();
+});
+
+it("emits once and stops the camera and timeout after a successful read", async () => {
+  await render();
+  detect.mockResolvedValue([{ rawValue: "9788501012531" }]);
+  await act(async () => {
+    await frame?.(200); await frame?.(400); await frame?.(600); vi.advanceTimersByTime(8000);
+  });
+  expect(onResult).toHaveBeenCalledTimes(1);
+  expect(stop).toHaveBeenCalled();
+  expect(container.querySelector("button")).toBeNull();
+});
+
+it("stops a camera that opens after the scanner was closed", async () => {
+  let resolveStream: ((value: unknown) => void) | undefined;
+  getUserMedia.mockImplementation(() => new Promise((resolve) => { resolveStream = resolve; }));
+  await render();
+  await act(async () => root.render(null));
+  await act(async () => { resolveStream?.({ getTracks: () => [{ stop }] }); });
+  expect(stop).toHaveBeenCalledTimes(1);
+});
