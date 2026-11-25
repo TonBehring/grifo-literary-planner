@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useRef, useState } from "react";
-import { Camera, Search } from "lucide-react";
+import { Camera, Layers, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -50,7 +50,7 @@ function AddBookPage() {
   const [results, setResults] = useState<GoogleVolume[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<GoogleVolume | null>(null);
-const [format, setFormat] = useState<BookFormat>("fisico");
+  const [format, setFormat] = useState<BookFormat>("fisico");
   const [status, setStatus] = useState<ShelfStatus>("lendo");
   const [genre, setGenre] = useState<string | null>(null);
   const [preCadastro, setPreCadastro] = useState(false);
@@ -80,7 +80,7 @@ const [format, setFormat] = useState<BookFormat>("fisico");
     ? (Object.keys(STATUS_LABEL) as ShelfStatus[])
     : ["lendo", "quero_ler", "lido"];
 
-async function searchByTerm(value: string, fromScan = false) {
+  async function searchByTerm(value: string, fromScan = false) {
     const query = value.trim();
     if (query.length < 2) return;
     const looksLikeIsbn = /^[\d-]{10,17}$/.test(query);
@@ -165,7 +165,7 @@ async function searchByTerm(value: string, fromScan = false) {
       return;
     }
     setSaving(true);
-try {
+    try {
       const { id, alreadyExists } = await addBookToShelf(
         {
           ...payload,
@@ -222,6 +222,21 @@ try {
           <Camera className="h-4 w-4" />
         </button>
       </form>
+
+      {!selected && !manual && (
+        <Link
+          to="/adicionar/lote"
+          className="mt-4 flex items-center gap-3 rounded-2xl border border-[#85651C]/30 px-4 py-3 text-sm"
+        >
+          <Layers className="h-5 w-5 shrink-0 text-[#85651C]" />
+          <span>
+            <span className="block font-medium">Tem muitos livros para cadastrar?</span>
+            <span className="block text-xs text-muted-foreground">
+              Escaneie vários seguidos ou busque pelo autor e adicione todos de uma vez.
+            </span>
+          </span>
+        </Link>
+      )}
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
         <DialogContent className="sm:max-w-md" onCloseAutoFocus={(event) => {
