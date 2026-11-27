@@ -1569,13 +1569,17 @@ export type ClubPost = {
   comments_count: number;
   // preenchido quando o admin fixou o post no topo do mural
   fixado_em: string | null;
+  // "enquete" quando o post é uma enquete (opções e votos em club-polls.ts)
+  tipo: "post" | "enquete";
+  // preenchido quando o autor editou o texto ou a página
+  editado_em: string | null;
 };
 
 export async function listClubPosts(clubId: string, userId: string): Promise<ClubPost[]> {
   const { data, error } = await supabase
     .from("club_posts")
     .select(
-      "id, user_id, conteudo, pagina_referencia, criado_em, club_post_likes(user_id), club_post_comments(count)",
+      "id, user_id, conteudo, pagina_referencia, criado_em, tipo, editado_em, club_post_likes(user_id), club_post_comments(count)",
     )
     .eq("club_id", clubId)
     .order("criado_em", { ascending: false });
@@ -1586,6 +1590,8 @@ export async function listClubPosts(clubId: string, userId: string): Promise<Clu
     conteudo: string;
     pagina_referencia: number | null;
     criado_em: string;
+    tipo: string | null;
+    editado_em: string | null;
     club_post_likes: Array<{ user_id: string }> | null;
     club_post_comments: Array<{ count: number }> | null;
   }>;
@@ -1602,6 +1608,8 @@ export async function listClubPosts(clubId: string, userId: string): Promise<Clu
       curtido_por: curtidores,
       comments_count: r.club_post_comments?.[0]?.count ?? 0,
       fixado_em: null,
+      tipo: r.tipo === "enquete" ? "enquete" : "post",
+      editado_em: r.editado_em,
     };
   });
 }
@@ -1634,6 +1642,8 @@ export async function listClubPostsPage(
     curtido_por: string[] | null;
     comments_count: number;
     fixado_em: string | null;
+    tipo: string | null;
+    editado_em: string | null;
   }>;
   return rows.map((r) => {
     const curtidores = r.curtido_por ?? [];
@@ -1648,6 +1658,8 @@ export async function listClubPostsPage(
       curtido_por: curtidores,
       comments_count: r.comments_count ?? 0,
       fixado_em: r.fixado_em,
+      tipo: r.tipo === "enquete" ? "enquete" : "post",
+      editado_em: r.editado_em,
     };
   });
 }
@@ -1691,12 +1703,13 @@ export type ClubComment = {
   user_id: string;
   conteudo: string;
   criado_em: string;
+  editado_em: string | null;
 };
 
 export async function listClubPostComments(postId: string): Promise<ClubComment[]> {
   const { data, error } = await supabase
     .from("club_post_comments")
-    .select("id, post_id, user_id, conteudo, criado_em")
+    .select("id, post_id, user_id, conteudo, criado_em, editado_em")
     .eq("post_id", postId)
     .order("criado_em", { ascending: true });
   if (error) throw new Error(error.message);
