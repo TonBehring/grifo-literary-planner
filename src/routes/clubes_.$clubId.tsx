@@ -31,6 +31,8 @@ import {
   MoreHorizontal,
   Pin,
   PinOff,
+  Pencil,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -47,6 +49,9 @@ import {
 import { useConfirm } from "@/components/ConfirmDialog";
 import { ClubEvents } from "@/components/ClubEvents";
 import { ClubRatingCard } from "@/components/ClubRatingCard";
+import { ClubPoll } from "@/components/ClubPoll";
+import { ClubPollComposer } from "@/components/ClubPollComposer";
+import { updateClubPost, updateClubPostComment } from "@/lib/club-polls";
 import { ClubInviteButton } from "@/components/ClubInviteButton";
 import { CHECKLIST_BOTAO, ClubStartChecklist } from "@/components/ClubStartChecklist";
 import {
@@ -221,7 +226,23 @@ function PostComments({
   });
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const { confirm, dialog } = useConfirm();
+
+  async function salvarEdicao() {
+    if (!editando || !editando.texto.trim()) return;
+    setSalvandoEdicao(true);
+    try {
+      await updateClubPostComment(editando.id, editando.texto.trim());
+      setEditando(null);
+      void queryClient.invalidateQueries({ queryKey: ["club-post-comments", postId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o comentário");
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  }
 
   async function enviar() {
     if (!currentUserId || !texto.trim()) return;
@@ -272,13 +293,51 @@ function PostComments({
               ) : (
                 <span className="h-6 w-6 shrink-0 rounded-full bg-muted" />
               )}
-              <p className="min-w-0 flex-1 text-xs">
-                <span className="font-medium">
-                  {autor ? clubMemberDisplayName(autor) : "Leitor do Grifo"}
-                </span>{" "}
-                <span className="text-muted-foreground">{c.conteudo}</span>
-              </p>
-              {(c.user_id === currentUserId || souAdmin) && (
+              {editando?.id === c.id ? (
+                <div className="min-w-0 flex-1">
+                  <input
+                    value={editando.texto}
+                    onChange={(e) => setEditando({ id: c.id, texto: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void salvarEdicao();
+                      if (e.key === "Escape") setEditando(null);
+                    }}
+                    autoFocus
+                    aria-label="Editar comentário"
+                    className="w-full rounded-full border border-border px-3 py-1.5 text-xs outline-none focus:border-primary"
+                  />
+                  <div className="mt-1 flex gap-3 text-xs">
+                    <button
+                      onClick={() => void salvarEdicao()}
+                      disabled={salvandoEdicao || !editando.texto.trim()}
+                      className="font-medium text-[#85651C] disabled:opacity-50"
+                    >
+                      {salvandoEdicao ? "Salvando…" : "Salvar"}
+                    </button>
+                    <button onClick={() => setEditando(null)} className="text-muted-foreground">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="min-w-0 flex-1 text-xs">
+                  <span className="font-medium">
+                    {autor ? clubMemberDisplayName(autor) : "Leitor do Grifo"}
+                  </span>{" "}
+                  <span className="text-muted-foreground">{c.conteudo}</span>
+                  {c.editado_em && <span className="text-[10px] text-muted-foreground/80"> (editado)</span>}
+                </p>
+              )}
+              {c.user_id === currentUserId && editando?.id !== c.id && (
+                <button
+                  onClick={() => setEditando({ id: c.id, texto: c.conteudo })}
+                  aria-label="Editar comentário"
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {(c.user_id === currentUserId || souAdmin) && editando?.id !== c.id && (
                 <button
                   onClick={() => apagar(c.id)}
                   aria-label="Apagar comentário"
@@ -387,6 +446,9 @@ function ClubPage() {
   const [novoPost, setNovoPost] = useState("");
   const [paginaPost, setPaginaPost] = useState("");
   const [publicando, setPublicando] = useState(false);
+  const [tipoNovo, setTipoNovo] = useState<"post" | "enquete">("post");
+  const [editandoPost, setEditandoPost] = useState<{ id: string; conteudo: string; pagina: string } | null>(null);
+  const [salvandoPost, setSalvandoPost] = useState(false);
 
   const [membroSelecionado, setMembroSelecionado] = useState<ClubMember | null>(null);
   const [curtidoresAbertos, setCurtidoresAbertos] = useState<Record<string, boolean>>({});
@@ -640,6 +702,27 @@ function ClubPage() {
       void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível fixar o post");
+    }
+  }
+
+  async function salvarEdicaoPost() {
+    if (!editandoPost) return;
+    if (!editandoPost.conteudo.trim()) {
+      toast.error("O post não pode ficar vazio.");
+      return;
+    }
+    setSalvandoPost(true);
+    try {
+      await updateClubPost(editandoPost.id, {
+        conteudo: editandoPost.conteudo.trim(),
+        pagina_referencia: editandoPost.pagina.trim() ? Number(editandoPost.pagina) : null,
+      });
+      setEditandoPost(null);
+      void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o post");
+    } finally {
+      setSalvandoPost(false);
     }
   }
 
@@ -1031,6 +1114,41 @@ function ClubPage() {
         <p className="text-sm font-medium">Mural do clube</p>
 
         <div className="panel-cream mt-2 rounded-2xl p-4">
+          <div className="mb-3 flex gap-2" role="tablist" aria-label="O que publicar">
+            {(
+              [
+                ["post", "Post"],
+                ["enquete", "Enquete"],
+              ] as const
+            ).map(([valor, rotulo]) => (
+              <button
+                key={valor}
+                type="button"
+                role="tab"
+                aria-selected={tipoNovo === valor}
+                onClick={() => setTipoNovo(valor)}
+                className={
+                  "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors " +
+                  (tipoNovo === valor
+                    ? "bg-[#052C2D] text-[#F9F4EA]"
+                    : "border border-border text-muted-foreground")
+                }
+              >
+                {valor === "enquete" && <ListChecks className="h-3.5 w-3.5" />}
+                {rotulo}
+              </button>
+            ))}
+          </div>
+          {tipoNovo === "enquete" ? (
+            <ClubPollComposer
+              clubId={clubId}
+              onCreated={() => {
+                setTipoNovo("post");
+                void queryClient.invalidateQueries({ queryKey: ["club-posts", clubId] });
+              }}
+            />
+          ) : (
+          <>
           <textarea
             value={novoPost}
             onChange={(e) => setNovoPost(e.target.value)}
@@ -1058,6 +1176,8 @@ function ClubPage() {
           <p id="dica-pagina-post" className="mt-2 text-xs text-muted-foreground">
             Informe a página para que quem ainda não chegou lá não veja spoiler.
           </p>
+          </>
+          )}
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
@@ -1122,11 +1242,106 @@ function ClubPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {post.tipo === "enquete" && (
+                      <span className="inline-flex items-center gap-1 text-[#85651C]">
+                        <ListChecks className="h-3.5 w-3.5" /> Enquete
+                      </span>
+                    )}
                     {post.pagina_referencia != null && <span>pág. {post.pagina_referencia}</span>}
-                    <span>{timeAgo(post.criado_em)}</span>
+                    <span>
+                      {timeAgo(post.criado_em)}
+                      {post.editado_em && " · editado"}
+                    </span>
+                    {(souAdmin || post.user_id === user?.id) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          aria-label="Opções do post"
+                          className="-mr-1 inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {post.user_id === user?.id && (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setEditandoPost({
+                                  id: post.id,
+                                  conteudo: post.conteudo,
+                                  pagina: post.pagina_referencia != null ? String(post.pagina_referencia) : "",
+                                })
+                              }
+                            >
+                              <Pencil className="mr-2 h-3.5 w-3.5" />
+                              {post.tipo === "enquete" ? "Editar pergunta" : "Editar"}
+                            </DropdownMenuItem>
+                          )}
+                          {souAdmin && (
+                            <DropdownMenuItem onSelect={() => void alternarFixado(post)}>
+                              {post.fixado_em ? (
+                                <>
+                                  <PinOff className="mr-2 h-3.5 w-3.5" />
+                                  Desafixar
+                                </>
+                              ) : (
+                                <>
+                                  <Pin className="mr-2 h-3.5 w-3.5" />
+                                  Fixar no topo
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onSelect={() => void apagarPost(post.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Apagar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
-                {ehSpoiler(post) ? (
+                {editandoPost?.id === post.id ? (
+                  <div className="mt-2">
+                    <textarea
+                      value={editandoPost.conteudo}
+                      onChange={(e) => setEditandoPost({ ...editandoPost, conteudo: e.target.value })}
+                      rows={3}
+                      autoFocus
+                      aria-label={post.tipo === "enquete" ? "Pergunta da enquete" : "Texto do post"}
+                      className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary"
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={editandoPost.pagina}
+                        onChange={(e) => setEditandoPost({ ...editandoPost, pagina: e.target.value })}
+                        placeholder="Página (opcional)"
+                        aria-label="Página do livro (opcional)"
+                        className="w-36 rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary"
+                      />
+                      <button
+                        onClick={() => setEditandoPost(null)}
+                        className="ml-auto text-xs text-muted-foreground underline underline-offset-4"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => void salvarEdicaoPost()}
+                        disabled={salvandoPost}
+                        className="rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                      >
+                        {salvandoPost ? "Salvando…" : "Salvar"}
+                      </button>
+                    </div>
+                    {post.tipo === "enquete" && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        As opções não mudam depois que a enquete é publicada, para não bagunçar os votos.
+                      </p>
+                    )}
+                  </div>
+                ) : ehSpoiler(post) ? (
                   <button
                     type="button"
                     onClick={() => setSpoilersRevelados((prev) => ({ ...prev, [post.id]: true }))}
@@ -1142,7 +1357,26 @@ function ClubPage() {
                     </span>
                   </button>
                 ) : (
-                  <p className="mt-1.5 whitespace-pre-wrap text-sm">{post.conteudo}</p>
+                  <>
+                    <p
+                      className={
+                        "mt-1.5 whitespace-pre-wrap " +
+                        (post.tipo === "enquete" ? "font-display text-base" : "text-sm")
+                      }
+                    >
+                      {post.conteudo}
+                    </p>
+                    {post.tipo === "enquete" && user && (
+                      <ClubPoll
+                        postId={post.id}
+                        autorId={post.user_id}
+                        userId={user.id}
+                        souAdmin={souAdmin}
+                        memberByUserId={memberByUserId}
+                        confirm={confirm}
+                      />
+                    )}
+                  </>
                 )}
 
                 <div className="mt-2 flex items-center gap-4">
@@ -1172,36 +1406,6 @@ function ClubPage() {
                       ? `${post.comments_count} ${post.comments_count === 1 ? "comentário" : "comentários"}`
                       : "Comentar"}
                   </button>
-                  {souAdmin && (
-                    <button
-                      onClick={() => alternarFixado(post)}
-                      className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {post.fixado_em ? (
-                        <>
-                          <PinOff className="h-3.5 w-3.5" />
-                          Desafixar
-                        </>
-                      ) : (
-                        <>
-                          <Pin className="h-3.5 w-3.5" />
-                          Fixar
-                        </>
-                      )}
-                    </button>
-                  )}
-                  {(post.user_id === user?.id || souAdmin) && (
-                    <button
-                      onClick={() => apagarPost(post.id)}
-                      className={
-                        (souAdmin ? "" : "ml-auto ") +
-                        "inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Apagar
-                    </button>
-                  )}
                 </div>
 
                 <CurtidoresResumo
