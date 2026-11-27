@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Sparkles, Trash2 } from "lucide-react";
+import { CheckCircle2, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -7,6 +7,7 @@ import {
   clubMemberDisplayName,
   listGoalCompletions,
   toggleGoalCompletion,
+  updateClubGoal,
   type ClubGoal,
   type ClubMember,
   type GoalCompletion,
@@ -50,6 +51,8 @@ function Avatar({ member }: { member: ClubMember }) {
   );
 }
 
+const campo = "w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-primary";
+
 export function ClubGoalsList({
   clubId,
   goals,
@@ -72,6 +75,8 @@ export function ClubGoalsList({
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [celebrar, setCelebrar] = useState<ClubGoal | null>(null);
+  const [editando, setEditando] = useState<{ id: string; titulo: string; descricao: string; prazo: string } | null>(null);
+  const [salvando, setSalvando] = useState(false);
 
   const items = useMemo(() => {
     const list = goals.map((g) => ({ goal: g, p: goalProgress(g.id, members, completions.data ?? []) }));
@@ -100,6 +105,28 @@ export function ClubGoalsList({
     }
   }
 
+  async function salvarEdicao() {
+    if (!editando) return;
+    if (!editando.titulo.trim()) {
+      toast.error("Dê um título à meta.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await updateClubGoal(editando.id, {
+        titulo: editando.titulo.trim(),
+        descricao: editando.descricao.trim() || null,
+        prazo: editando.prazo || null,
+      });
+      setEditando(null);
+      await queryClient.invalidateQueries({ queryKey: ["club-goals", clubId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar a meta");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   const byId = new Map(members.map((m) => [m.user_id, m]));
 
   return (
@@ -108,6 +135,50 @@ export function ClubGoalsList({
         const prazoVencido = goal.prazo ? new Date(goal.prazo + "T23:59:59").getTime() < Date.now() : false;
         const cumpri = p.userIds.includes(userId);
         const quem = p.userIds.map((id) => byId.get(id)).filter((m): m is ClubMember => Boolean(m));
+
+        if (editando?.id === goal.id) {
+          return (
+            <div key={goal.id} data-testid="club-goal" className="flex flex-col gap-2 rounded-xl border border-primary/40 p-3">
+              <p className="text-xs font-medium text-[#85651C]">Editando meta</p>
+              <input
+                value={editando.titulo}
+                onChange={(e) => setEditando({ ...editando, titulo: e.target.value })}
+                aria-label="Título da meta"
+                className={campo}
+              />
+              <textarea
+                value={editando.descricao}
+                onChange={(e) => setEditando({ ...editando, descricao: e.target.value })}
+                rows={2}
+                placeholder="Descrição (opcional)"
+                aria-label="Descrição da meta"
+                className={campo}
+              />
+              <div>
+                <label className="text-xs text-muted-foreground">Prazo (opcional)</label>
+                <input
+                  type="date"
+                  value={editando.prazo}
+                  onChange={(e) => setEditando({ ...editando, prazo: e.target.value })}
+                  className={"mt-1 " + campo}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => void salvarEdicao()}
+                  disabled={salvando}
+                  className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                >
+                  {salvando ? "Salvando…" : "Salvar"}
+                </button>
+                <button onClick={() => setEditando(null)} className="text-xs text-muted-foreground underline underline-offset-4">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div
             key={goal.id}
@@ -133,13 +204,29 @@ export function ClubGoalsList({
                 )}
               </div>
               {souAdmin && (
-                <button
-                  onClick={() => onDelete(goal.id)}
-                  aria-label="Apagar meta"
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex shrink-0 items-center gap-3">
+                  <button
+                    onClick={() =>
+                      setEditando({
+                        id: goal.id,
+                        titulo: goal.titulo,
+                        descricao: goal.descricao ?? "",
+                        prazo: goal.prazo ?? "",
+                      })
+                    }
+                    aria-label="Editar meta"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(goal.id)}
+                    aria-label="Apagar meta"
+                    className="text-muted-foreground transition-colors hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
 
