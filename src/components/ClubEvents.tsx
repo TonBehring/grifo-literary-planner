@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, CalendarPlus, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, CalendarPlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -19,6 +19,7 @@ import {
   type ClubMember,
   type EventRsvp,
 } from "@/lib/api";
+import { paraCampoDataHora, updateClubEvent } from "@/lib/club-polls";
 
 type ConfirmFn = (opts: { title: string; description?: string }) => Promise<boolean>;
 
@@ -130,6 +131,8 @@ export function ClubEvents({
   const [local, setLocal] = useState("");
   const [descricao, setDescricao] = useState("");
   const [criando, setCriando] = useState(false);
+  // Encontro sendo editado (o mesmo formulário de criar, já preenchido).
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [verAnteriores, setVerAnteriores] = useState(false);
 
   const agora = Date.now();
@@ -140,6 +143,25 @@ export function ClubEvents({
 
   if (!souAdmin && !events.isLoading && (events.data ?? []).length === 0) return null;
 
+  function limparFormulario() {
+    setTitulo("");
+    setDataHora("");
+    setLocal("");
+    setDescricao("");
+    setEditandoId(null);
+    setNovoAberto(false);
+  }
+
+  function editar(ev: ClubEvent) {
+    setTitulo(ev.titulo);
+    setDataHora(paraCampoDataHora(ev.data_hora));
+    setLocal(ev.local_ou_link ?? "");
+    setDescricao(ev.descricao ?? "");
+    setEditandoId(ev.id);
+    setNovoAberto(true);
+    document.getElementById("encontros")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   async function criar() {
     if (!titulo.trim() || !dataHora) {
       toast.error("Preencha pelo menos o título e a data/hora.");
@@ -147,22 +169,22 @@ export function ClubEvents({
     }
     setCriando(true);
     try {
-      await createClubEvent({
-        club_id: clubId,
+      const dados = {
         titulo: titulo.trim(),
         descricao: descricao.trim() || null,
         data_hora: new Date(dataHora).toISOString(),
         local_ou_link: local.trim() || null,
-        criado_por: userId,
-      });
-      setTitulo("");
-      setDataHora("");
-      setLocal("");
-      setDescricao("");
-      setNovoAberto(false);
+      };
+      if (editandoId) {
+        await updateClubEvent(editandoId, dados);
+        toast.success("Encontro atualizado. Se a data ou o local mudou, os membros recebem um aviso.");
+      } else {
+        await createClubEvent({ club_id: clubId, criado_por: userId, ...dados });
+      }
+      limparFormulario();
       void queryClient.invalidateQueries({ queryKey: ["club-events", clubId] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível criar o encontro");
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o encontro");
     } finally {
       setCriando(false);
     }
@@ -230,13 +252,22 @@ export function ClubEvents({
             )}
           </div>
           {souAdmin && (
-            <button
-              onClick={() => apagar(ev.id)}
-              aria-label="Apagar encontro"
-              className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                onClick={() => editar(ev)}
+                aria-label="Editar encontro"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => apagar(ev.id)}
+                aria-label="Apagar encontro"
+                className="text-muted-foreground transition-colors hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -282,7 +313,7 @@ export function ClubEvents({
         </p>
         {souAdmin && (
           <button
-            onClick={() => setNovoAberto((v) => !v)}
+            onClick={() => (novoAberto ? limparFormulario() : setNovoAberto(true))}
             className="inline-flex items-center gap-1 text-xs font-medium text-[#85651C] underline underline-offset-4"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -293,6 +324,7 @@ export function ClubEvents({
 
       {souAdmin && novoAberto && (
         <div className="mt-3 flex flex-col gap-2 rounded-xl border border-border p-3">
+          {editandoId && <p className="text-xs font-medium text-[#85651C]">Editando encontro</p>}
           <input
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
@@ -323,8 +355,13 @@ export function ClubEvents({
             disabled={criando}
             className="mt-1 rounded-full bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {criando ? "Salvando…" : "Marcar encontro"}
+            {criando ? "Salvando…" : editandoId ? "Salvar alterações" : "Marcar encontro"}
           </button>
+          {editandoId && (
+            <button type="button" onClick={limparFormulario} className="text-xs text-muted-foreground underline underline-offset-4">
+              Cancelar edição
+            </button>
+          )}
         </div>
       )}
 
