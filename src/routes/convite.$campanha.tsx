@@ -35,6 +35,12 @@ const RECURSOS = [
   { icon: BarChart3, texto: "Estatísticas e desafio literário do ano" },
 ];
 
+// Preço mostrado no convite. Enquanto houver selo de fundador, quem assina
+// paga o preço de fundador (20% de desconto em todas as renovações).
+const PRECO_CHEIO = "R$ 54,90";
+const PRECO_FUNDADOR = "R$ 43,92";
+const POR_MES = "R$ 3,66";
+
 function ConvitePage() {
   const { campanha: slug } = Route.useParams();
   const { user } = useAuth();
@@ -91,7 +97,23 @@ function ConvitePage() {
             ))}
           </ul>
 
-          <div className="panel-cream mt-8 rounded-2xl p-5">
+          <div className="mt-8 rounded-2xl border border-[#85651C]/40 bg-primary/10 p-5">
+            <p className="text-sm font-medium text-[#85651C]">Depois do teste</p>
+            <p className="mt-2 flex items-baseline gap-2">
+              <span className="text-sm text-muted-foreground line-through">{PRECO_CHEIO}</span>
+              <span className="font-display text-3xl">{PRECO_FUNDADOR}</span>
+              <span className="text-sm text-muted-foreground">por ano</span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Menos de {POR_MES} por mês. Preço de fundador: 20% de desconto para sempre, em
+              todas as renovações, e selo de fundador numerado.
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Só 250 pessoas vão ter o selo de fundador.
+            </p>
+          </div>
+
+          <div className="panel-cream mt-4 rounded-2xl p-5">
             <p className="text-sm font-medium">Como funciona</p>
             <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-sm text-muted-foreground">
               <li>{user ? "Toque no botão abaixo." : "Crie sua conta ou entre."}</li>
@@ -99,8 +121,8 @@ function ConvitePage() {
                 Cadastre o cartão. Nada é cobrado nos primeiros {campanha.data.dias} dias.
               </li>
               <li>
-                Gostou? A assinatura anual começa sozinha no fim do teste. Não gostou? Cancele em
-                Minha conta antes disso e não paga nada.
+                Gostou? A assinatura anual de {PRECO_FUNDADOR} começa sozinha no fim do teste. Não
+                gostou? Cancele em Minha conta antes disso e não paga nada.
               </li>
             </ol>
           </div>
@@ -112,7 +134,7 @@ function ConvitePage() {
             Começar meus {campanha.data.dias} dias grátis
           </button>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            O valor da assinatura aparece na tela de pagamento, antes de você confirmar.
+            Você confere o valor de novo na tela de pagamento, antes de confirmar.
           </p>
         </>
       )}
