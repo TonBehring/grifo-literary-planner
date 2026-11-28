@@ -9,6 +9,7 @@ import {
   diaMes,
   formatPaginas,
   getCopa,
+  iniciais,
   listarCopas,
   type CopaClube,
   type CopaDados,
@@ -202,7 +203,7 @@ function Controles({ dados }: { dados: CopaDados }) {
               type="button"
               disabled={salvando || copa.titulares === n}
               onClick={() => salvar(n, dataAtual)}
-              className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground disabled:border-primary disabled:bg-primary/15 disabled:text-foreground"
+              className="whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground disabled:border-primary disabled:bg-primary/15 disabled:text-foreground"
             >
               {n === 5 ? "Futsal (5)" : "Campo (11)"}
             </button>
@@ -348,8 +349,8 @@ function Jogo({
           {!futura && <span>{aberto ? "Fechar escalação" : "Ver escalação"}</span>}
         </div>
 
-        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <LadoClube clube={m} destaque={venceM} alinhamento="esquerda" />
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <LadoClube clube={m} destaque={venceM} />
           <div className="font-display flex items-baseline gap-2 text-2xl tabular-nums">
             <span className={venceV ? "text-muted-foreground" : ""}>
               {futura ? "–" : formatPaginas(jogo.placar_mandante ?? 0)}
@@ -359,7 +360,7 @@ function Jogo({
               {futura ? "–" : formatPaginas(jogo.placar_visitante ?? 0)}
             </span>
           </div>
-          <LadoClube clube={v} destaque={venceV} alinhamento="direita" />
+          <LadoClube clube={v} destaque={venceV} />
         </div>
         {!futura && <p className="mt-1 text-center text-[11px] text-muted-foreground">páginas dos titulares</p>}
       </button>
@@ -374,20 +375,46 @@ function Jogo({
   );
 }
 
-function LadoClube({
-  clube,
-  destaque,
-  alinhamento,
-}: {
-  clube: CopaClube | undefined;
-  destaque: boolean;
-  alinhamento: "esquerda" | "direita";
-}) {
+function LadoClube({ clube, destaque }: { clube: CopaClube | undefined; destaque: boolean }) {
   return (
-    <div className={"min-w-0 " + (alinhamento === "direita" ? "text-right" : "")}>
-      <p className={"truncate text-sm " + (destaque ? "font-semibold" : "")}>{clube?.nome ?? "Clube"}</p>
-      <p className="truncate text-xs text-muted-foreground">{clube?.time ?? ""}</p>
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <ClubeLogo nome={clube?.nome ?? "Clube"} logo={clube?.logo ?? null} tamanho="grande" />
+      <p className={"mt-2 w-full truncate text-sm leading-tight " + (destaque ? "font-semibold" : "")}>
+        {clube?.nome ?? "Clube"}
+      </p>
+      <p className="w-full truncate text-xs text-muted-foreground">{clube?.time ?? ""}</p>
     </div>
+  );
+}
+
+/** Logo do clube de leitura (imagem do clube no Grifo); sem imagem, mostra as iniciais. */
+function ClubeLogo({ nome, logo, tamanho }: { nome: string; logo: string | null; tamanho: "grande" | "pequeno" }) {
+  const [falhou, setFalhou] = useState(false);
+  const classe =
+    tamanho === "grande"
+      ? "h-14 w-14 text-base"
+      : "h-8 w-8 text-[11px]";
+  if (logo && !falhou) {
+    return (
+      <img
+        src={logo}
+        alt={`Logo do ${nome}`}
+        loading="lazy"
+        onError={() => setFalhou(true)}
+        className={classe + " shrink-0 rounded-full border border-border bg-white object-cover"}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={
+        classe +
+        " font-display flex shrink-0 items-center justify-center rounded-full bg-[#144142] font-semibold text-[#DAAE5A]"
+      }
+    >
+      {iniciais(nome)}
+    </span>
   );
 }
 
@@ -455,8 +482,13 @@ function Tabela({ dados }: { dados: CopaDados }) {
               <tr key={l.clube_id} className="border-b border-border/50 last:border-0">
                 <td className="py-2.5 pr-2 text-muted-foreground">{i + 1}</td>
                 <td className="py-2.5 pr-2">
-                  <span className="block font-medium">{l.nome}</span>
-                  <span className="block text-xs text-muted-foreground">{l.time}</span>
+                  <div className="flex items-center gap-2.5">
+                    <ClubeLogo nome={l.nome} logo={l.logo} tamanho="pequeno" />
+                    <div className="min-w-0">
+                      <span className="block font-medium">{l.nome}</span>
+                      <span className="block text-xs text-muted-foreground">{l.time}</span>
+                    </div>
+                  </div>
                 </td>
                 <td className="font-display py-2.5 pr-2 text-right text-lg">{l.pontos}</td>
                 <td className="py-2.5 pr-2 text-right">{l.jogos}</td>
