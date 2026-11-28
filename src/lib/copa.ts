@@ -6,13 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type CopaResumo = { id: string; nome: string; modo: "demo" | "oficial"; criado_em: string };
 
-export type CopaClube = { id: string; nome: string; time: string; cor: string | null };
+export type CopaClube = { id: string; nome: string; time: string; cor: string | null; logo: string | null };
 
 export type CopaLinhaTabela = {
   clube_id: string;
   nome: string;
   time: string;
   cor: string | null;
+  logo: string | null;
   pontos: number;
   jogos: number;
   vitorias: number;
@@ -97,6 +98,13 @@ export async function configurarCopa(
 export function diaMes(iso: string): string {
   const [, mes, dia] = iso.split("-");
   return `${dia ?? ""}/${mes ?? ""}`;
+}
+
+/** "Imortal Leitura" -> "IL" (para clube sem logo) */
+export function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  const letras = partes.length > 1 ? (partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "") : nome.slice(0, 2);
+  return letras.toUpperCase();
 }
 
 export function formatPaginas(n: number): string {
